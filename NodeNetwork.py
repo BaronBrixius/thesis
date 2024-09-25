@@ -5,12 +5,13 @@ from matplotlib import colormaps
 from matplotlib.animation import FuncAnimation
 
 NUM_NODES = 100
-NUM_CONNECTIONS = 20
+NUM_CONNECTIONS = 50
 ALPHA = 1.7
 EPSILON = 0.4
 
 NUM_STEPS = 10000
-RANDOM_SEED = 42
+TIME_INTERVAL = 10  # Interval between steps (in milliseconds)
+RANDOM_SEED = 44
 
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
@@ -44,7 +45,31 @@ class NodeNetwork:
     def remove_connection(self, node_a, node_b):
         node_a.connections.remove(node_b)
         node_b.connections.remove(node_a)
-        self.connections.remove((node_a.node_id, node_b.node_id))
+
+        # try normal and reversed order, since we don't know which node was considered node_a at the the time of insertion
+        if (node_a.node_id, node_b.node_id) in self.connections:
+            self.connections.remove((node_a.node_id, node_b.node_id))
+        else:
+            self.connections.remove((node_b.node_id, node_a.node_id))
+
+
+    def rewire(self):
+        # 1. Pick a unit at random (henceforth: pivot)
+        pivot = np.random.choice(self.nodes)
+
+        # 2. From all other units, select the one that is most synchronized (henceforth: candidate
+        other_nodes = [node for node in self.nodes if node != pivot]
+        candidate = min(other_nodes, key=lambda node: abs(pivot.activity - node.activity))
+
+        # 3a. If there is a connection between the pivot and the candidate already, do nothing
+        if candidate in pivot.connections:
+            return
+
+        # 3b. If there is no connection between the pivot and the candidate, establish it, and break the connection between the pivot and its least synchronized neighbor.
+        # TODO is it possible to break the connection we just created? Maybe let's only look at pivots that already have connections?
+        self.add_connection(pivot, candidate)
+        least_synchronized = max(pivot.connections, key=lambda node: abs(pivot.activity - node.activity))
+        self.remove_connection(pivot, least_synchronized)
 
     # Update the activity of all nodes
     def update_network(self):
@@ -53,6 +78,10 @@ class NodeNetwork:
         
         for node in self.nodes:
             node.update_activity(self.alpha, self.epsilon)
+
+        # TODO Initial transient time, means that rewiring only begins after some number of iterations?
+        self.rewire()
+
 
     class Node:
         def __init__(self, node_id):
@@ -68,7 +97,6 @@ class NodeNetwork:
             if self.connections:
                 neighbor_activity = np.mean([node.old_activity for node in self.connections])
                 self.activity = ((1 - epsilon) * own_activity) + (epsilon * neighbor_activity) # xᵢ(n+1) = (1 − ε) * f(xᵢ(n)) + (ε / Mᵢ) * ∑(f(xⱼ(n) for j in B(i))
-                #print(self.node_id, own_activity, neighbor_activity, self.activity)
             else:
                 self.activity = own_activity
     
@@ -138,14 +166,14 @@ class Simulation:
         self.plot.update_plot(self.network.nodes, self.network.connections)  # Update the plot based on new state
 
     # Run the animation
-    def run(self, num_steps):
+    def run(self, num_steps, interval):
         anim = FuncAnimation(
             self.fig, self.update, frames=num_steps,
-            repeat=True, interval=150  # Interval for speed (in milliseconds)
+            repeat=True, interval=interval
         )
         plt.show()
 
 # Run the simulation
 if __name__ == "__main__":
     sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, alpha=ALPHA, epsilon=EPSILON, random_seed=RANDOM_SEED)
-    sim.run(num_steps=NUM_STEPS)
+    sim.run(num_steps=NUM_STEPS, interval=TIME_INTERVAL)
