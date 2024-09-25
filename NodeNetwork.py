@@ -57,75 +57,89 @@ class NodeNetwork:
         for node in self.nodes:
             node.update_activity(self.a)
 
-# Draw connections between nodes
-def draw_connections(network, ax):
-    for node in network.nodes:
-        for connected_node in node.connections:
-            x1, y1 = node.position
-            x2, y2 = connected_node.position
-            ax.plot([x1, x2], [y1, y2], 'gray', lw=0.5, alpha=0.6)
+class NetworkPlot:
+    def __init__(self, ax, nodes, connections):
+        self.ax = ax
+        self.cmap = cm.get_cmap('cividis')  # Color map for node activity
+        self.circles = []
+        self.texts = []
+        self.lines = []
 
-# Function to initialize the circles and text labels on the plot
-def initialize_plot(ax, network, cmap):
-    circles = []
-    texts = []
+        self.initialize_plot(nodes, connections)
 
-    draw_connections(network, ax)
-    
-    # Create the circles and text labels only once
-    for node in network.nodes:
-        x, y = node.position
-        activity = node.activity
-        
-        # Map activity to a color (-1 to 1 normalized range)
-        color = cmap((activity + 1) / 2)
-        
-        # Create a circle for each node
-        circle = Circle((x, y), 0.02, color=color, ec='black')
-        circles.append(circle)
-        ax.add_patch(circle)
-        
-        # Add text inside the node
-        formatted_activity = format_activity(activity)
-        text = ax.text(x, y, formatted_activity, fontsize=7, ha='center', va='center', color='white')
-        texts.append(text)
-        
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_aspect('equal')
+    # Function to initialize the plot with node positions and connections
+    def initialize_plot(self, nodes, connections):
+        self.circles = []
+        self.texts = []
+        self.lines = []
 
-    return circles, texts
+        # Draw connections
+        for i, j in connections:
+            x1, y1 = nodes[i].position
+            x2, y2 = nodes[j].position
+            line, = self.ax.plot([x1, x2], [y1, y2], 'gray', lw=0.5, alpha=0.6)
+            self.lines.append(line)
 
-# Step function, updates the nodes and graph each step
-def step(frame, network, circles, texts, cmap):
-    network.update_network()  # Update the network activity
-    
-    # Update the color and text for each node
-    for i, (circle, text) in enumerate(zip(circles, texts)):
-        activity = network.nodes[i].activity
-        color = cmap((activity + 1) / 2)
-        circle.set_facecolor(color)                 # Update the color of the circle
-        text.set_text(format_activity(activity))    # Update the activity value
+        # Draw nodes and their activities
+        for node in nodes:
+            x, y = node.position
+            activity = node.activity
+            color = self.cmap((activity + 1) / 2)
+            circle = Circle((x, y), 0.02, color=color, ec='black')
+            self.ax.add_patch(circle)
+            self.circles.append(circle)
+            formatted_activity = self.format_activity(activity)
+            text = self.ax.text(x, y, formatted_activity, fontsize=7, ha='center', va='center', color='white')
+            self.texts.append(text)
 
-def format_activity(activity):
-    return f'{activity: .2f}'.replace('0.', '.').replace('-0.', '-.')
+    # Function to update the plot during animation
+    def update_plot(self, nodes, connections):
+        # Update node colors and activities
+        for i, (circle, text) in enumerate(zip(self.circles, self.texts)):
+            activity = nodes[i].activity
+            color = self.cmap((activity + 1) / 2)
+            circle.set_facecolor(color)
+            text.set_text(self.format_activity(activity))
 
-def run_simulation(num_nodes=100, num_initial_connections=20, num_steps=100, a=1.7, random_seed=None):
-    network = NodeNetwork(num_nodes=num_nodes, num_initial_connections=num_initial_connections, a=a, random_seed=random_seed)
+        # Update connection lines
+        for line, (i, j) in zip(self.lines, connections):
+            x1, y1 = nodes[i].position
+            x2, y2 = nodes[j].position
+            line.set_data([x1, x2], [y1, y2])
 
-    fig, ax = plt.subplots(figsize=(8, 8))
-    color_map = cm.get_cmap('cividis')
+    # Helper function to format activity values
+    def format_activity(self, activity):
+        return f'{activity: .2f}'.replace('0.', '.').replace('-0.', '-.')
 
-    # Initialize the plot
-    circles, texts = initialize_plot(ax, network, color_map)
-    
-    # Create the animation, updating the colors and texts for each frame
-    anim = FuncAnimation(
-        fig, step, frames=num_steps, fargs=(network, circles, texts, color_map),
-        repeat=True, interval=250  # Interval for speed (in milliseconds)
-    )
-    
-    plt.show()
+# Parent class manages both the Network and its Plotter representation
+class Simulation:
+    def __init__(self, num_nodes=100, num_initial_connections=20, a=1.7, random_seed=None):
+        self.fig, self.ax = plt.subplots(figsize=(8, 8))
+        self.network = NodeNetwork(num_nodes=num_nodes, num_initial_connections=num_initial_connections, a=a, random_seed=random_seed)
+        self.plot = NetworkPlot(self.ax, self.network.nodes, self.get_connections())
 
+    # Get list of connections as (i, j) pairs for the plotter
+    def get_connections(self):
+        connections = []
+        for i, node in enumerate(self.network.nodes):
+            for connected_node in node.connections:
+                connections.append((i, connected_node.node_id))
+        return connections
+
+    # This function handles updating both the network and the plot for each frame
+    def update(self, frame):
+        self.network.update_network()  # Update network logic
+        self.plot.update_plot(self.network.nodes, self.get_connections())  # Update the plot based on new state
+
+    # Run the animation
+    def run(self, num_steps=100):
+        anim = FuncAnimation(
+            self.fig, self.update, frames=num_steps,
+            repeat=True, interval=250  # Interval for speed (in milliseconds)
+        )
+        plt.show()
+
+# Run the simulation
 if __name__ == "__main__":
-    run_simulation(num_nodes=100, num_initial_connections=20, num_steps=100, a=1.7, random_seed=42)
+    sim = Simulation(num_nodes=100, num_initial_connections=20, a=1.7, random_seed=42)
+    sim.run(num_steps=100)
