@@ -125,13 +125,16 @@ class NodeNetwork:
 
         #self.apply_forces()
 
-    # Calculate Characteristic Path Length and Clustering Coefficient
-    def calculate_metrics(self):
+    def calculate_cpl(self):
         adj_matrix = np.zeros((self.num_nodes, self.num_nodes))
         for i, j in self.connections:
             adj_matrix[i, j] = adj_matrix[j, i] = 1
         path_lengths = shortest_path(adj_matrix, directed=False, unweighted=True)
-        char_path_length = np.mean(path_lengths[path_lengths != np.inf])
+        valid_lengths = path_lengths[(path_lengths != np.inf) & (path_lengths > 0)]
+        char_path_length = np.mean(valid_lengths)
+        return char_path_length
+    
+    def calculate_cc(self):
         clustering_coefficients = []
         for node in self.nodes:
             neighbors = node.connections
@@ -141,6 +144,11 @@ class NodeNetwork:
             connections = sum(1 for n1 in neighbors for n2 in neighbors if n2 in n1.connections)
             clustering_coefficients.append(connections / (len(neighbors) * (len(neighbors) - 1)))
         avg_clustering = np.mean(clustering_coefficients)
+        return avg_clustering
+
+    def calculate_metrics(self):
+        char_path_length = self.calculate_cpl()
+        avg_clustering = self.calculate_cc()
         return char_path_length, avg_clustering
 
     class Node:
@@ -191,7 +199,6 @@ class NetworkPlot:
             line, = self.ax.plot([], [], 'gray', lw=0.5, alpha=0.6)
             self.lines.append(line)
 
-    # Update the plot each frame
     def update_plot(self, nodes, connections, step, characteristic_path_length, clustering_coefficient):
         self.ax.set_title(f"Generation {step} - CPL: {characteristic_path_length:.2f}, CC: {clustering_coefficient:.2f}")
         # Update node colors, positions, and text values
