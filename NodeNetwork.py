@@ -6,6 +6,7 @@ from matplotlib.patches import Circle
 from matplotlib import colormaps
 from matplotlib.animation import FuncAnimation
 from scipy.sparse.csgraph import shortest_path
+import time
 
 NUM_NODES = 100
 NUM_CONNECTIONS = 600
@@ -22,6 +23,19 @@ MIN_NODE_DISTANCE = 0.005
 REPULSION_MAX_DISTANCE = 0.25
 
 RANDOM_SEED = 42
+
+accumulated_times = {}
+def start_timing(label):
+    if label not in accumulated_times:
+        accumulated_times[label] = {'start_time': 0, 'total_time': 0}
+    accumulated_times[label]['start_time'] = time.perf_counter()
+
+def stop_timing(label):
+    if label in accumulated_times and accumulated_times[label]['start_time'] != 0:
+        end_time = time.perf_counter()
+        elapsed_time = end_time - accumulated_times[label]['start_time']
+        accumulated_times[label]['total_time'] += elapsed_time
+        accumulated_times[label]['start_time'] = 0  # Reset start time
 
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
@@ -51,17 +65,44 @@ class NodeNetwork:
     def remove_connection(self, a, b):
         self.adjacency_matrix[a, b] = self.adjacency_matrix[b, a] = 0
 
+    def update_activity(self):
+        start_timing("neighbor_sum")
+        # Calculate neighbor activities as a matrix multiplication of adjacency and activities
+        neighbor_sum = self.adjacency_matrix @ self.activities
+        stop_timing("neighbor_sum")
+        start_timing("neighbor_counts")
+        neighbor_counts = self.adjacency_matrix.sum(axis=1)
+        stop_timing("neighbor_counts")
+        connected_nodes = neighbor_counts > 0  # Boolean array indicating connected nodes
+        start_timing("neighbor_activities")
+        neighbor_activities = np.zeros_like(self.activities)
+        neighbor_activities[connected_nodes] = neighbor_sum[connected_nodes] / neighbor_counts[connected_nodes]
+        stop_timing("neighbor_activities")
+        
+        # logistic map: x(n+1) = f(x(n)) = 1 - ax(n)²
+        own_activities = 1 - self.alpha * self.activities**2                                    
+        # xᵢ(n+1) = (1 − ε) * f(xᵢ(n)) + (ε / Mᵢ) * ∑(f(xⱼ(n) for j in B(i))
+        self.activities[connected_nodes] = (1 - self.epsilon) * own_activities[connected_nodes] + self.epsilon * neighbor_activities[connected_nodes]
+        # Unconnected nodes use only their own activity
+        self.activities[~connected_nodes] = own_activities[~connected_nodes]  
+
     def rewire(self):
+        start_timing("rewire1")
         # 1. Pick a unit at random (henceforth: pivot). Note that zero-connection nodes cannot be pivots
-        connected_nodes = np.where(self.adjacency_matrix.sum(axis=1) > 0)[0]
-        pivot = np.random.choice(connected_nodes)
+        pivot = np.random.randint(self.num_nodes)
+        while not np.any(self.adjacency_matrix[pivot]):
+            pivot = np.random.randint(self.num_nodes)
+        stop_timing("rewire1")
 
         # 2. From all other units, select the one that is most synchronized (henceforth: candidate)
+        start_timing("rewire2")
         activity_diff = np.abs(self.activities - self.activities[pivot])
         activity_diff[pivot] = np.inf                       # stop the pivot from connecting to itself
         candidate = np.argmin(activity_diff)                # most similar activity
+        stop_timing("rewire2")
 
         # 3a. If there is a connection between the pivot and the candidate already, do nothing
+        start_timing("rewire3")
         if self.adjacency_matrix[pivot, candidate] == 1:
             return
 
@@ -72,6 +113,35 @@ class NodeNetwork:
         activity_diff_connected = np.abs(self.activities - self.activities[pivot]) * pivot_connections
         least_synchronized = np.argmax(activity_diff_connected)
         self.remove_connection(pivot, least_synchronized)
+        stop_timing("rewire3")
+
+    # Update the activity of all nodes
+    def update_network(self):    
+        self.update_activity()
+        self.rewire()
+        #self.apply_forces()
+
+    def characteristic_path_length(self):
+        path_lengths = shortest_path(self.adjacency_matrix, directed=False, unweighted=True)
+        valid_lengths = path_lengths[(path_lengths != np.inf) & (path_lengths > 0)]
+        return np.mean(valid_lengths)
+    
+    def clustering_coefficient(self):
+        clustering_coefficients = []
+        for i in range(self.num_nodes):
+            neighbors = np.where(self.adjacency_matrix[i] == 1)[0]
+            if len(neighbors) < 2:
+                clustering_coefficients.append(0)
+                continue
+            neighbor_pairs = self.adjacency_matrix[neighbors][:, neighbors]
+            connections = np.sum(neighbor_pairs) / 2  # Each edge is counted twice
+            clustering_coefficients.append(connections / (len(neighbors) * (len(neighbors) - 1)))
+        return np.mean(clustering_coefficients)
+
+    def calculate_metrics(self):
+        char_path_length = self.characteristic_path_length()
+        avg_clustering = self.clustering_coefficient()
+        return char_path_length, avg_clustering
 
     def apply_forces(self, attraction_force=0.006, repulsion_force=0.0002, min_distance=0.005, max_distance=0.25):
         forces = np.zeros((self.num_nodes, 2))  # Initialize force matrix for all nodes
@@ -98,49 +168,6 @@ class NodeNetwork:
         # Update positions based on total forces and keep them within bounds
         self.positions += forces
         self.positions = np.clip(self.positions, 0, 1)
-
-    # Update the activity of all nodes
-    def update_network(self):    
-        # Calculate neighbor activities as a matrix multiplication of adjacency and old activities
-        neighbor_sum = self.adjacency_matrix @ self.activities
-        neighbor_counts = self.adjacency_matrix.sum(axis=1)
-        connected_nodes = neighbor_counts > 0  # Boolean array indicating connected nodes
-        neighbor_activities = np.zeros_like(self.activities)
-        neighbor_activities[connected_nodes] = neighbor_sum[connected_nodes] / neighbor_counts[connected_nodes]
-
-        # logistic map: x(n+1) = f(x(n)) = 1 - ax(n)²
-        own_activities = 1 - self.alpha * self.activities**2                                    
-        # xᵢ(n+1) = (1 − ε) * f(xᵢ(n)) + (ε / Mᵢ) * ∑(f(xⱼ(n) for j in B(i))
-        self.activities[connected_nodes] = (1 - self.epsilon) * own_activities[connected_nodes] + self.epsilon * neighbor_activities[connected_nodes]
-        # Unconnected nodes use only their own activity
-        self.activities[~connected_nodes] = own_activities[~connected_nodes]  
-
-        self.rewire()
-
-        #self.apply_forces()
-
-    def characteristic_path_length(self):
-        path_lengths = shortest_path(self.adjacency_matrix, directed=False, unweighted=True)
-        valid_lengths = path_lengths[(path_lengths != np.inf) & (path_lengths > 0)]
-        return np.mean(valid_lengths)
-    
-    def clustering_coefficient(self):
-        clustering_coefficients = []
-        for i in range(self.num_nodes):
-            neighbors = np.where(self.adjacency_matrix[i] == 1)[0]
-            if len(neighbors) < 2:
-                clustering_coefficients.append(0)
-                continue
-            neighbor_pairs = self.adjacency_matrix[neighbors][:, neighbors]
-            connections = np.sum(neighbor_pairs) / 2  # Each edge is counted twice
-            clustering_coefficients.append(connections / (len(neighbors) * (len(neighbors) - 1)))
-        return np.mean(clustering_coefficients)
-
-    def calculate_metrics(self):
-        char_path_length = self.characteristic_path_length()
-        avg_clustering = self.clustering_coefficient()
-        return char_path_length, avg_clustering
-
 class NetworkPlot:
     def __init__(self, positions, activities, adjacency_matrix):
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
@@ -233,3 +260,6 @@ if __name__ == "__main__":
 
     # Print profiler stats to sort by cumulative time
     pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(20)
+
+    for label, times in accumulated_times.items():
+        print(f"{label}: {times['total_time']:.4f} seconds")
