@@ -1,3 +1,5 @@
+import cProfile
+import pstats
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -8,8 +10,8 @@ from scipy.sparse.csgraph import shortest_path
 NUM_NODES = 100
 NUM_CONNECTIONS = 600
 
-NUM_STEPS = 10000000000
-DISPLAY_INTERVAL = 100
+NUM_STEPS = 20000
+DISPLAY_INTERVAL = 0
 
 ALPHA = 1.7
 EPSILON = 0.4
@@ -29,13 +31,11 @@ class NodeNetwork:
         self.num_nodes = num_nodes
         self.alpha = alpha
         self.epsilon = epsilon
-        self.nodes = self.initialize_nodes()            # Create the nodes
-        self.connections = []                           # List to hold all connections (i, j)
+        self.activities = np.random.uniform(-1, 1, num_nodes)   # Random initial activity
+        self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=int)
+        self.positions = np.random.uniform(0, 1, (num_nodes, 2))
+
         self.initialize_connections(num_connections)    # Add initial connections
-    
-    # Initialize the nodes with random positions and activity
-    def initialize_nodes(self):
-        return [self.Node(node_id=i) for i in range(self.num_nodes)]
     
     # Initialize random connections between the nodes
     def initialize_connections(self, num_connections):
@@ -43,180 +43,155 @@ class NodeNetwork:
         np.random.shuffle(possible_pairs)
 
         for i, j in possible_pairs[:num_connections]:
-            self.add_connection(self.nodes[i], self.nodes[j])
+            self.add_connection(i, j)
 
-    def add_connection(self, node_a, node_b):
-        node_a.connections.append(node_b)
-        node_b.connections.append(node_a)
-        self.connections.append((node_a.node_id, node_b.node_id))
+    def add_connection(self, a, b):
+        self.adjacency_matrix[a, b] = self.adjacency_matrix[b, a] = 1
 
-    def remove_connection(self, node_a, node_b):
-        node_a.connections.remove(node_b)
-        node_b.connections.remove(node_a)
-
-        # try normal and reversed order, since we don't know which node was considered node_a at the the time of insertion
-        if (node_a.node_id, node_b.node_id) in self.connections:
-            self.connections.remove((node_a.node_id, node_b.node_id))
-        else:
-            self.connections.remove((node_b.node_id, node_a.node_id))
+    def remove_connection(self, a, b):
+        self.adjacency_matrix[a, b] = self.adjacency_matrix[b, a] = 0
 
     def rewire(self):
         # 1. Pick a unit at random (henceforth: pivot). Note that zero-connection nodes cannot be pivots
-        connected_nodes = [node for node in self.nodes if node.connections]
+        connected_nodes = np.where(self.adjacency_matrix.sum(axis=1) > 0)[0]
         pivot = np.random.choice(connected_nodes)
 
-        # 2. From all other units, select the one that is most synchronized (henceforth: candidate
-        other_nodes = [node for node in self.nodes if node != pivot]
-        candidate = min(other_nodes, key=lambda node: abs(pivot.activity - node.activity))
+        # 2. From all other units, select the one that is most synchronized (henceforth: candidate)
+        activity_diff = np.abs(self.activities - self.activities[pivot])
+        activity_diff[pivot] = np.inf                       # stop the pivot from connecting to itself
+        candidate = np.argmin(activity_diff)                # most similar activity
 
         # 3a. If there is a connection between the pivot and the candidate already, do nothing
-        if candidate in pivot.connections:
+        if self.adjacency_matrix[pivot, candidate] == 1:
             return
 
         # 3b. If there is no connection between the pivot and the candidate, establish it, and break the connection between the pivot and its least synchronized neighbor.
         self.add_connection(pivot, candidate)
-        least_synchronized = max(pivot.connections, key=lambda node: abs(pivot.activity - node.activity))
+
+        pivot_connections = self.adjacency_matrix[pivot]
+        activity_diff_connected = np.abs(self.activities - self.activities[pivot]) * pivot_connections
+        least_synchronized = np.argmax(activity_diff_connected)
         self.remove_connection(pivot, least_synchronized)
 
-    def apply_forces(self):
-        for node in self.nodes:
-            force = np.array([0.0, 0.0])
+    def apply_forces(self, attraction_force=0.006, repulsion_force=0.0002, min_distance=0.005, max_distance=0.25):
+        forces = np.zeros((self.num_nodes, 2))  # Initialize force matrix for all nodes
 
-            # Attraction force: Pull nodes closer to connected neighbors
-            for connected_node in node.connections:
-                direction = connected_node.position - node.position
+        # Calculate attraction forces between connected nodes
+        for i in range(self.num_nodes):
+            connected_nodes = np.where(self.adjacency_matrix[i] == 1)[0]
+            for j in connected_nodes:
+                direction = self.positions[j] - self.positions[i]
                 distance = np.linalg.norm(direction)
-                if MIN_NODE_DISTANCE * 3 < distance:
-                    force += NODE_ATTRACTION_FORCE * direction / distance  # Normalize to create proportional force
+                if distance > min_distance:
+                    forces[i] += attraction_force * direction / distance  # Normalize force
 
-            # Repulsion force: Push nodes away from all other nodes
-            for other_node in self.nodes:
-                if other_node != node:
-                    direction = node.position - other_node.position
-                    distance = np.linalg.norm(direction)
-                    if distance == 0:
-                        force += np.random.uniform(-0.01, 0.01, 2)  # Small random nudge
-                        continue
-                    
-                    if MIN_NODE_DISTANCE * 2 < distance < REPULSION_MAX_DISTANCE:
-                        force += NODE_REPULSION_FORCE * direction / (distance ** 2)  # Inverse square repulsion
-                    elif distance < MIN_NODE_DISTANCE:                                 
-                        force += 3 * NODE_REPULSION_FORCE * direction / (distance ** 2)    # Very hard repulsion if nodes are overlapping
-                    
-            force *= 0.7
+        # Calculate repulsion forces between all pairs
+        for i in range(self.num_nodes):
+            for j in range(i + 1, self.num_nodes):
+                direction = self.positions[i] - self.positions[j]
+                distance = np.linalg.norm(direction)
+                if distance < max_distance and distance > 0:
+                    force_magnitude = repulsion_force / (distance**2)
+                    forces[i] += force_magnitude * direction / distance
+                    forces[j] -= force_magnitude * direction / distance
 
-            # Update node position based on the total force
-            node.position += force
-
-            # Ensure nodes stay within the bounds (0, 1) on the grid
-            node.position = np.clip(node.position, 0, 1)
+        # Update positions based on total forces and keep them within bounds
+        self.positions += forces
+        self.positions = np.clip(self.positions, 0, 1)
 
     # Update the activity of all nodes
-    def update_network(self):
-        for node in self.nodes:
-            node.save_old_activity()
-        
-        for node in self.nodes:
-            node.update_activity(self.alpha, self.epsilon)
+    def update_network(self):    
+        # Calculate neighbor activities as a matrix multiplication of adjacency and old activities
+        neighbor_sum = self.adjacency_matrix @ self.activities
+        neighbor_counts = self.adjacency_matrix.sum(axis=1)
+        connected_nodes = neighbor_counts > 0  # Boolean array indicating connected nodes
+        neighbor_activities = np.zeros_like(self.activities)
+        neighbor_activities[connected_nodes] = neighbor_sum[connected_nodes] / neighbor_counts[connected_nodes]
 
-        # We don't do an initial transient time
+        # logistic map: x(n+1) = f(x(n)) = 1 - ax(n)²
+        own_activities = 1 - self.alpha * self.activities**2                                    
+        # xᵢ(n+1) = (1 − ε) * f(xᵢ(n)) + (ε / Mᵢ) * ∑(f(xⱼ(n) for j in B(i))
+        self.activities[connected_nodes] = (1 - self.epsilon) * own_activities[connected_nodes] + self.epsilon * neighbor_activities[connected_nodes]
+        # Unconnected nodes use only their own activity
+        self.activities[~connected_nodes] = own_activities[~connected_nodes]  
 
         self.rewire()
 
         #self.apply_forces()
 
-    def calculate_cpl(self):
-        adj_matrix = np.zeros((self.num_nodes, self.num_nodes))
-        for i, j in self.connections:
-            adj_matrix[i, j] = adj_matrix[j, i] = 1
-        path_lengths = shortest_path(adj_matrix, directed=False, unweighted=True)
+    def characteristic_path_length(self):
+        path_lengths = shortest_path(self.adjacency_matrix, directed=False, unweighted=True)
         valid_lengths = path_lengths[(path_lengths != np.inf) & (path_lengths > 0)]
-        char_path_length = np.mean(valid_lengths)
-        return char_path_length
+        return np.mean(valid_lengths)
     
-    def calculate_cc(self):
+    def clustering_coefficient(self):
         clustering_coefficients = []
-        for node in self.nodes:
-            neighbors = node.connections
+        for i in range(self.num_nodes):
+            neighbors = np.where(self.adjacency_matrix[i] == 1)[0]
             if len(neighbors) < 2:
                 clustering_coefficients.append(0)
                 continue
-            connections = sum(1 for n1 in neighbors for n2 in neighbors if n2 in n1.connections)
+            neighbor_pairs = self.adjacency_matrix[neighbors][:, neighbors]
+            connections = np.sum(neighbor_pairs) / 2  # Each edge is counted twice
             clustering_coefficients.append(connections / (len(neighbors) * (len(neighbors) - 1)))
-        avg_clustering = np.mean(clustering_coefficients)
-        return avg_clustering
+        return np.mean(clustering_coefficients)
 
     def calculate_metrics(self):
-        char_path_length = self.calculate_cpl()
-        avg_clustering = self.calculate_cc()
+        char_path_length = self.characteristic_path_length()
+        avg_clustering = self.clustering_coefficient()
         return char_path_length, avg_clustering
 
-    class Node:
-        def __init__(self, node_id):
-            self.node_id = node_id
-            self.position = np.random.uniform(0, 1, 2)  # Random x, y position
-            self.activity = np.random.uniform(-1, 1)    # Random initial activity
-            self.old_activity = self.activity
-            self.connections = []
-
-        def update_activity(self, alpha=1.7, epsilon=0.4):
-            own_activity = 1 - alpha * self.old_activity**2     # logistic map: x(n+1) = f(x(n)) = 1 - ax(n)²
-            if self.connections:                                # influences by connected nodes
-                neighbor_activity = np.mean([node.old_activity for node in self.connections])
-                self.activity = ((1 - epsilon) * own_activity) + (epsilon * neighbor_activity) # xᵢ(n+1) = (1 − ε) * f(xᵢ(n)) + (ε / Mᵢ) * ∑(f(xⱼ(n) for j in B(i))
-            else:
-                self.activity = own_activity
-    
-        def save_old_activity(self):
-            self.old_activity = self.activity
-
 class NetworkPlot:
-    def __init__(self, nodes, connections):
+    def __init__(self, positions, activities, adjacency_matrix):
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
         self.cmap = colormaps['cividis']  # Color map for node activity
         self.circles = []
         self.texts = []
         self.lines = []
 
-        self.initialize_plot(nodes, connections)
+        self.initialize_plot(positions, activities, adjacency_matrix)
 
-    def initialize_plot(self, nodes, connections):
+    def initialize_plot(self, positions, activities, adjacency_matrix):
         self.ax.set_xlim(-0.1, 1.1)
         self.ax.set_ylim(-0.1, 1.1)
         self.ax.set_aspect('equal')
 
         # Draw nodes
-        for node in nodes:
-            circle = Circle((0, 0), 0.02, ec='black')
+        for i, (x, y) in enumerate(positions):
+            color = self.cmap((activities[i] + 1) / 2)
+            circle = Circle((x, y), 0.02, color=color, ec='black')
             self.ax.add_patch(circle)
             self.circles.append(circle)
 
-            text = self.ax.text(0, 0, '', fontsize=7, ha='center', va='center', color='white')
+            text = self.ax.text(x, y, self.format_activity(activities[i]), fontsize=7, ha='center', va='center', color='white')
             self.texts.append(text)
 
-        # Draw connections
-        for i, j in connections:
-            line, = self.ax.plot([], [], 'gray', lw=0.5, alpha=0.6)
-            self.lines.append(line)
+        # Draw connections based on adjacency matrix
+        for i in range(adjacency_matrix.shape[0]):
+            for j in range(i + 1, adjacency_matrix.shape[1]):
+                if adjacency_matrix[i, j] == 1:
+                    line, = self.ax.plot([positions[i][0], positions[j][0]], [positions[i][1], positions[j][1]], 'gray', lw=0.5, alpha=0.6)
+                    self.lines.append(line)
 
-    def update_plot(self, nodes, connections, step, characteristic_path_length, clustering_coefficient):
+    def update_plot(self, positions, activities, adjacency_matrix, step, characteristic_path_length, clustering_coefficient):
         self.ax.set_title(f"Generation {step} - CPL: {characteristic_path_length:.2f}, CC: {clustering_coefficient:.2f}")
+
         # Update node colors, positions, and text values
         for i, (circle, text) in enumerate(zip(self.circles, self.texts)):
-            activity = nodes[i].activity
-            color = self.cmap((activity + 1) / 2)
+            color = self.cmap((activities[i] + 1) / 2)
             circle.set_facecolor(color)
-            
-            circle.set_center(nodes[i].position)
+            circle.set_center(positions[i])
 
-            text.set_text(self.format_activity(activity))
-            text.set_position(nodes[i].position)
+            text.set_text(self.format_activity(activities[i]))
+            text.set_position(positions[i])
 
         # Update connection lines
-        for line, (i, j) in zip(self.lines, connections):
-            x1, y1 = nodes[i].position
-            x2, y2 = nodes[j].position
-            line.set_data([x1, x2], [y1, y2])
+        line_index = 0
+        for i in range(adjacency_matrix.shape[0]):
+            for j in range(i + 1, adjacency_matrix.shape[1]):
+                if adjacency_matrix[i, j] == 1:
+                    self.lines[line_index].set_data([positions[i][0], positions[j][0]], [positions[i][1], positions[j][1]])
+                    line_index += 1
 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()   # Flush GUI events for immediate update without delay
@@ -229,24 +204,32 @@ class NetworkPlot:
 class Simulation:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
-        self.plot = NetworkPlot(self.network.nodes, self.network.connections)
+        #self.plot = NetworkPlot(self.network.positions, self.network.activities, self.network.adjacency_matrix)
 
     def run(self, num_steps, display_interval):
         # Turn on plotting in interactive mode so it updates
-        plt.ion()
-        plt.show()
+        #plt.ion()
+        #plt.show()
         for step in range(num_steps):
             self.network.update_network()
-            if step % display_interval == 0 or step == num_steps - 1:
-                characteristic_path_length, clustering_coefficient = self.network.calculate_metrics()
-                print(f"Iteration {step}: CPL={characteristic_path_length:.2f}, Clustering={clustering_coefficient:.2f}")
-                self.plot.update_plot(self.network.nodes, self.network.connections, step, characteristic_path_length, clustering_coefficient)
+            #if (display_interval and step % display_interval == 0) or step == num_steps - 1:
+            #    characteristic_path_length, clustering_coefficient = self.network.calculate_metrics()
+            #    print(f"Iteration {step}: CPL={characteristic_path_length:.2f}, Clustering={clustering_coefficient:.2f}")
+                #self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step, characteristic_path_length, clustering_coefficient)
         
         # Turn off interactive mode to display the plot at the very end without it closing
-        plt.ioff()
-        plt.show()
+        #plt.ioff()
+        #plt.show()
 
-# Run the simulation
 if __name__ == "__main__":
+    profiler = cProfile.Profile()
+    profiler.enable()
+
+    # Run the simulation
     sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, alpha=ALPHA, epsilon=EPSILON, random_seed=RANDOM_SEED)
     sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL)
+
+    profiler.disable()
+
+    # Print profiler stats to sort by cumulative time
+    pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(20)

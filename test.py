@@ -7,7 +7,7 @@ def setup_network(num_nodes, connections, alpha=1.7, epsilon=0.4, random_seed=No
     """
     network = NodeNetwork(num_nodes=num_nodes, num_connections=0, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
     for i, j in connections:
-        network.add_connection(network.nodes[i], network.nodes[j])
+        network.add_connection(i, j)
     return network
 
 class TestNetworkMetrics(unittest.TestCase):
