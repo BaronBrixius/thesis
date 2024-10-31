@@ -9,18 +9,26 @@ from scipy.sparse.csgraph import shortest_path
 import time
 
 NUM_NODES = 100
-NUM_CONNECTIONS = 600
+# CONNECTION_DENSITY_OVERRIDE overrides num_connections with its own calculation
+NUM_CONNECTIONS = 0
+CONNECTION_DENSITY_OVERRIDE = 0.1
+if CONNECTION_DENSITY_OVERRIDE:
+    NUM_CONNECTIONS = int(CONNECTION_DENSITY_OVERRIDE * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
+NUM_STEPS = 250_000
+print(NUM_NODES, NUM_CONNECTIONS, NUM_STEPS)
 
-NUM_STEPS = 100000
-DISPLAY_INTERVAL = 10000
+STABILIZATION_THRESHOLD = 0.1
+METRICS_INTERVAL = 1_000
+DISPLAY_INTERVAL = 0
 
 ALPHA = 1.7
 EPSILON = 0.4
 
-NODE_ATTRACTION_FORCE = 0.0002
-NODE_REPULSION_FORCE = 0.000002
-MIN_NODE_DISTANCE = 0.005
-REPULSION_MAX_DISTANCE = 0.1
+average_degree = (2 * NUM_CONNECTIONS) / NUM_NODES
+NODE_ATTRACTION_FORCE   = 0.008 / average_degree
+NODE_REPULSION_FORCE    = 0.00004 / np.sqrt(average_degree)
+MIN_NODE_DISTANCE       = 0.01
+REPULSION_MAX_DISTANCE  = 0.3
 
 RANDOM_SEED = 42
 
@@ -45,12 +53,18 @@ class NodeNetwork:
         self.num_nodes = num_nodes
         self.alpha = alpha
         self.epsilon = epsilon
+
         self.activities = np.random.uniform(-1, 1, num_nodes)   # Random initial activity
         self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=int)
         self.positions = np.random.uniform(0, 1, (num_nodes, 2))
-
+        
         self.initialize_connections(num_connections)    # Add initial connections
-    
+
+        if STABILIZATION_THRESHOLD:
+            self.cpl_history = []
+            self.cc_history = []
+            self.stabilized = False #Relatable
+
     # Initialize random connections between the nodes
     def initialize_connections(self, num_connections):
         possible_pairs = [(i, j) for i in range(self.num_nodes) for j in range(i+1, self.num_nodes)]
@@ -74,17 +88,17 @@ class NodeNetwork:
         neighbor_activities[connected_nodes] = neighbor_sum[connected_nodes] / neighbor_counts[connected_nodes]
     
         # logistic map: x(n+1) = f(x(n)) = 1 - ax(n)²
-        own_activities = 1 - self.alpha * self.activities**2                                    
+        own_activities = 1 - self.alpha * self.activities**2
         # xᵢ(n+1) = (1 − ε) * f(xᵢ(n)) + (ε / Mᵢ) * ∑(f(xⱼ(n) for j in B(i))
         self.activities[connected_nodes] = (1 - self.epsilon) * own_activities[connected_nodes] + self.epsilon * neighbor_activities[connected_nodes]
         # Unconnected nodes use only their own activity
-        self.activities[~connected_nodes] = own_activities[~connected_nodes]  
+        self.activities[~connected_nodes] = own_activities[~connected_nodes]
 
     def rewire(self):
-        # 1. Pick a unit at random (henceforth: pivot). Note that zero-connection nodes cannot be pivots
+        # 1. Pick a unit at random (henceforth: pivot)
         pivot = np.random.randint(self.num_nodes)
-        while not np.any(self.adjacency_matrix[pivot]):
-            pivot = np.random.randint(self.num_nodes)
+        #while not np.any(self.adjacency_matrix[pivot]): # zero-connection nodes cannot be pivots
+        #    pivot = np.random.randint(self.num_nodes)
 
         # 2. From all other units, select the one that is most synchronized (henceforth: candidate)
         activity_diff = np.abs(self.activities - self.activities[pivot])
@@ -95,19 +109,17 @@ class NodeNetwork:
         if self.adjacency_matrix[pivot, candidate] == 1:
             return
 
-        # 3b. If there is no connection between the pivot and the candidate, establish it, and break the connection between the pivot and its least synchronized neighbor.
+        # 3b. If there is no connection between the pivot and the candidate, establish it,
         self.add_connection(pivot, candidate)
-
-        pivot_connections = self.adjacency_matrix[pivot]
-        activity_diff_connected = np.abs(self.activities - self.activities[pivot]) * pivot_connections
-        least_synchronized = np.argmax(activity_diff_connected)
+        # and break the connection between the pivot and its least synchronized neighbor.
+        activity_diff_neighbors = np.abs(self.activities - self.activities[pivot]) * self.adjacency_matrix[pivot]  # TODO Maybe reuse activity_diff matrix here? gotta fix the pivot = inf then
+        least_synchronized = np.argmax(activity_diff_neighbors)
         self.remove_connection(pivot, least_synchronized)
 
     # Update the activity of all nodes
-    def update_network(self):    
+    def update_network(self):
         self.update_activity()
         self.rewire()
-        #self.apply_forces()
 
     def characteristic_path_length(self):
         path_lengths = shortest_path(self.adjacency_matrix, directed=False, unweighted=True)
@@ -122,51 +134,80 @@ class NodeNetwork:
                 clustering_coefficients.append(0)
                 continue
             neighbor_pairs = self.adjacency_matrix[neighbors][:, neighbors]
-            connections = np.sum(neighbor_pairs) / 2  # Because each edge is counted twice
+            connections = np.sum(neighbor_pairs)
             possible_connections = len(neighbors) * (len(neighbors) - 1)
             clustering_coefficients.append(connections / possible_connections)
         return np.mean(clustering_coefficients)
 
-    def calculate_metrics(self):
+    def calculate_stats(self):
         char_path_length = self.characteristic_path_length()
         avg_clustering = self.clustering_coefficient()
+
+        if not STABILIZATION_THRESHOLD:
+            return char_path_length, avg_clustering
+
+        # Add the new CPL and CC values to history
+        self.cpl_history.append(char_path_length)
+        self.cc_history.append(avg_clustering)
+
+        # Keep only the last 100 values for checking stabilization
+        if len(self.cpl_history) > 100:
+            self.cpl_history.pop(0)
+        if len(self.cc_history) > 100:
+            self.cc_history.pop(0)
+
+        # Check stabilization for both CPL and CC if we have 100 points
+        if len(self.cpl_history) == 100 and len(self.cc_history) == 100:
+            cpl_min, cpl_max = min(self.cpl_history), max(self.cpl_history)
+            cc_min, cc_max = min(self.cc_history), max(self.cc_history)
+
+            # Check if the variation is within 1%
+            cpl_stable = (cpl_max - cpl_min) / cpl_max <= STABILIZATION_THRESHOLD
+            cc_stable = (cc_max - cc_min) / cc_max <= STABILIZATION_THRESHOLD
+
+            # If both CPL and CC are stable, mark the network as stabilized
+            self.stabilized = cpl_stable and cc_stable
+
         return char_path_length, avg_clustering
 
-    def apply_forces(self, batch_iterations=100):
-        for _ in range(batch_iterations):
-            forces = np.zeros((self.num_nodes, 2))  # Initialize force matrix for all nodes
+    def apply_forces(self, effective_iterations=100):
+        forces = np.zeros((self.num_nodes, 2))  # force matrix for all nodes
 
-            # --- Attraction Forces (for connected nodes) ---
-            connected_indices = np.transpose(np.nonzero(self.adjacency_matrix))
+        # --- Attraction Forces (for connected nodes) ---
+        connected_indices = np.transpose(np.nonzero(self.adjacency_matrix))
+        for i, j in connected_indices:
+            if i >= j:
+                continue  # Avoid double-counting pairs
 
-            for i, j in connected_indices:
-                if i >= j:
-                    continue  # Avoid double-counting pairs in an undirected graph
+            # Calculate direction and distance from node i to node j 
+            direction = self.positions[j] - self.positions[i]
+            distance = np.linalg.norm(direction)
 
-                # Calculate the direction vector from node i to node j and distance
-                direction = self.positions[j] - self.positions[i]
-                distance = np.linalg.norm(direction)
+            if distance > MIN_NODE_DISTANCE:
+                normalized_direction = direction / distance
+                # Use an effective multiplier to simulate multiple steps
+                attraction = (NODE_ATTRACTION_FORCE * (distance - MIN_NODE_DISTANCE) * normalized_direction * effective_iterations)
+                forces[i] += attraction  # Pull node i towards node j
+                forces[j] -= attraction  # Pull node j towards node i
 
-                if distance > MIN_NODE_DISTANCE:
-                    normalized_direction = direction / distance
-                    attraction = NODE_ATTRACTION_FORCE * (distance - MIN_NODE_DISTANCE) * normalized_direction
+        # --- Repulsion Forces (for non-connected nodes) ---
+        # Find non-connected pairs using the complement of the adjacency matrix
+        non_connected_mask = (self.adjacency_matrix == 0)
+        direction_vectors = self.positions[:, np.newaxis, :] - self.positions[np.newaxis, :, :]
+        distances = np.linalg.norm(direction_vectors, axis=2)
 
-                    forces[i] += attraction  # Pull node i towards node j
-                    forces[j] -= attraction  # Pull node j towards node i
+        # Apply repulsion only for non-connected pairs within max range
+        repulsion_mask = (distances < REPULSION_MAX_DISTANCE) & (distances > 0) & non_connected_mask
+        repulsion_forces = np.where(repulsion_mask, NODE_REPULSION_FORCE / (distances**2 + 1e-10), 0)
+        
+        # Normalize directions for the repulsion forces
+        normalized_directions = np.where(repulsion_mask[..., np.newaxis], direction_vectors / (distances[..., np.newaxis] + 1e-10), 0)
+        forces += np.sum(repulsion_forces[..., np.newaxis] * normalized_directions * effective_iterations, axis=1)
 
-            # --- Repulsion Forces (for all nodes) ---
-            direction_vectors = self.positions[:, np.newaxis, :] - self.positions[np.newaxis, :, :]
-            distances = np.linalg.norm(direction_vectors, axis=2)
-
-            repulsion_mask = (distances < REPULSION_MAX_DISTANCE) & (distances > 0)
-            repulsion_forces = np.where(repulsion_mask, NODE_REPULSION_FORCE / (distances**2 + 1e-10), 0)
-            
-            normalized_directions = np.where(repulsion_mask[..., np.newaxis], direction_vectors / (distances[..., np.newaxis] + 1e-10), 0)
-            forces += np.sum(repulsion_forces[..., np.newaxis] * normalized_directions, axis=1)
-
-            # --- Update Positions ---
-            self.positions += forces / batch_iterations  # Divide to ensure gradual movement
-            self.positions = np.clip(self.positions, 0, 1)
+        # --- Update Positions ---
+        # Apply the accumulated force as a single update
+        self.positions += forces / effective_iterations  # Average to mimic many smaller steps
+        self.positions = np.clip(self.positions, 0, 1)  # Keep positions within bounds
 
 class NetworkPlot:
     def __init__(self, positions, activities, adjacency_matrix):
@@ -202,7 +243,7 @@ class NetworkPlot:
 
     def update_plot(self, positions, activities, adjacency_matrix, step, characteristic_path_length, clustering_coefficient):
         self.ax.set_title(f"Generation {step} - CPL: {characteristic_path_length:.2f}, CC: {clustering_coefficient:.2f}")
-        start_timing('plotup1')
+
         # Update node colors, positions, and text values
         for i, (circle, text) in enumerate(zip(self.circles, self.texts)):
             color = self.cmap((activities[i] + 1) / 2)
@@ -211,8 +252,6 @@ class NetworkPlot:
 
             text.set_text(self.format_activity(activities[i]))
             text.set_position(positions[i])
-        stop_timing('plotup1')
-        start_timing('plotup2')
 
         # Update connection lines
         line_index = 0
@@ -221,12 +260,9 @@ class NetworkPlot:
                 if adjacency_matrix[i, j] == 1:
                     self.lines[line_index].set_data([positions[i][0], positions[j][0]], [positions[i][1], positions[j][1]])
                     line_index += 1
-        stop_timing('plotup2')
-        start_timing('plotup3')
 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()   # Flush GUI events for immediate update without delay
-        stop_timing('plotup3')
 
     # Helper function to format activity values
     def format_activity(self, activity):
@@ -236,37 +272,49 @@ class NetworkPlot:
 class Simulation:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
-        self.plot = NetworkPlot(self.network.positions, self.network.activities, self.network.adjacency_matrix)
 
     def run(self, num_steps, display_interval):
-        # Turn on plotting in interactive mode so it updates
-        plt.ion()
-        plt.show()
-        for step in range(num_steps):
+        if display_interval:
+            self.plot = NetworkPlot(self.network.positions, self.network.activities, self.network.adjacency_matrix)
+            # Turn on plotting in interactive mode so it updates
+            plt.ion()
+            plt.show()
+        for step in range(num_steps):        
+            if self.network.stabilized == True:
+                print(f"Stabilized after {step} iterations.")
+                break
             self.network.update_network()
-            if (display_interval and step % display_interval == 0) or step == num_steps - 1:
-                self.network.apply_forces()
-                characteristic_path_length, clustering_coefficient = self.network.calculate_metrics()
+
+            if step % METRICS_INTERVAL == 0:
+                characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
                 print(f"Iteration {step}: CPL={characteristic_path_length:.2f}, Clustering={clustering_coefficient:.2f}")
 
+            if display_interval and step % display_interval == 0:
+                self.network.apply_forces(display_interval)
                 self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step, characteristic_path_length, clustering_coefficient)
 
-        # Turn off interactive mode to display the plot at the very end without it closing
-        #plt.ioff()
-        #plt.show()
+        characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
+        print(f"Iteration {step}: CPL={characteristic_path_length:.2f}, Clustering={clustering_coefficient:.2f}")
+        
+        #if display_interval:
+            #self.network.apply_forces(display_interval)
+            #self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step, characteristic_path_length, clustering_coefficient)
+            # Turn off interactive mode to display the plot at the very end without it closing
+            #plt.ioff()
+            #plt.show()
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    profiler.enable()
+    profiler = None #cProfile.Profile()
+    if profiler: profiler.enable()
 
     # Run the simulation
     sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, alpha=ALPHA, epsilon=EPSILON, random_seed=RANDOM_SEED)
     sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL)
 
-    profiler.disable()
+    if profiler: profiler.disable()
 
     # Print profiler stats to sort by cumulative time
-    pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(20)
+    if profiler: pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(20)
 
     for label, times in accumulated_times.items():
         print(f"{label}: {times['total_time']:.4f} seconds")
