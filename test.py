@@ -15,8 +15,8 @@ class TestNetworkMetrics(unittest.TestCase):
     def test_simple_two_nodes(self):
         num_nodes = 2
         connections = [(0, 1)]
-        expected_cpl = 1  # Adjust this to the correct expected CPL for this configuration
-        expected_cc = 0     # TODO Adjust this to the correct CC
+        expected_cpl = 1
+        expected_cc = 0
 
         # Setup network and calculate metrics
         network = setup_network(num_nodes, connections)
@@ -29,7 +29,7 @@ class TestNetworkMetrics(unittest.TestCase):
         num_nodes = 5
         connections = [(0, 1), (0, 2), (0, 3), (0, 4)]
         expected_cpl = 1.6
-        expected_cc = 0.0     # TODO Adjust this to the correct CC
+        expected_cc = 0.0
 
         # Setup network and calculate metrics
         network = setup_network(num_nodes, connections)
