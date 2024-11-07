@@ -18,6 +18,9 @@ class TestNetworkMetrics(unittest.TestCase):
     def test_simple_two_nodes(self):
         self.helper_metrics(num_nodes=2, connections=[(0, 1)], expected_cpl=1.0, expected_cc=0.0)
 
+    def test_simple_three_nodes(self):
+        self.helper_metrics(num_nodes=3, connections=[(0, 1), (1, 2)], expected_cpl=1.33, expected_cc=0.0)    
+
     def test_star_network(self):
         self.helper_metrics(num_nodes=5, connections=[(0, 1), (0, 2), (0, 3), (0, 4)], expected_cpl=1.6, expected_cc=0.0)
 
@@ -33,7 +36,6 @@ class TestNetworkMetrics(unittest.TestCase):
         num_nodes = len(initial_activities)
         network = NodeNetwork(num_nodes, 0, alpha, epsilon)
         network.activities = np.array(initial_activities)
-        
         for i, j in connections:
             network.add_connection(i, j)
         
