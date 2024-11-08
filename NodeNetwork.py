@@ -80,7 +80,7 @@ class NodeNetwork:
 
     def update_activity(self):
         # Calculate neighbor activities as a matrix multiplication of adjacency and activities, then row-wise summing
-        neighbor_sum = np.einsum('ij,j->i', self.adjacency_matrix, self.activities)
+        neighbor_sum = np.einsum('ij,j->i', self.adjacency_matrix, self.activities) # maybe faster than self.adjacency_matrix @ self.activities
         neighbor_counts = self.adjacency_matrix.sum(axis=1)
         connected_nodes = neighbor_counts > 0  # Boolean array indicating connected nodes
         neighbor_activities = np.zeros_like(self.activities)
@@ -126,7 +126,7 @@ class NodeNetwork:
             self.breakup_count += 1
             return None
         valid_lengths = path_lengths[path_lengths > 0]
-        return np.mean(valid_lengths)
+        return np.median(valid_lengths)
     
     def clustering_coefficient(self):
         clustering_coefficients = []
@@ -214,7 +214,7 @@ class NetworkPlot:
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
         self.cmap = colormaps['cividis']  # Color map for node activity
         self.circles = []
-        self.texts = []
+        #self.texts = []
         self.lines = []
 
         self.initialize_plot(positions, activities, adjacency_matrix)
@@ -224,16 +224,6 @@ class NetworkPlot:
         self.ax.set_ylim(-0.1, 1.1)
         self.ax.set_aspect('equal')
 
-        # Draw nodes
-        for i, (x, y) in enumerate(positions):
-            color = self.cmap((activities[i] + 1) / 2)
-            circle = Circle((x, y), 0.02, color=color, ec='black')
-            self.ax.add_patch(circle)
-            self.circles.append(circle)
-
-            text = self.ax.text(x, y, self.format_activity(activities[i]), fontsize=7, ha='center', va='center', color='white')
-            self.texts.append(text)
-
         # Draw connections based on adjacency matrix
         for i in range(adjacency_matrix.shape[0]):
             for j in range(i + 1, adjacency_matrix.shape[1]):
@@ -241,17 +231,19 @@ class NetworkPlot:
                     line, = self.ax.plot([positions[i][0], positions[j][0]], [positions[i][1], positions[j][1]], 'gray', lw=0.5, alpha=0.6)
                     self.lines.append(line)
 
+        # Draw nodes
+        for i, (x, y) in enumerate(positions):
+            color = self.cmap((activities[i] + 1) / 2)
+            circle = Circle((x, y), 0.02, color=color, ec='black', zorder=2)
+            self.ax.add_patch(circle)
+            self.circles.append(circle)
+
+            #text = self.ax.text(x, y, self.format_activity(activities[i]), fontsize=7, ha='center', va='center', color='white')
+            #self.texts.append(text)
+
+
     def update_plot(self, positions, activities, adjacency_matrix, step, characteristic_path_length, clustering_coefficient):
         #self.ax.set_title(f"Generation {step} - CPL: {characteristic_path_length:.2f}, CC: {clustering_coefficient:.2f}") #TODO
-
-        # Update node colors, positions, and text values
-        for i, (circle, text) in enumerate(zip(self.circles, self.texts)):
-            color = self.cmap((activities[i] + 1) / 2)
-            circle.set_facecolor(color)
-            circle.set_center(positions[i])
-
-            text.set_text(self.format_activity(activities[i]))
-            text.set_position(positions[i])
 
         # Update connection lines
         line_index = 0
@@ -260,6 +252,16 @@ class NetworkPlot:
                 if adjacency_matrix[i, j] == 1:
                     self.lines[line_index].set_data([positions[i][0], positions[j][0]], [positions[i][1], positions[j][1]])
                     line_index += 1
+
+        # Update node colors, positions, and text values
+        for i, circle in enumerate(self.circles):               # for i, (circle, text) in enumerate(zip(self.circles, self.texts)):
+            color = self.cmap((activities[i] + 1) / 2)
+            circle.set_facecolor(color)
+            circle.set_center(positions[i])
+
+            #text.set_text(self.format_activity(activities[i]))
+            #text.set_position(positions[i])
+
 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()   # Flush GUI events for immediate update without delay
