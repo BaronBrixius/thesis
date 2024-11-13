@@ -10,26 +10,25 @@ import time
 
 #TODO 200 nodes, 0.1 density, 2377 steps, metrics/display interval 2375, seed 11111, nodes 32 and 128 form a pair that are only connected to each other
 
-ALPHA = 1.7
-EPSILON = 0.4
-
 NUM_NODES = 200
 CONNECTION_DENSITY = 0.1
 NUM_CONNECTIONS = int(CONNECTION_DENSITY * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
-NUM_STEPS = 250000
+NUM_STEPS = 10_000_000
 print("Nodes:", NUM_NODES, "Connections:", NUM_CONNECTIONS, "Steps:", NUM_STEPS)
 
-STABILIZATION_THRESHOLD = 0.0
 METRICS_INTERVAL = 1000
-DISPLAY_INTERVAL = 250
+DISPLAY_INTERVAL = 1000
+STABILIZATION_THRESHOLD = 0.0
 
 average_degree = (2 * NUM_CONNECTIONS) / NUM_NODES
-NODE_ATTRACTION_FORCE   = 0.02 / average_degree
+NODE_ATTRACTION_FORCE   = 0.011 / average_degree
 NODE_REPULSION_FORCE    = 0.00004 / np.sqrt(average_degree)
-MIN_NODE_DISTANCE       = 0.01
+MIN_NODE_DISTANCE       = 0.05
 REPULSION_MAX_DISTANCE  = 0.3
 
-RANDOM_SEED = 7
+ALPHA = 1.7
+EPSILON = 0.4
+RANDOM_SEED = 42
 
 accumulated_times = {}
 def start_timing(label):
@@ -186,7 +185,7 @@ class NodeNetwork:
             if distance > MIN_NODE_DISTANCE:
                 normalized_direction = direction / distance
                 # Use an effective multiplier to simulate multiple steps
-                attraction = (NODE_ATTRACTION_FORCE * (distance - MIN_NODE_DISTANCE) * normalized_direction * effective_iterations)
+                attraction = (NODE_ATTRACTION_FORCE * (distance - MIN_NODE_DISTANCE) * normalized_direction)
                 forces[i] += attraction  # Pull node i towards node j
                 forces[j] -= attraction  # Pull node j towards node i
 
@@ -202,12 +201,12 @@ class NodeNetwork:
         
         # Normalize directions for the repulsion forces
         normalized_directions = np.where(repulsion_mask[..., np.newaxis], direction_vectors / (distances[..., np.newaxis] + 1e-10), 0)
-        forces += np.sum(repulsion_forces[..., np.newaxis] * normalized_directions * effective_iterations, axis=1)
+        forces += np.sum(repulsion_forces[..., np.newaxis] * normalized_directions, axis=1)
 
         # --- Update Positions ---
         # Apply the accumulated force as a single update
-        self.positions += forces / effective_iterations  # Average to mimic many smaller steps
-        self.positions = np.clip(self.positions, 0, 1)  # Keep positions within bounds
+        self.positions += forces  # Average to mimic many smaller steps
+        self.positions = np.clip(self.positions, -.1, 1.1)  # Keep positions within bounds
 
 class NetworkPlot:
     def __init__(self, positions, activities, adjacency_matrix):
@@ -243,7 +242,7 @@ class NetworkPlot:
 
 
     def update_plot(self, positions, activities, adjacency_matrix, step, characteristic_path_length, clustering_coefficient):
-        #self.ax.set_title(f"Generation {step} - CPL: {characteristic_path_length:.2f}, CC: {clustering_coefficient:.2f}") #TODO
+        self.ax.set_title(f"Generation {step}")# - CPL: {characteristic_path_length:.2f}, CC: {clustering_coefficient:.2f}") #TODO
 
         # Update connection lines
         line_index = 0
