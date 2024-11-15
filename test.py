@@ -60,9 +60,8 @@ class TestNetworkMetrics(unittest.TestCase):
         # Calculate expected activities manually
         alpha, epsilon = 1.7, 0.4
         own_activities = [1 - alpha * (a**2) for a in initial_activities]
-        neighbor_activity = initial_activities[1]  # Node 0's neighbor has activity 0.8
         expected_activities = [
-            (1 - epsilon) * own_activities[0] + epsilon * neighbor_activity,  # Node 0 influenced by Node 1
+            (1 - epsilon) * own_activities[0] + epsilon * initial_activities[1],  # Node 0 influenced by Node 1
             (1 - epsilon) * own_activities[1] + epsilon * initial_activities[0]  # Node 1 influenced by Node 0
         ]
         

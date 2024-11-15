@@ -8,13 +8,10 @@ from matplotlib.animation import FuncAnimation
 from scipy.sparse.csgraph import shortest_path
 import time
 
-#TODO 200 nodes, 0.1 density, 2377 steps, metrics/display interval 2375, seed 11111, nodes 32 and 128 form a pair that are only connected to each other
-
 NUM_NODES = 200
 CONNECTION_DENSITY = 0.1
 NUM_CONNECTIONS = int(CONNECTION_DENSITY * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
-NUM_STEPS = 10_000_000
-print("Nodes:", NUM_NODES, "Connections:", NUM_CONNECTIONS, "Steps:", NUM_STEPS)
+NUM_STEPS = 250_000
 
 METRICS_INTERVAL = 1000
 DISPLAY_INTERVAL = 1000
@@ -82,15 +79,14 @@ class NodeNetwork:
         neighbor_sum = np.einsum('ij,j->i', self.adjacency_matrix, self.activities) # maybe faster than self.adjacency_matrix @ self.activities
         neighbor_counts = self.adjacency_matrix.sum(axis=1)
         connected_nodes = neighbor_counts > 0  # Boolean array indicating connected nodes
-        neighbor_activities = np.zeros_like(self.activities)
-        neighbor_activities[connected_nodes] = neighbor_sum[connected_nodes] / neighbor_counts[connected_nodes]
 
-        # logistic map: x(n+1) = f(x(n)) = 1 - ax(n)²
-        own_activities = 1 - self.alpha * self.activities**2
         # xᵢ(n+1) = (1 − ε) * f(xᵢ(n)) + (ε / Mᵢ) * ∑(f(xⱼ(n) for j in B(i))
-        self.activities[connected_nodes] = (1 - self.epsilon) * own_activities[connected_nodes] + self.epsilon * neighbor_activities[connected_nodes]
-        # Unconnected nodes use only their own activity
-        self.activities[~connected_nodes] = own_activities[~connected_nodes]
+        self.activities[connected_nodes] = (
+            (1 - self.epsilon) * self.activities[connected_nodes]
+            + self.epsilon * neighbor_sum[connected_nodes] / neighbor_counts[connected_nodes]
+        )
+        # logistic map: x(n+1) = f(x(n)) = 1 - ax(n)²
+        self.activities = 1 - self.alpha * self.activities**2
 
     def rewire(self):
         # 1. Pick a unit at random (henceforth: pivot)
@@ -98,21 +94,22 @@ class NodeNetwork:
         while not np.any(self.adjacency_matrix[pivot]): # zero-connection nodes cannot be pivots
             pivot = np.random.randint(self.num_nodes)
 
-        # 2. From all other units, select the one that is most synchronized (henceforth: candidate)
+        # 2. From all other units, select the one that is most synchronized (henceforth: candidate) and least synchronized neighbor
+        # TODO optimize with a loop to look for both at once?
         activity_diff = np.abs(self.activities - self.activities[pivot])
+        activity_diff_neighbors = activity_diff * self.adjacency_matrix[pivot]
+
         activity_diff[pivot] = np.inf                       # stop the pivot from connecting to itself
         candidate = np.argmin(activity_diff)                # most similar activity
+        least_synchronized_neighbor = np.argmax(activity_diff_neighbors)    # least similar neighbor
 
         # 3a. If there is a connection between the pivot and the candidate already, do nothing
         if self.adjacency_matrix[pivot, candidate] == 1:
             return
 
-        # 3b. If there is no connection between the pivot and the candidate, establish it,
+        # 3b. If there is no connection between the pivot and the candidate, establish it, and break the connection between the pivot and its least synchronized neighbor.
         self.add_connection(pivot, candidate)
-        # and break the connection between the pivot and its least synchronized neighbor.
-        activity_diff_neighbors = np.abs(self.activities - self.activities[pivot]) * self.adjacency_matrix[pivot]  # TODO Maybe reuse activity_diff matrix here? gotta fix the pivot = inf then
-        least_synchronized = np.argmax(activity_diff_neighbors)
-        self.remove_connection(pivot, least_synchronized)
+        self.remove_connection(pivot, least_synchronized_neighbor)
 
     # Update the activity of all nodes
     def update_network(self):
@@ -123,9 +120,8 @@ class NodeNetwork:
         path_lengths = shortest_path(self.adjacency_matrix, directed=False, unweighted=True)
         if np.isinf(path_lengths).any():
             self.breakup_count += 1
-            return None
-        valid_lengths = path_lengths[path_lengths > 0]
-        return np.median(valid_lengths)
+        valid_lengths = path_lengths[(path_lengths < np.inf) & (path_lengths > 0)]  # FIXME right now, upon breakup, it removes "infinite" distances then computes the average as if that were okay
+        return np.mean(valid_lengths)
     
     def clustering_coefficient(self):
         clustering_coefficients = []
@@ -287,14 +283,14 @@ class Simulation:
 
             if step % METRICS_INTERVAL == 0:
                 characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
-                print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient:.2f}, Breakups={self.network.breakup_count}")
+                print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}")
 
             if display_interval and step % display_interval == 0:
                 self.network.apply_forces(display_interval)
                 self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step, characteristic_path_length, clustering_coefficient)
 
         characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
-        print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient:.2f}, Breakups={self.network.breakup_count}")
+        print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}")
         
         if display_interval:
             self.network.apply_forces(display_interval)
@@ -308,6 +304,7 @@ if __name__ == "__main__":
     if profiler: profiler.enable()
 
     # Run the simulation
+    print("Nodes:", NUM_NODES, "Connections:", NUM_CONNECTIONS, "Steps:", NUM_STEPS)
     sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, alpha=ALPHA, epsilon=EPSILON, random_seed=RANDOM_SEED)
     sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL)
 
