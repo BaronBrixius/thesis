@@ -8,20 +8,18 @@ from matplotlib.animation import FuncAnimation
 from scipy.sparse.csgraph import shortest_path
 import time
 
-NUM_NODES = 200
+NUM_NODES = 50
 CONNECTION_DENSITY = 0.1
 NUM_CONNECTIONS = int(CONNECTION_DENSITY * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
-NUM_STEPS = 250_000
+NUM_STEPS = 2_000_000
 
 METRICS_INTERVAL = 1000
 DISPLAY_INTERVAL = 1000
 STABILIZATION_THRESHOLD = 0.0
 
-average_degree = (2 * NUM_CONNECTIONS) / NUM_NODES
-NODE_ATTRACTION_FORCE   = 0.011 / average_degree
-NODE_REPULSION_FORCE    = 0.00004 / np.sqrt(average_degree)
-MIN_NODE_DISTANCE       = 0.05
-REPULSION_MAX_DISTANCE  = 0.3
+NORMAL_DISTANCE_SCALING = 0.7  # You may need to adjust this for screen scaling
+SCREEN_WIDTH = 2.0
+SCREEN_HEIGHT = 2.0
 
 ALPHA = 1.7
 EPSILON = 0.4
@@ -51,7 +49,7 @@ class NodeNetwork:
 
         self.activities = np.random.uniform(-1, 1, num_nodes)   # Random initial activity
         self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=int)
-        self.positions = np.random.uniform(0, 1, (num_nodes, 2))
+        self.positions = np.random.uniform([0.2 * SCREEN_WIDTH, 0.2 * SCREEN_HEIGHT], [0.8 * SCREEN_WIDTH, 0.8 * SCREEN_HEIGHT], (num_nodes, 2))
         
         self.initialize_connections(num_connections)    # Add initial connections
 
@@ -165,44 +163,46 @@ class NodeNetwork:
 
         return char_path_length, avg_clustering
 
-    def apply_forces(self, effective_iterations=100):
-        forces = np.zeros((self.num_nodes, 2))  # force matrix for all nodes
+    def apply_forces(self):
+        # Initialize force matrix
+        forces = np.zeros((self.num_nodes, 2))
 
-        # --- Attraction Forces (for connected nodes) ---
-        connected_indices = np.transpose(np.nonzero(self.adjacency_matrix))
-        for i, j in connected_indices:
-            if i >= j:
-                continue  # Avoid double-counting pairs
+        # Calculate normal distance based on screen size and number of nodes
+        normal_distance = NORMAL_DISTANCE_SCALING * np.sqrt(SCREEN_WIDTH * SCREEN_HEIGHT / self.num_nodes)
 
-            # Calculate direction and distance from node i to node j 
-            direction = self.positions[j] - self.positions[i]
-            distance = np.linalg.norm(direction)
-
-            if distance > MIN_NODE_DISTANCE:
+        # Iterate over each pair of nodes
+        for i in range(self.num_nodes):
+            for j in range(i + 1, self.num_nodes):
+                # Compute the vector from node i to node j and the distance
+                direction = self.positions[j] - self.positions[i]
+                distance = np.linalg.norm(direction)
+                
+                if distance == 0:  # Avoid division by zero
+                    continue
+                
                 normalized_direction = direction / distance
-                # Use an effective multiplier to simulate multiple steps
-                attraction = (NODE_ATTRACTION_FORCE * (distance - MIN_NODE_DISTANCE) * normalized_direction)
-                forces[i] += attraction  # Pull node i towards node j
-                forces[j] -= attraction  # Pull node j towards node i
+                
+                if self.adjacency_matrix[i, j] == 1:  # If nodes are connected
+                    # Apply attraction/repulsion based on the target range for connected nodes
+                    if distance < 0.2 * normal_distance:
+                        forces[i] -= normalized_direction * (0.2 * normal_distance - distance)
+                        forces[j] += normalized_direction * (0.2 * normal_distance - distance)
+                    elif distance > 0.3 * normal_distance:
+                        forces[i] += normalized_direction * (distance - 0.3 * normal_distance)
+                        forces[j] -= normalized_direction * (distance - 0.3 * normal_distance)
+                else:
+                    # If nodes are not connected, apply repulsion if they're within a certain distance
+                    if distance < 1.7 * normal_distance:
+                        repulsion_force = (1.7 * normal_distance - distance) / distance
+                        forces[i] -= normalized_direction * repulsion_force
+                        forces[j] += normalized_direction * repulsion_force
 
-        # --- Repulsion Forces (for non-connected nodes) ---
-        # Find non-connected pairs using the complement of the adjacency matrix
-        non_connected_mask = (self.adjacency_matrix == 0)
-        direction_vectors = self.positions[:, np.newaxis, :] - self.positions[np.newaxis, :, :]
-        distances = np.linalg.norm(direction_vectors, axis=2)
+        # Update positions based on the forces
+        self.positions += forces * 0.01  # Adjust the multiplier for movement speed
 
-        # Apply repulsion only for non-connected pairs within max range
-        repulsion_mask = (distances < REPULSION_MAX_DISTANCE) & (distances > 0) & non_connected_mask
-        repulsion_forces = np.where(repulsion_mask, NODE_REPULSION_FORCE / (distances**2 + 1e-10), 0)
-        
-        # Normalize directions for the repulsion forces
-        normalized_directions = np.where(repulsion_mask[..., np.newaxis], direction_vectors / (distances[..., np.newaxis] + 1e-10), 0)
-        forces += np.sum(repulsion_forces[..., np.newaxis] * normalized_directions, axis=1)
+        # Clip positions to keep nodes within screen bounds
+        self.positions = np.clip(self.positions, 0, [SCREEN_WIDTH, SCREEN_HEIGHT])
 
-        # --- Update Positions ---
-        # Apply the accumulated force as a single update
-        self.positions += forces  # Average to mimic many smaller steps
-        self.positions = np.clip(self.positions, -.1, 1.1)  # Keep positions within bounds
 
 class NetworkPlot:
     def __init__(self, positions, activities, adjacency_matrix):
@@ -215,8 +215,8 @@ class NetworkPlot:
         self.initialize_plot(positions, activities, adjacency_matrix)
 
     def initialize_plot(self, positions, activities, adjacency_matrix):
-        self.ax.set_xlim(-0.1, 1.1)
-        self.ax.set_ylim(-0.1, 1.1)
+        self.ax.set_xlim(0, SCREEN_WIDTH)
+        self.ax.set_ylim(0, SCREEN_HEIGHT)
         self.ax.set_aspect('equal')
 
         # Draw connections based on adjacency matrix
@@ -269,7 +269,7 @@ class Simulation:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
 
-    def run(self, num_steps, display_interval):
+    def run(self, num_steps, display_interval, metrics_interval=METRICS_INTERVAL):
         if display_interval:
             self.plot = NetworkPlot(self.network.positions, self.network.activities, self.network.adjacency_matrix)
             # Turn on plotting in interactive mode so it updates
@@ -280,27 +280,28 @@ class Simulation:
                 print(f"Stabilized after {step} iterations.")
                 break
             self.network.update_network()
+            if display_interval:
+                self.network.apply_forces()
 
-            if step % METRICS_INTERVAL == 0:
+            if step % metrics_interval == 0:
                 characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
                 print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}")
 
             if display_interval and step % display_interval == 0:
-                self.network.apply_forces(display_interval)
                 self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step, characteristic_path_length, clustering_coefficient)
 
         characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
         print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}")
         
         if display_interval:
-            self.network.apply_forces(display_interval)
+            self.network.apply_forces()
             self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step, characteristic_path_length, clustering_coefficient)
             # Turn off interactive mode to display the plot at the very end without it closing
-            plt.ioff()
-            plt.show()
+            #plt.ioff()
+            #plt.show()
 
 if __name__ == "__main__":
-    profiler = None #cProfile.Profile()
+    profiler = cProfile.Profile()
     if profiler: profiler.enable()
 
     # Run the simulation
