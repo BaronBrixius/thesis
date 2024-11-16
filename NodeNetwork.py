@@ -8,10 +8,10 @@ from matplotlib.animation import FuncAnimation
 from scipy.sparse.csgraph import shortest_path
 import time
 
-NUM_NODES = 50
+NUM_NODES = 150
 CONNECTION_DENSITY = 0.1
 NUM_CONNECTIONS = int(CONNECTION_DENSITY * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
-NUM_STEPS = 2_000_000
+NUM_STEPS = 23_000
 
 METRICS_INTERVAL = 1000
 DISPLAY_INTERVAL = 1000
@@ -170,39 +170,36 @@ class NodeNetwork:
         # Calculate normal distance based on screen size and number of nodes
         normal_distance = NORMAL_DISTANCE_SCALING * np.sqrt(SCREEN_WIDTH * SCREEN_HEIGHT / self.num_nodes)
 
-        # Iterate over each pair of nodes
-        for i in range(self.num_nodes):
-            for j in range(i + 1, self.num_nodes):
-                # Compute the vector from node i to node j and the distance
-                direction = self.positions[j] - self.positions[i]
-                distance = np.linalg.norm(direction)
-                
-                if distance == 0:  # Avoid division by zero
-                    continue
-                
-                normalized_direction = direction / distance
-                
-                if self.adjacency_matrix[i, j] == 1:  # If nodes are connected
-                    # Apply attraction/repulsion based on the target range for connected nodes
-                    if distance < 0.2 * normal_distance:
-                        forces[i] -= normalized_direction * (0.2 * normal_distance - distance)
-                        forces[j] += normalized_direction * (0.2 * normal_distance - distance)
-                    elif distance > 0.3 * normal_distance:
-                        forces[i] += normalized_direction * (distance - 0.3 * normal_distance)
-                        forces[j] -= normalized_direction * (distance - 0.3 * normal_distance)
-                else:
-                    # If nodes are not connected, apply repulsion if they're within a certain distance
-                    if distance < 1.7 * normal_distance:
-                        repulsion_force = (1.7 * normal_distance - distance) / distance
-                        forces[i] -= normalized_direction * repulsion_force
-                        forces[j] += normalized_direction * repulsion_force
+        # Compute pairwise vectors and distances
+        diffs = self.positions[:, np.newaxis, :] - self.positions[np.newaxis, :, :]  # Pairwise differences
+        distances = np.linalg.norm(diffs, axis=2)  # Pairwise distances
+        normalized_directions = np.divide(diffs, distances[:, :, np.newaxis], where=distances[:, :, np.newaxis] > 0)
 
-        # Update positions based on the forces
+        # Identify connected pairs
+        connected = self.adjacency_matrix == 1
+
+        # Attraction/repulsion for connected nodes
+        too_close = connected & (distances < 0.2 * normal_distance)
+        too_far = connected & (distances > 0.3 * normal_distance)
+
+        # Calculate forces for close and far connected nodes
+        close_force = (0.2 * normal_distance - distances) * too_close
+        far_force = (distances - 0.3 * normal_distance) * too_far
+
+        # Repulsion for non-connected nodes
+        within_range = ~connected & (distances < 1.7 * normal_distance)
+        repulsion_force = within_range * np.divide(
+            (1.7 * normal_distance - distances),
+            distances,
+            where=distances > 0
+        )
+
+        # Apply forces
+        forces += np.einsum('ijk,ij->ik', normalized_directions, close_force - far_force + repulsion_force)
+
+        # Update positions based on forces
         self.positions += forces * 0.01  # Adjust the multiplier for movement speed
-
-        # Clip positions to keep nodes within screen bounds
         self.positions = np.clip(self.positions, 0, [SCREEN_WIDTH, SCREEN_HEIGHT])
-
 
 class NetworkPlot:
     def __init__(self, positions, activities, adjacency_matrix):

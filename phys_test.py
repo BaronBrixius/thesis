@@ -49,10 +49,10 @@ class TestNodeNetworkPhysics(unittest.TestCase):
             network.activities = np.random.uniform(-1, 1, network.num_nodes)
 
     def test_two_connected_nodes_with_interloper(self):
-        network = NodeNetwork(num_nodes=3, num_connections=0, alpha=self.alpha, epsilon=self.epsilon, random_seed=self.random_seed)
+        network = NodeNetwork(num_nodes=3, num_connections=0, alpha=self.alpha, epsilon=self.epsilon, random_seed=174)
         network.add_connection(0, 1)
         self.initialize_positions_and_activities(network, clusters=[[0, 1], [2]])
-        self.display_and_iterate(network, "Two Connected Nodes With Interloper", 75)
+        self.display_and_iterate(network, "Two Connected Nodes With Interloper", 100)
 
     def test_two_clusters_iterating(self):
         network = NodeNetwork(num_nodes=6, num_connections=0, alpha=self.alpha, epsilon=self.epsilon, random_seed=self.random_seed)
