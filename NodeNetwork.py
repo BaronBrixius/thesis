@@ -8,20 +8,21 @@ from matplotlib.animation import FuncAnimation
 from scipy.sparse.csgraph import shortest_path
 import time
 from matplotlib.collections import LineCollection, PatchCollection
+from scipy.spatial import KDTree
 
-NUM_NODES = 1000
+NUM_NODES = 600
 CONNECTION_DENSITY = 0.1
 NUM_CONNECTIONS = int(CONNECTION_DENSITY * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
-NUM_STEPS = 10
+NUM_STEPS = 1000000
 
-METRICS_INTERVAL = 100
-DISPLAY_INTERVAL = 1
-DRAW_LINES = False
+METRICS_INTERVAL = 10000
+DISPLAY_INTERVAL = 10000
+DRAW_LINES = True
 STABILIZATION_THRESHOLD = 0.0
 
 NORMAL_DISTANCE_SCALING = 1.0
-SCREEN_WIDTH = 2.0
-SCREEN_HEIGHT = 2.0
+SCREEN_WIDTH = 1.0
+SCREEN_HEIGHT = 1.0
 
 ALPHA = 1.7
 EPSILON = 0.4
@@ -42,8 +43,7 @@ def stop_timing(label):
 
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
-        if random_seed:
-            np.random.seed(random_seed)
+        np.random.seed(random_seed)
         
         self.num_nodes = num_nodes
         self.alpha = alpha
@@ -51,7 +51,7 @@ class NodeNetwork:
 
         self.activities = np.random.uniform(-1, 1, num_nodes)   # Random initial activity
         self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=int)
-        self.positions = np.random.uniform([0.2 * SCREEN_WIDTH, 0.2 * SCREEN_HEIGHT], [0.8 * SCREEN_WIDTH, 0.8 * SCREEN_HEIGHT], (num_nodes, 2))
+        self.positions = np.random.uniform(0, [SCREEN_WIDTH, SCREEN_HEIGHT], (num_nodes, 2))
         
         self.initialize_connections(num_connections)    # Add initial connections
 
@@ -167,21 +167,18 @@ class NodeNetwork:
 
     def apply_forces(self, effective_iterations=1):
         for _ in range(effective_iterations):
-            # Initialize force matrix
-            forces = np.zeros((self.num_nodes, 2))
-
             # Calculate normal distance based on screen size and number of nodes
             normal_distance = NORMAL_DISTANCE_SCALING * np.sqrt(SCREEN_WIDTH * SCREEN_HEIGHT / self.num_nodes)
 
             # Compute pairwise vectors and distances
             diffs = self.positions[:, np.newaxis, :] - self.positions[np.newaxis, :, :]  # Pairwise differences
-            distances = np.linalg.norm(diffs, axis=2)  # Pairwise distances
+            distances = np.sqrt(np.einsum('ijk,ijk->ij', diffs, diffs)) # Pairwise distances
             normalized_directions = np.divide(diffs, distances[:, :, np.newaxis], where=distances[:, :, np.newaxis] > 0)
 
             # Identify connected pairs
             connected = self.adjacency_matrix == 1
 
-            # Attraction/repulsion for connected nodes
+            # Attraction/repulsion masks for connected nodes
             too_close = connected & (distances < 0.2 * normal_distance)
             too_far = connected & (distances > 0.3 * normal_distance)
 
@@ -191,30 +188,26 @@ class NodeNetwork:
 
             # Repulsion for non-connected nodes
             within_range = ~connected & (distances < 1.7 * normal_distance)
-            repulsion_force = within_range * np.divide(
-                (1.7 * normal_distance - distances),
-                distances,
-                where=distances > 0
-            )
+            repulsion_force = within_range * np.divide((1.7 * normal_distance - distances), distances, where=distances > 0)
 
             # Apply forces
-            forces += np.einsum('ijk,ij->ik', normalized_directions, close_force - far_force + repulsion_force)
+            forces = np.einsum('ijk,ij->ik', normalized_directions, close_force - far_force + repulsion_force)
 
             # Update positions based on forces
             self.positions += forces * 0.01  # Adjust the multiplier for movement speed
             self.positions = np.clip(self.positions, 0, [SCREEN_WIDTH, SCREEN_HEIGHT])
 
 class NetworkPlot:
-    def __init__(self, positions, activities, adjacency_matrix):
+    def __init__(self, positions, activities, adjacency_matrix, draw_lines=DRAW_LINES):
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
-        self.initialize_plot(positions, activities, adjacency_matrix)
+        self.initialize_plot(positions, activities, adjacency_matrix, draw_lines=draw_lines)
 
     def compute_lines(self, positions, adjacency_matrix):
         rows, cols = np.where(np.triu(adjacency_matrix, 1) == 1)
         connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
         return connections
 
-    def initialize_plot(self, positions, activities, adjacency_matrix):
+    def initialize_plot(self, positions, activities, adjacency_matrix, draw_lines=DRAW_LINES):
         self.ax.set_xlim(0, SCREEN_WIDTH)
         self.ax.set_ylim(0, SCREEN_HEIGHT)
         self.ax.set_aspect('equal')
@@ -230,25 +223,27 @@ class NetworkPlot:
         )
 
         # Initialize lines (connections)
-        if DRAW_LINES:
+        if draw_lines:
             lines = self.compute_lines(positions, adjacency_matrix)
             if len(lines) > 0:
                 self.line_collection = LineCollection(lines, colors='gray', linewidths=0.5, alpha=0.6, zorder=1)
                 self.ax.add_collection(self.line_collection)
 
-    def update_plot(self, positions, activities, adjacency_matrix, step):
+    def update_plot(self, positions, activities, adjacency_matrix, step, draw_lines=DRAW_LINES):
         self.ax.set_title(f"Generation {step}")
 
         # Update node colors and positions
         self.scatter.set_offsets(positions)
         self.scatter.set_array(activities)
+
         # Update connection lines
-        if DRAW_LINES:
+        if draw_lines:
             self.line_collection.set_segments(self.compute_lines(positions, adjacency_matrix))
+
         # Redraw the canvas
         self.fig.canvas.draw_idle()
         self.ax.figure.canvas.flush_events()
-        stop_timing('update_plot4')
+
 class Simulation:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
@@ -270,21 +265,22 @@ class Simulation:
                 print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}")
 
             if display_interval and step % display_interval == 0:
-                self.network.apply_forces(min(10, display_interval))
+                self.network.apply_forces(min(50, display_interval))
                 self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step)
 
         characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
         print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}")
         
         if display_interval:
-            self.network.apply_forces(min(1000, display_interval))
-            self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step)
+            for _ in range(min(250, display_interval)):
+                self.network.apply_forces()
+                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step)
             # Turn off interactive mode to display the plot at the very end without it closing
-            #plt.ioff()
-            #plt.show()
+            plt.ioff()
+            plt.show()
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
+    profiler = None #cProfile.Profile()
     if profiler: profiler.enable()
 
     # Run the simulation
