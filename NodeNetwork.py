@@ -230,26 +230,21 @@ class NetworkPlot:
         )
 
         # Initialize lines (connections)
-        lines = self.compute_lines(positions, adjacency_matrix)
-        if len(lines) > 0:
-            self.line_collection = LineCollection(lines, colors='gray', linewidths=0.5, alpha=0.6, zorder=1)
-            self.ax.add_collection(self.line_collection)
+        if DRAW_LINES:
+            lines = self.compute_lines(positions, adjacency_matrix)
+            if len(lines) > 0:
+                self.line_collection = LineCollection(lines, colors='gray', linewidths=0.5, alpha=0.6, zorder=1)
+                self.ax.add_collection(self.line_collection)
 
     def update_plot(self, positions, activities, adjacency_matrix, step):
-        start_timing('update_plot1')
         self.ax.set_title(f"Generation {step}")
-        stop_timing('update_plot1')
-        start_timing('update_plot2')
 
         # Update node colors and positions
         self.scatter.set_offsets(positions)
         self.scatter.set_array(activities)
-        stop_timing('update_plot2')
-        start_timing('update_plot3')
         # Update connection lines
-        self.line_collection.set_segments(self.compute_lines(positions, adjacency_matrix))
-        stop_timing('update_plot3')
-        start_timing('update_plot4')
+        if DRAW_LINES:
+            self.line_collection.set_segments(self.compute_lines(positions, adjacency_matrix))
         # Redraw the canvas
         self.fig.canvas.draw_idle()
         self.ax.figure.canvas.flush_events()
