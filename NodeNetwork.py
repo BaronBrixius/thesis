@@ -10,23 +10,23 @@ import time
 from matplotlib.collections import LineCollection, PatchCollection
 from scipy.spatial import KDTree
 
-NUM_NODES = 600
+NUM_NODES = 200
 CONNECTION_DENSITY = 0.1
 NUM_CONNECTIONS = int(CONNECTION_DENSITY * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
-NUM_STEPS = 1000000
+NUM_STEPS = 10_000_000
 
-METRICS_INTERVAL = 10000
-DISPLAY_INTERVAL = 10000
+METRICS_INTERVAL = 1000
+DISPLAY_INTERVAL = 1000
 DRAW_LINES = True
-STABILIZATION_THRESHOLD = 0.0
+STABILIZATION_THRESHOLD = 0.01  # 1% threshold for stabilization
 
-NORMAL_DISTANCE_SCALING = 1.0
+NORMAL_DISTANCE_SCALING = 1.3
 SCREEN_WIDTH = 1.0
 SCREEN_HEIGHT = 1.0
 
 ALPHA = 1.7
 EPSILON = 0.4
-RANDOM_SEED = 5
+RANDOM_SEED = 42
 
 accumulated_times = {}
 def start_timing(label):
@@ -187,14 +187,14 @@ class NodeNetwork:
             far_force = (distances - 0.3 * normal_distance) * too_far
 
             # Repulsion for non-connected nodes
-            within_range = ~connected & (distances < 1.7 * normal_distance)
-            repulsion_force = within_range * np.divide((1.7 * normal_distance - distances), distances, where=distances > 0)
+            within_range = ~connected & (distances < 2.3 * normal_distance)
+            repulsion_force = within_range * np.divide((2.3 * normal_distance - distances), distances, where=distances > 0)
 
             # Apply forces
             forces = np.einsum('ijk,ij->ik', normalized_directions, close_force - far_force + repulsion_force)
 
             # Update positions based on forces
-            self.positions += forces * 0.01  # Adjust the multiplier for movement speed
+            self.positions += forces * 0.003  # Adjust the multiplier for movement speed
             self.positions = np.clip(self.positions, 0, [SCREEN_WIDTH, SCREEN_HEIGHT])
 
 class NetworkPlot:
@@ -229,8 +229,8 @@ class NetworkPlot:
                 self.line_collection = LineCollection(lines, colors='gray', linewidths=0.5, alpha=0.6, zorder=1)
                 self.ax.add_collection(self.line_collection)
 
-    def update_plot(self, positions, activities, adjacency_matrix, step, draw_lines=DRAW_LINES):
-        self.ax.set_title(f"Generation {step}")
+    def update_plot(self, positions, activities, adjacency_matrix, title, draw_lines=DRAW_LINES):
+        self.ax.set_title(title)
 
         # Update node colors and positions
         self.scatter.set_offsets(positions)
@@ -244,11 +244,26 @@ class NetworkPlot:
         self.fig.canvas.draw_idle()
         self.ax.figure.canvas.flush_events()
 
+    def plot_connection_distribution_single(self, adjacency_matrix, title="Connection Distribution"):
+        # Count connections for each node (degree of the nodes)
+        connections = np.sum(adjacency_matrix, axis=1)
+
+        # Plot histogram
+        plt.figure(figsize=(8, 6))
+        plt.hist(connections, bins=np.arange(connections.min(), connections.max() + 2), color='black', edgecolor='white')
+        plt.title(title)
+        plt.xlabel("#connections per unit")
+        plt.ylabel("#units")
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.show()
+
 class Simulation:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
 
     def run(self, num_steps, display_interval, metrics_interval=METRICS_INTERVAL):
+        start = time.time()
+
         if display_interval:
             self.plot = NetworkPlot(self.network.positions, self.network.activities, self.network.adjacency_matrix)
             # Turn on plotting in interactive mode so it updates
@@ -262,22 +277,23 @@ class Simulation:
 
             if step % metrics_interval == 0:
                 characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
-                print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}")
+                print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}, Time={time.time()-start:.2f}")
 
             if display_interval and step % display_interval == 0:
-                self.network.apply_forces(min(50, display_interval))
-                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step)
+                self.network.apply_forces(min(25, display_interval))
+                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, Generation {step}")
 
         characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
-        print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}")
-        
+        print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}, Time={time.time()-start:.2f}")
+
         if display_interval:
             for _ in range(min(250, display_interval)):
                 self.network.apply_forces()
-                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step)
+                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, Generation {step}")
             # Turn off interactive mode to display the plot at the very end without it closing
             plt.ioff()
             plt.show()
+            self.plot.plot_connection_distribution_single(self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes Connection Distribution")
 
 if __name__ == "__main__":
     profiler = None #cProfile.Profile()
