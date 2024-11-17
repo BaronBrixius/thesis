@@ -7,23 +7,25 @@ from matplotlib import colormaps
 from matplotlib.animation import FuncAnimation
 from scipy.sparse.csgraph import shortest_path
 import time
+from matplotlib.collections import LineCollection, PatchCollection
 
-NUM_NODES = 150
+NUM_NODES = 1000
 CONNECTION_DENSITY = 0.1
 NUM_CONNECTIONS = int(CONNECTION_DENSITY * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
-NUM_STEPS = 23_000
+NUM_STEPS = 10
 
-METRICS_INTERVAL = 1000
-DISPLAY_INTERVAL = 1000
+METRICS_INTERVAL = 100
+DISPLAY_INTERVAL = 1
+DRAW_LINES = False
 STABILIZATION_THRESHOLD = 0.0
 
-NORMAL_DISTANCE_SCALING = 0.7  # You may need to adjust this for screen scaling
+NORMAL_DISTANCE_SCALING = 1.0
 SCREEN_WIDTH = 2.0
 SCREEN_HEIGHT = 2.0
 
 ALPHA = 1.7
 EPSILON = 0.4
-RANDOM_SEED = 42
+RANDOM_SEED = 5
 
 accumulated_times = {}
 def start_timing(label):
@@ -163,105 +165,95 @@ class NodeNetwork:
 
         return char_path_length, avg_clustering
 
-    def apply_forces(self):
-        # Initialize force matrix
-        forces = np.zeros((self.num_nodes, 2))
+    def apply_forces(self, effective_iterations=1):
+        for _ in range(effective_iterations):
+            # Initialize force matrix
+            forces = np.zeros((self.num_nodes, 2))
 
-        # Calculate normal distance based on screen size and number of nodes
-        normal_distance = NORMAL_DISTANCE_SCALING * np.sqrt(SCREEN_WIDTH * SCREEN_HEIGHT / self.num_nodes)
+            # Calculate normal distance based on screen size and number of nodes
+            normal_distance = NORMAL_DISTANCE_SCALING * np.sqrt(SCREEN_WIDTH * SCREEN_HEIGHT / self.num_nodes)
 
-        # Compute pairwise vectors and distances
-        diffs = self.positions[:, np.newaxis, :] - self.positions[np.newaxis, :, :]  # Pairwise differences
-        distances = np.linalg.norm(diffs, axis=2)  # Pairwise distances
-        normalized_directions = np.divide(diffs, distances[:, :, np.newaxis], where=distances[:, :, np.newaxis] > 0)
+            # Compute pairwise vectors and distances
+            diffs = self.positions[:, np.newaxis, :] - self.positions[np.newaxis, :, :]  # Pairwise differences
+            distances = np.linalg.norm(diffs, axis=2)  # Pairwise distances
+            normalized_directions = np.divide(diffs, distances[:, :, np.newaxis], where=distances[:, :, np.newaxis] > 0)
 
-        # Identify connected pairs
-        connected = self.adjacency_matrix == 1
+            # Identify connected pairs
+            connected = self.adjacency_matrix == 1
 
-        # Attraction/repulsion for connected nodes
-        too_close = connected & (distances < 0.2 * normal_distance)
-        too_far = connected & (distances > 0.3 * normal_distance)
+            # Attraction/repulsion for connected nodes
+            too_close = connected & (distances < 0.2 * normal_distance)
+            too_far = connected & (distances > 0.3 * normal_distance)
 
-        # Calculate forces for close and far connected nodes
-        close_force = (0.2 * normal_distance - distances) * too_close
-        far_force = (distances - 0.3 * normal_distance) * too_far
+            # Calculate forces for close and far connected nodes
+            close_force = (0.2 * normal_distance - distances) * too_close
+            far_force = (distances - 0.3 * normal_distance) * too_far
 
-        # Repulsion for non-connected nodes
-        within_range = ~connected & (distances < 1.7 * normal_distance)
-        repulsion_force = within_range * np.divide(
-            (1.7 * normal_distance - distances),
-            distances,
-            where=distances > 0
-        )
+            # Repulsion for non-connected nodes
+            within_range = ~connected & (distances < 1.7 * normal_distance)
+            repulsion_force = within_range * np.divide(
+                (1.7 * normal_distance - distances),
+                distances,
+                where=distances > 0
+            )
 
-        # Apply forces
-        forces += np.einsum('ijk,ij->ik', normalized_directions, close_force - far_force + repulsion_force)
+            # Apply forces
+            forces += np.einsum('ijk,ij->ik', normalized_directions, close_force - far_force + repulsion_force)
 
-        # Update positions based on forces
-        self.positions += forces * 0.01  # Adjust the multiplier for movement speed
-        self.positions = np.clip(self.positions, 0, [SCREEN_WIDTH, SCREEN_HEIGHT])
+            # Update positions based on forces
+            self.positions += forces * 0.01  # Adjust the multiplier for movement speed
+            self.positions = np.clip(self.positions, 0, [SCREEN_WIDTH, SCREEN_HEIGHT])
 
 class NetworkPlot:
     def __init__(self, positions, activities, adjacency_matrix):
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
-        self.cmap = colormaps['cividis']  # Color map for node activity
-        self.circles = []
-        #self.texts = []
-        self.lines = []
-
         self.initialize_plot(positions, activities, adjacency_matrix)
+
+    def compute_lines(self, positions, adjacency_matrix):
+        rows, cols = np.where(np.triu(adjacency_matrix, 1) == 1)
+        connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
+        return connections
 
     def initialize_plot(self, positions, activities, adjacency_matrix):
         self.ax.set_xlim(0, SCREEN_WIDTH)
         self.ax.set_ylim(0, SCREEN_HEIGHT)
         self.ax.set_aspect('equal')
 
-        # Draw connections based on adjacency matrix
-        for i in range(adjacency_matrix.shape[0]):
-            for j in range(i + 1, adjacency_matrix.shape[1]):
-                if adjacency_matrix[i, j] == 1:
-                    line, = self.ax.plot([positions[i][0], positions[j][0]], [positions[i][1], positions[j][1]], 'gray', lw=0.5, alpha=0.6)
-                    self.lines.append(line)
+        # Initialize scatter plot for nodes
+        self.scatter = self.ax.scatter(
+            positions[:, 0],
+            positions[:, 1],
+            c=activities,
+            cmap='cividis',
+            s=10,
+            zorder=2
+        )
 
-        # Draw nodes
-        for i, (x, y) in enumerate(positions):
-            color = self.cmap((activities[i] + 1) / 2)
-            circle = Circle((x, y), 0.02, color=color, ec='black', zorder=2)
-            self.ax.add_patch(circle)
-            self.circles.append(circle)
+        # Initialize lines (connections)
+        lines = self.compute_lines(positions, adjacency_matrix)
+        if len(lines) > 0:
+            self.line_collection = LineCollection(lines, colors='gray', linewidths=0.5, alpha=0.6, zorder=1)
+            self.ax.add_collection(self.line_collection)
 
-            #text = self.ax.text(x, y, self.format_activity(activities[i]), fontsize=7, ha='center', va='center', color='white')
-            #self.texts.append(text)
+    def update_plot(self, positions, activities, adjacency_matrix, step):
+        start_timing('update_plot1')
+        self.ax.set_title(f"Generation {step}")
+        stop_timing('update_plot1')
+        start_timing('update_plot2')
 
-
-    def update_plot(self, positions, activities, adjacency_matrix, step, characteristic_path_length, clustering_coefficient):
-        self.ax.set_title(f"Generation {step}")# - CPL: {characteristic_path_length:.2f}, CC: {clustering_coefficient:.2f}") #TODO
-
+        # Update node colors and positions
+        self.scatter.set_offsets(positions)
+        self.scatter.set_array(activities)
+        stop_timing('update_plot2')
+        start_timing('update_plot3')
         # Update connection lines
-        line_index = 0
-        for i in range(adjacency_matrix.shape[0]):
-            for j in range(i + 1, adjacency_matrix.shape[1]):
-                if adjacency_matrix[i, j] == 1:
-                    self.lines[line_index].set_data([positions[i][0], positions[j][0]], [positions[i][1], positions[j][1]])
-                    line_index += 1
-
-        # Update node colors, positions, and text values
-        for i, circle in enumerate(self.circles):               # for i, (circle, text) in enumerate(zip(self.circles, self.texts)):
-            color = self.cmap((activities[i] + 1) / 2)
-            circle.set_facecolor(color)
-            circle.set_center(positions[i])
-
-            #text.set_text(self.format_activity(activities[i]))
-            #text.set_position(positions[i])
-
-
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()   # Flush GUI events for immediate update without delay
-
-    # Helper function to format activity values
-    def format_activity(self, activity):
-        return f'{activity: .2f}'.replace('0.', '.').replace('-0.', '-.')
-
+        self.line_collection.set_segments(self.compute_lines(positions, adjacency_matrix))
+        stop_timing('update_plot3')
+        start_timing('update_plot4')
+        # Redraw the canvas
+        self.fig.canvas.draw_idle()
+        self.ax.figure.canvas.flush_events()
+        stop_timing('update_plot4')
 class Simulation:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
@@ -276,23 +268,22 @@ class Simulation:
             if self.network.stabilized == True:
                 print(f"Stabilized after {step} iterations.")
                 break
-            self.network.update_network()
-            if display_interval:
-                self.network.apply_forces()
+            self.network.update_network()            
 
             if step % metrics_interval == 0:
                 characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
                 print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}")
 
             if display_interval and step % display_interval == 0:
-                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step, characteristic_path_length, clustering_coefficient)
+                self.network.apply_forces(min(10, display_interval))
+                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step)
 
         characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
         print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}")
         
         if display_interval:
-            self.network.apply_forces()
-            self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step, characteristic_path_length, clustering_coefficient)
+            self.network.apply_forces(min(1000, display_interval))
+            self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, step)
             # Turn off interactive mode to display the plot at the very end without it closing
             #plt.ioff()
             #plt.show()
