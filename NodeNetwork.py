@@ -2,13 +2,9 @@ import cProfile
 import pstats
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
-from matplotlib import colormaps
-from matplotlib.animation import FuncAnimation
+from matplotlib.collections import LineCollection
 from scipy.sparse.csgraph import shortest_path
 import time
-from matplotlib.collections import LineCollection, PatchCollection
-from scipy.spatial import KDTree
 
 NUM_NODES = 200
 CONNECTION_DENSITY = 0.1
