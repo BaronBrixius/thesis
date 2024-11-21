@@ -7,10 +7,10 @@ from scipy.sparse.csgraph import shortest_path
 import time
 import os
 
-NUM_NODES = 200
+NUM_NODES = 500
 CONNECTION_DENSITY = 0.1
 NUM_CONNECTIONS = int(CONNECTION_DENSITY * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
-NUM_STEPS = 10_000_000
+NUM_STEPS = 1_00_000
 
 METRICS_INTERVAL = 1000
 DISPLAY_INTERVAL = 1000
@@ -51,9 +51,11 @@ class NodeNetwork:
 
         self.activities = np.random.uniform(-1, 1, num_nodes)   # Random initial activity
         self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=int)
-        self.positions = np.random.uniform([0.1 * SCREEN_WIDTH, 0.1 * SCREEN_HEIGHT], [0.9 * SCREEN_WIDTH, 0.9 * SCREEN_HEIGHT], (num_nodes, 2))
-        self.normal_distance = NORMAL_DISTANCE_SCALING * np.sqrt(SCREEN_WIDTH * SCREEN_HEIGHT / self.num_nodes) * np.sqrt((1 + self.num_connections / self.num_nodes))
-        
+
+        positions = np.random.uniform([0.1 * SCREEN_WIDTH, 0.1 * SCREEN_HEIGHT], [0.9 * SCREEN_WIDTH, 0.9 * SCREEN_HEIGHT], (num_nodes, 2))
+        normal_distance = NORMAL_DISTANCE_SCALING * np.sqrt(SCREEN_WIDTH * SCREEN_HEIGHT / self.num_nodes) * np.sqrt(1 + self.num_connections / self.num_nodes)
+        self.physics = NetworkPhysics(self.adjacency_matrix, positions, normal_distance)
+
         self.initialize_connections(num_connections)    # Add initial connections
 
         self.cpl_history = []
@@ -166,15 +168,23 @@ class NodeNetwork:
 
         return char_path_length, avg_clustering
 
+    def apply_forces(self, effective_iterations=1):
+        self.physics.apply_forces(self.adjacency_matrix, effective_iterations)
+
+class NetworkPhysics:
+    def __init__(self, adjacency_matrix, positions, normal_distance):
+        self.positions = positions
+        self.adjacency_matrix = adjacency_matrix
+        self.normal_distance = normal_distance
+
     def adjust_normal_distance(self, target_coverage=0.7, tolerance=0.05, adjustment_rate=0.015):
         lower_bounds = np.percentile(self.positions, 1, axis=0)
         upper_bounds = np.percentile(self.positions, 99, axis=0)
         width, height = upper_bounds - lower_bounds
 
-        # Compute area coverage with filtered bounds
-        filtered_area = width * height
+        network_area = width * height
         total_area = SCREEN_WIDTH * SCREEN_HEIGHT
-        area_coverage = filtered_area / total_area
+        area_coverage = network_area / total_area
 
         # Adjust normal_distance based on coverage
         if area_coverage > target_coverage + tolerance:
@@ -182,22 +192,18 @@ class NodeNetwork:
         elif area_coverage < target_coverage - tolerance:
             self.normal_distance *= (1 + adjustment_rate)  # Increase normal_distance to expand the network
 
-    def pull_all_nodes_towards_center(self, central_force_strength=0.0002):
-        center = np.array([SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2])
-        diffs = center - self.positions  # Vector from node to center
-        self.positions += diffs * (central_force_strength / self.normal_distance)
-
-    def apply_forces(self, effective_iterations=1):
+    def apply_forces(self, adjacency_matrix, effective_iterations=1, central_force_strength=0.0002):
         self.adjust_normal_distance()
 
         for _ in range(effective_iterations):
-            # Compute pairwise vectors and distances
-            diffs = self.positions[:, np.newaxis, :] - self.positions[np.newaxis, :, :]  # Pairwise differences
-            distances = np.sqrt(np.einsum('ijk,ijk->ij', diffs, diffs)) # Pairwise distances
-            normalized_directions = np.divide(diffs, distances[:, :, np.newaxis], where=distances[:, :, np.newaxis] > 0)
+            diffs = self.positions[:, np.newaxis, :] - self.positions[np.newaxis, :, :]
+            distances = np.sqrt(np.einsum('ijk,ijk->ij', diffs, diffs))
+            normalized_directions = np.divide(
+                diffs, distances[:, :, np.newaxis], where=distances[:, :, np.newaxis] > 0
+            )
 
             # Identify connected pairs
-            connected = self.adjacency_matrix == 1
+            connected = adjacency_matrix == 1
 
             # Attraction/repulsion masks for connected nodes
             too_close = connected & (distances < 0.2 * self.normal_distance)
@@ -216,8 +222,13 @@ class NodeNetwork:
 
             # Update positions based on forces
             self.positions += forces * 0.003  # Adjust the multiplier for movement speed
-        self.pull_all_nodes_towards_center()
+        self.pull_all_nodes_towards_center(central_force_strength)
         self.positions = np.clip(self.positions, 0, [SCREEN_WIDTH, SCREEN_HEIGHT])
+
+    def pull_all_nodes_towards_center(self, central_force_strength):
+        center = np.array([SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2])
+        diffs = center - self.positions
+        self.positions += diffs * (central_force_strength / self.normal_distance)
 
 class NetworkPlot:
     def __init__(self, positions, activities, adjacency_matrix, draw_lines=DRAW_LINES):
@@ -329,12 +340,12 @@ class Simulation:
         start = time.time()
 
         if display_interval:
-            self.plot = NetworkPlot(self.network.positions, self.network.activities, self.network.adjacency_matrix)
+            self.plot = NetworkPlot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix)
             if show:
                 plt.ion()
                 plt.show()
 
-        # Main loop
+        # Main Loop
         for step in range(num_steps):
             if self.network.stabilized == True:
                 print(f"Stabilized after {step} iterations.")
@@ -347,22 +358,23 @@ class Simulation:
 
             if display_interval and step % display_interval == 0:
                 self.network.apply_forces(min(25, display_interval))
-                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
+                self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
 
+        # Finalization
         self.metrics(step, start)
 
-        if display_interval:
-            for _ in range(min(150, display_interval)):
-                self.network.apply_forces()
-                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
+        #if display_interval:
+            #for _ in range(min(150, display_interval)):
+            #    self.network.apply_forces()
+            #    self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
 
-            if figure_file:
-                self.plot.fig.savefig(figure_file, dpi=300)
+            #if figure_file:
+            #    self.plot.fig.savefig(figure_file, dpi=300)
 
-            self.plot.plot_connection_distribution_single(self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Distribution")
+            #self.plot.plot_connection_distribution_single(self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Distribution")
 
 if __name__ == "__main__":
-    profiler = None #cProfile.Profile()
+    profiler = cProfile.Profile()
     if profiler: profiler.enable()
 
     # # Run the simulation
