@@ -294,6 +294,16 @@ class OutputManager:
         for folder in self.folders.values():
             os.makedirs(folder, exist_ok=True)
 
+    def save_stats(self, step, start, characteristic_path_length, clustering_coefficient, breakup_count):
+        time_since_start = time.time() - start
+        print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={breakup_count}, Time={time_since_start:.2f}")
+
+        metrics_file = os.path.join(self.base_dir, "metrics.csv")
+        with open(metrics_file, "a") as f:
+            if step == 0:  # Write headers if it's the first step
+                f.write("Step_Num,CPL,CC,Breakups,Time\n")
+            f.write(f"{step},{characteristic_path_length},{clustering_coefficient},{breakup_count},{time_since_start:.2f}\n")
+
     def save_histogram(self, connections, step):
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.hist(connections, bins=np.arange(connections.min(), connections.max() + 2), 
@@ -331,10 +341,8 @@ class Simulation:
 
     def metrics(self, step, start):
         characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
-        time_since_start = time.time() - start
-        print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}, Time={time_since_start:.2f}")
+        self.output_manager.save_stats(step, start, characteristic_path_length, clustering_coefficient, self.network.breakup_count)
 
-        # Save metrics
         self.output_manager.save_matrix(self.network.adjacency_matrix, step)
         self.output_manager.save_histogram(np.sum(self.network.adjacency_matrix, axis=1), step)
         self.output_manager.save_activities(self.network.activities, step)
@@ -371,6 +379,7 @@ class Simulation:
             self.network.apply_forces(min(150, display_interval))
             self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
             self.output_manager.save_network_image(self.plot, step)
+            plt.close(self.plot.fig)
 
 if __name__ == "__main__":
     profiler = None #cProfile.Profile()
@@ -385,13 +394,14 @@ if __name__ == "__main__":
     for num_connections in range(50, 5000, 50):  # Adjust connection density
         scenario_dir = os.path.join("density_test_data", f"density_{num_connections}")
         sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=42)
-        sim.run(num_steps=1_000_000, display_interval=100, metrics_interval=100)
+        sim.run(num_steps=1_000_000, display_interval=100, metrics_interval=100, show=False)
 
     # 2: 600-unit networks with connection matrix and histogram
     num_connections_600 = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2))
     for i in range(5):
+        scenario_dir = os.path.join("600_nodes_test_data", f"trial_{i}")
         sim = Simulation(num_nodes=600, num_connections=num_connections_600, output_dir=f"metrics_600_nodes_{i}", random_seed=42)
-        sim.run(num_steps=1_000_000, display_interval=100, metrics_interval=100)
+        sim.run(num_steps=1_000_000, display_interval=100, metrics_interval=100, show=False)
 
     if profiler: profiler.disable()
 
