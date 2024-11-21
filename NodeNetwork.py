@@ -10,7 +10,7 @@ import os
 NUM_NODES = 500
 CONNECTION_DENSITY = 0.1
 NUM_CONNECTIONS = int(CONNECTION_DENSITY * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
-NUM_STEPS = 1_00_000
+NUM_STEPS = 10_000_000
 
 METRICS_INTERVAL = 1000
 DISPLAY_INTERVAL = 1000
@@ -20,8 +20,6 @@ STABILIZATION_THRESHOLD = 0
 NORMAL_DISTANCE_SCALING = 0.5
 SCREEN_WIDTH = 1.0
 SCREEN_HEIGHT = 1.0
-
-OUTPUT_DIR = "network_results"
 
 ALPHA = 1.7
 EPSILON = 0.4
@@ -198,9 +196,7 @@ class NetworkPhysics:
         for _ in range(effective_iterations):
             diffs = self.positions[:, np.newaxis, :] - self.positions[np.newaxis, :, :]
             distances = np.sqrt(np.einsum('ijk,ijk->ij', diffs, diffs))
-            normalized_directions = np.divide(
-                diffs, distances[:, :, np.newaxis], where=distances[:, :, np.newaxis] > 0
-            )
+            normalized_directions = np.divide(diffs, distances[:, :, np.newaxis] + 1e-10)
 
             # Identify connected pairs
             connected = adjacency_matrix == 1
@@ -215,15 +211,16 @@ class NetworkPhysics:
 
             # Repulsion for non-connected nodes
             within_range = ~connected & (distances < 1.7 * self.normal_distance)
-            repulsion_force = within_range * np.divide((1.7 * self.normal_distance - distances), distances, where=distances > 0)
+            repulsion_force = within_range * np.divide((1.7 * self.normal_distance - distances), distances + 1e-10)
 
             # Apply forces
             forces = np.einsum('ijk,ij->ik', normalized_directions, close_force - far_force + repulsion_force)
 
             # Update positions based on forces
             self.positions += forces * 0.003  # Adjust the multiplier for movement speed
+
         self.pull_all_nodes_towards_center(central_force_strength)
-        self.positions = np.clip(self.positions, 0, [SCREEN_WIDTH, SCREEN_HEIGHT])
+        np.clip(self.positions, 0, [SCREEN_WIDTH, SCREEN_HEIGHT])
 
     def pull_all_nodes_towards_center(self, central_force_strength):
         center = np.array([SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2])
@@ -270,10 +267,6 @@ class NetworkPlot:
             print("Error: Invalid positions detected (NaN or inf).")
             return
 
-        if not np.all(np.isfinite(activities)):
-            print("Error: Invalid activities detected (NaN or inf).")
-            return
-
         # Update node colors and positions
         self.scatter.set_offsets(positions)
         self.scatter.set_array(activities)
@@ -286,57 +279,67 @@ class NetworkPlot:
         self.fig.canvas.draw_idle()
         self.ax.figure.canvas.flush_events()
 
-    def plot_connection_distribution_single(self, adjacency_matrix, title="Connection Distribution"):
-        # Count connections for each node (degree of the nodes)
-        connections = np.sum(adjacency_matrix, axis=1)
+class OutputManager:
+    def __init__(self, base_dir):
+        self.base_dir = base_dir
+        self.folders = {
+            "histograms": os.path.join(base_dir, "histograms"),
+            "images": os.path.join(base_dir, "images"),
+            "matrices": os.path.join(base_dir, "matrices"),
+            "activities": os.path.join(base_dir, "activities"),
+        }
+        self.prepare_directories()
 
-        # Plot histogram
-        plt.figure(figsize=(8, 6))
-        plt.hist(connections, bins=np.arange(connections.min(), connections.max() + 2), color='black', edgecolor='white')
-        plt.title(title)
-        plt.xlabel("#connections per unit")
-        plt.ylabel("#units")
-        plt.grid(axis='y', linestyle='--', alpha=0.7)
-        plt.show()
+    def prepare_directories(self):
+        for folder in self.folders.values():
+            os.makedirs(folder, exist_ok=True)
+
+    def save_histogram(self, connections, step):
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.hist(connections, bins=np.arange(connections.min(), connections.max() + 2), 
+                color='black', edgecolor='white')
+        ax.set_title(f"Connection Distribution (Step {step})")
+        ax.set_xlabel("#connections per unit")
+        ax.set_ylabel("#units")
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+        # Save the plot as an image
+        plot_path = os.path.join(self.folders["histograms"], f"histogram_{step}.png")
+        plt.savefig(plot_path, dpi=300)
+        plt.close(fig)
+        print(f"Saved histogram plot at step {step}: {plot_path}")
+
+    def save_matrix(self, matrix, step):
+        file_path = os.path.join(self.folders["matrices"], f"matrix_{step}.csv")
+        np.savetxt(file_path, matrix, fmt="%d", delimiter=",")
+        print(f"Saved matrix at step {step}: {file_path}")
+
+    def save_network_image(self, plot, step):
+        file_path = os.path.join(self.folders["images"], f"image_{step}.png")
+        plot.fig.savefig(file_path, dpi=300)
+        print(f"Saved network image at step {step}: {file_path}")
+
+    def save_activities(self, activities, step):
+        file_path = os.path.join(self.folders["activities"], f"activities_{step}.csv")
+        np.savetxt(file_path, activities, fmt="%.6f", delimiter=",")
+        print(f"Saved activities at step {step}: {file_path}")
 
 class Simulation:
-    def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None, metrics_file=None, connection_matrix_dir=None):
+    def __init__(self, num_nodes, num_connections, output_dir, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
-        self.metrics_file = metrics_file
-        self.connection_matrix_dir = connection_matrix_dir
-
-        # Initialize the metrics file
-        if self.metrics_file:
-            with open(self.metrics_file, "w") as f:
-                f.write("Iteration,APL,CC,Breakups,Time\n")
-
-        # Create directory for connection matrices if specified
-        if self.connection_matrix_dir and not os.path.exists(self.connection_matrix_dir):
-            os.makedirs(self.connection_matrix_dir)
-
-    def save_connection_matrix(self, step):
-            if self.connection_matrix_dir:
-                np.save(os.path.join(self.connection_matrix_dir, f"connection_matrix_{step}.npy"), self.network.adjacency_matrix)
-
-    def save_connection_histogram(self, step):
-        if self.connection_matrix_dir:
-            connections = np.sum(self.network.adjacency_matrix, axis=1)
-            histogram, bins = np.histogram(connections, bins=np.arange(0, self.network.num_nodes + 1))
-            np.save(os.path.join(self.connection_matrix_dir, f"connection_histogram_{step}.npy"), histogram)
+        self.output_manager = OutputManager(output_dir)
 
     def metrics(self, step, start):
         characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
         time_since_start = time.time() - start
         print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}, Time={time_since_start:.2f}")
 
-        if self.metrics_file:
-            with open(self.metrics_file, "a") as f:
-                f.write(f"{step},{characteristic_path_length},{clustering_coefficient},{self.network.breakup_count},{time_since_start:.2f}\n")
-        
-        self.save_connection_matrix(step)
-        self.save_connection_histogram(step)
+        # Save metrics
+        self.output_manager.save_matrix(self.network.adjacency_matrix, step)
+        self.output_manager.save_histogram(np.sum(self.network.adjacency_matrix, axis=1), step)
+        self.output_manager.save_activities(self.network.activities, step)
 
-    def run(self, num_steps, display_interval, metrics_interval=METRICS_INTERVAL, figure_file=None, show=True):
+    def run(self, num_steps, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=True):
         start = time.time()
 
         if display_interval:
@@ -359,43 +362,36 @@ class Simulation:
             if display_interval and step % display_interval == 0:
                 self.network.apply_forces(min(25, display_interval))
                 self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
+                self.output_manager.save_network_image(self.plot, step)
 
-        # Finalization
+        # Final metrics and outputs after the main loop ends
         self.metrics(step, start)
 
-        #if display_interval:
-            #for _ in range(min(150, display_interval)):
-            #    self.network.apply_forces()
-            #    self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
-
-            #if figure_file:
-            #    self.plot.fig.savefig(figure_file, dpi=300)
-
-            #self.plot.plot_connection_distribution_single(self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Distribution")
+        if display_interval:
+            self.network.apply_forces(min(150, display_interval))
+            self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
+            self.output_manager.save_network_image(self.plot, step)
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
+    profiler = None #cProfile.Profile()
     if profiler: profiler.enable()
 
-    # # Run the simulation
-    print("Nodes:", NUM_NODES, "Connections:", NUM_CONNECTIONS, "Steps:", NUM_STEPS)
-    sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, alpha=ALPHA, epsilon=EPSILON, random_seed=RANDOM_SEED, metrics_file=f"{NUM_NODES}_{NUM_CONNECTIONS}_{NUM_STEPS}.csv")
-    sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL)
+    # Run the simulation
+    # print("Nodes:", NUM_NODES, "Connections:", NUM_CONNECTIONS, "Steps:", NUM_STEPS)
+    # sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir="test")
+    # sim.run(num_steps=NUM_STEPS)
 
-    # Task 1: Networks with varying connection densities
-    # for num_connections in range(550, 551, 1):
-    #     print("Connections:", num_connections)
-    #     metrics_file = f"density_test_data/100_{num_connections}_{NUM_STEPS}.csv"
-    #     sim = Simulation(num_nodes=100, num_connections=num_connections, alpha=ALPHA, epsilon=EPSILON, random_seed=RANDOM_SEED, metrics_file=metrics_file)
-    #     sim.run(num_steps=10_00, display_interval=1000, figure_file=f"density_test_data/100_{num_connections}_{1000}.png", show=True)
+    # 1: Networks with varying connection densities
+    for num_connections in range(50, 5000, 50):  # Adjust connection density
+        scenario_dir = os.path.join("density_test_data", f"density_{num_connections}")
+        sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=42)
+        sim.run(num_steps=1_000_000, display_interval=100, metrics_interval=100)
 
-    # Task 2: 600-unit networks with connection matrix and histogram
-    # for i in range(5):
-    #     print(f"600 nodes {i}")
-    #     metrics_file = f"metrics_600_nodes_{i}.csv"
-    #     connection_matrix_dir = "600_node_data"
-    #     sim = Simulation(num_nodes=600, num_connections=18000, alpha=ALPHA, epsilon=EPSILON, random_seed=RANDOM_SEED, metrics_file=metrics_file, connection_matrix_dir=connection_matrix_dir)
-    #     sim.run(num_steps=1_000_000, display_interval=1000, figure_file=f"600_nodes_{i}.png", show=False)
+    # 2: 600-unit networks with connection matrix and histogram
+    num_connections_600 = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2))
+    for i in range(5):
+        sim = Simulation(num_nodes=600, num_connections=num_connections_600, output_dir=f"metrics_600_nodes_{i}", random_seed=42)
+        sim.run(num_steps=1_000_000, display_interval=100, metrics_interval=100)
 
     if profiler: profiler.disable()
 
