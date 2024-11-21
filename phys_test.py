@@ -51,7 +51,7 @@ class TestNodeNetworkPhysics(unittest.TestCase):
 
         return network
 
-    def helper_display_and_iterate_network(self, network, title, steps=100, draw_lines=True):
+    def helper_display_and_iterate_network(self, network, title, steps=400, draw_lines=True):
         plot = NetworkPlot(network.positions, network.activities, network.adjacency_matrix, draw_lines=draw_lines)
         plot.ax.set_xlabel(f"{title}")
 
@@ -74,50 +74,50 @@ class TestNodeNetworkPhysics(unittest.TestCase):
         plt.close()
 
     # Test Cases
-    # def test_a_two_nodes_with_interloper(self):
-    #     network = NodeNetwork(num_nodes=3, num_connections=1, random_seed=RANDOM_SEED)
-    #     network.activities = np.full((3), 1.0)
-    #     self.helper_display_and_iterate_network(network, "Two Connected Nodes With Interloper", 100)
+    def test_a_two_nodes_with_interloper(self):
+        network = NodeNetwork(num_nodes=3, num_connections=1, random_seed=RANDOM_SEED)
+        network.activities = np.full((3), 1.0)
+        self.helper_display_and_iterate_network(network, "Two Connected Nodes With Interloper")
 
-    # def test_a_two_trios(self):
-    #     network = NodeNetwork(num_nodes=6, num_connections=0, random_seed=RANDOM_SEED)
-    #     self.helper_create_clusters(network, num_clusters=2, density=1.0)
-    #     self.helper_display_and_iterate_network(network, "Two Clusters Iterating", 100)
+    def test_a_two_trios(self):
+        network = NodeNetwork(num_nodes=6, num_connections=0, random_seed=RANDOM_SEED)
+        self.helper_create_clusters(network, num_clusters=2, density=1.0)
+        self.helper_display_and_iterate_network(network, "Two Clusters Iterating")
 
-    # def test_b_clustering_behavior(self):
-    #     network = NodeNetwork(num_nodes=30, num_connections=0, random_seed=RANDOM_SEED)
-    #     self.helper_create_clusters(network, num_clusters=3, density=.8)
-    #     self.helper_display_and_iterate_network(network, "Basic Clusters", 100)
+    def test_b_clustering_behavior(self):
+        network = NodeNetwork(num_nodes=30, num_connections=0, random_seed=RANDOM_SEED)
+        self.helper_create_clusters(network, num_clusters=3, density=.8)
+        self.helper_display_and_iterate_network(network, "Basic Clusters")
 
-    # def test_c_loose_clustered_network(self):
-    #     network = NodeNetwork(num_nodes=300, num_connections=0, random_seed=RANDOM_SEED)
-    #     self.helper_create_clusters(network, num_clusters=10, density=.5)
-    #     self.helper_display_and_iterate_network(network, "Loose Clusters", 100)
+    def test_c_loose_clustered_network(self):
+        network = NodeNetwork(num_nodes=300, num_connections=0, random_seed=RANDOM_SEED)
+        self.helper_create_clusters(network, num_clusters=10, density=.5)
+        self.helper_display_and_iterate_network(network, "Loose Clusters")
 
-    # def test_c_tight_clustered_network(self):
-    #     network = NodeNetwork(num_nodes=300, num_connections=0, random_seed=RANDOM_SEED)
-    #     self.helper_create_clusters(network, num_clusters=10, density=.9)
-    #     self.helper_display_and_iterate_network(network, "Tight Clusters", 100)
+    def test_c_tight_clustered_network(self):
+        network = NodeNetwork(num_nodes=300, num_connections=0, random_seed=RANDOM_SEED)
+        self.helper_create_clusters(network, num_clusters=10, density=.9)
+        self.helper_display_and_iterate_network(network, "Tight Clusters")
 
     def test_d_small_world_100_nodes(self):
         network = self.helper_create_small_world(num_nodes=100, num_clusters=4, inter_cluster_edges=40)
-        self.helper_display_and_iterate_network(network, title="Small-World Network (100 Nodes)", steps=100)
+        self.helper_display_and_iterate_network(network, title="Small-World Network (100 Nodes)")
 
     def test_d_small_world_300_nodes(self):
         network = self.helper_create_small_world(num_nodes=300, num_clusters=6, inter_cluster_edges=70)
-        self.helper_display_and_iterate_network(network, title="Small-World Network (300 Nodes)", steps=100)
+        self.helper_display_and_iterate_network(network, title="Small-World Network (300 Nodes)")
 
     def test_d_small_world_500_nodes(self):
         network = self.helper_create_small_world(num_nodes=500, num_clusters=10, inter_cluster_edges=90)
-        self.helper_display_and_iterate_network(network, title="Small-World Network (500 Nodes)", steps=100)
+        self.helper_display_and_iterate_network(network, title="Small-World Network (500 Nodes)")
 
     def test_e_small_world_1000_nodes(self):
         network = self.helper_create_small_world(num_nodes=1000, num_clusters=20, inter_cluster_edges=120)
-        self.helper_display_and_iterate_network(network, title="Small-World Network (1000 Nodes)", steps=100)
+        self.helper_display_and_iterate_network(network, title="Small-World Network (1000 Nodes)")
 
     def test_e_small_world_1000_nodes_no_lines(self):
         network = self.helper_create_small_world(num_nodes=1000, num_clusters=20, inter_cluster_edges=120)
-        self.helper_display_and_iterate_network(network, title="Small-World Network (1000 Nodes)", steps=100, draw_lines=False)
+        self.helper_display_and_iterate_network(network, title="Small-World Network (1000 Nodes)", draw_lines=False)
 
     def test_z_ring_lattice(self):
         num_nodes = 30
