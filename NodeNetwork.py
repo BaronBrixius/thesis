@@ -10,7 +10,7 @@ import os
 NUM_NODES = 500
 CONNECTION_DENSITY = 0.1
 NUM_CONNECTIONS = int(CONNECTION_DENSITY * (NUM_NODES * (NUM_NODES - 1) / 2)) # * total possible connections n*(n-1)/2
-NUM_STEPS = 10_000_000
+NUM_STEPS = 1_000
 
 METRICS_INTERVAL = 1000
 DISPLAY_INTERVAL = 1000
@@ -39,7 +39,7 @@ def stop_timing(label):
         accumulated_times[label]['start_time'] = 0  # Reset start time
 
 class NodeNetwork:
-    def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
+    def __init__(self, num_nodes, num_connections, alpha=ALPHA, epsilon=EPSILON, random_seed=RANDOM_SEED):
         np.random.seed(random_seed)
         
         self.num_nodes = num_nodes
@@ -48,7 +48,7 @@ class NodeNetwork:
         self.epsilon = epsilon
 
         self.activities = np.random.uniform(-1, 1, num_nodes)   # Random initial activity
-        self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=int)
+        self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=bool)
 
         positions = np.random.uniform([0.1 * SCREEN_WIDTH, 0.1 * SCREEN_HEIGHT], [0.9 * SCREEN_WIDTH, 0.9 * SCREEN_HEIGHT], (num_nodes, 2))
         normal_distance = NORMAL_DISTANCE_SCALING * np.sqrt(SCREEN_WIDTH * SCREEN_HEIGHT / self.num_nodes) * np.sqrt(1 + self.num_connections / self.num_nodes)
@@ -70,10 +70,10 @@ class NodeNetwork:
             self.add_connection(i, j)
 
     def add_connection(self, a, b):
-        self.adjacency_matrix[a, b] = self.adjacency_matrix[b, a] = 1
+        self.adjacency_matrix[a, b] = self.adjacency_matrix[b, a] = True
 
     def remove_connection(self, a, b):
-        self.adjacency_matrix[a, b] = self.adjacency_matrix[b, a] = 0
+        self.adjacency_matrix[a, b] = self.adjacency_matrix[b, a] = False
 
     def update_activity(self):
         # Calculate neighbor activities as a matrix multiplication of adjacency and activities, then row-wise summing
@@ -105,7 +105,7 @@ class NodeNetwork:
         least_synchronized_neighbor = np.argmax(activity_diff_neighbors)    # least similar neighbor
 
         # 3a. If there is a connection between the pivot and the candidate already, do nothing
-        if self.adjacency_matrix[pivot, candidate] == 1:
+        if self.adjacency_matrix[pivot, candidate]:
             return
 
         # 3b. If there is no connection between the pivot and the candidate, establish it, and break the connection between the pivot and its least synchronized neighbor.
@@ -127,7 +127,7 @@ class NodeNetwork:
     def clustering_coefficient(self):
         clustering_coefficients = []
         for i in range(self.num_nodes):
-            neighbors = np.where(self.adjacency_matrix[i] == 1)[0]
+            neighbors = np.where(self.adjacency_matrix[i])[0]
             if len(neighbors) < 2:
                 clustering_coefficients.append(0)
                 continue
@@ -198,19 +198,16 @@ class NetworkPhysics:
             distances = np.sqrt(np.einsum('ijk,ijk->ij', diffs, diffs))
             normalized_directions = np.divide(diffs, distances[:, :, np.newaxis] + 1e-10)
 
-            # Identify connected pairs
-            connected = adjacency_matrix == 1
-
             # Attraction/repulsion masks for connected nodes
-            too_close = connected & (distances < 0.2 * self.normal_distance)
-            too_far = connected & (distances > 0.3 * self.normal_distance)
+            too_close = adjacency_matrix & (distances < 0.2 * self.normal_distance)
+            too_far = adjacency_matrix & (distances > 0.3 * self.normal_distance)
 
             # Calculate forces for close and far connected nodes
             close_force = (0.2 * self.normal_distance - distances) * too_close
             far_force = (distances - 0.3 * self.normal_distance) * too_far
 
             # Repulsion for non-connected nodes
-            within_range = ~connected & (distances < 1.7 * self.normal_distance)
+            within_range = ~adjacency_matrix & (distances < 1.7 * self.normal_distance)
             repulsion_force = within_range * np.divide((1.7 * self.normal_distance - distances), distances + 1e-10)
 
             # Apply forces
@@ -233,7 +230,7 @@ class NetworkPlot:
         self.initialize_plot(positions, activities, adjacency_matrix, draw_lines=draw_lines)
 
     def compute_lines(self, positions, adjacency_matrix):
-        rows, cols = np.where(np.triu(adjacency_matrix, 1) == 1)
+        rows, cols = np.where(np.triu(adjacency_matrix, 1))
         connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
         return connections
 
@@ -282,6 +279,8 @@ class NetworkPlot:
 class OutputManager:
     def __init__(self, base_dir):
         self.base_dir = base_dir
+        if not self.base_dir:
+            return
         self.folders = {
             "histograms": os.path.join(base_dir, "histograms"),
             "images": os.path.join(base_dir, "images"),
@@ -294,10 +293,9 @@ class OutputManager:
         for folder in self.folders.values():
             os.makedirs(folder, exist_ok=True)
 
-    def save_stats(self, step, start, characteristic_path_length, clustering_coefficient, breakup_count):
-        time_since_start = time.time() - start
-        print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={breakup_count}, Time={time_since_start:.2f}")
-
+    def save_stats(self, step, characteristic_path_length, clustering_coefficient, breakup_count, time_since_start):
+        if not self.base_dir:
+            return
         metrics_file = os.path.join(self.base_dir, "metrics.csv")
         with open(metrics_file, "a") as f:
             if step == 0:  # Write headers if it's the first step
@@ -305,6 +303,8 @@ class OutputManager:
             f.write(f"{step},{characteristic_path_length},{clustering_coefficient},{breakup_count},{time_since_start:.2f}\n")
 
     def save_histogram(self, connections, step):
+        if not self.base_dir:
+            return
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.hist(connections, bins=np.arange(connections.min(), connections.max() + 2), 
                 color='black', edgecolor='white')
@@ -320,29 +320,37 @@ class OutputManager:
         print(f"Saved histogram plot at step {step}: {plot_path}")
 
     def save_matrix(self, matrix, step):
+        if not self.base_dir:
+            return
         file_path = os.path.join(self.folders["matrices"], f"matrix_{step}.csv")
-        np.savetxt(file_path, matrix, fmt="%d", delimiter=",")
+        np.savetxt(file_path, matrix, fmt="%i", delimiter=",")
         print(f"Saved matrix at step {step}: {file_path}")
 
     def save_network_image(self, plot, step):
+        if not self.base_dir:
+            return
         file_path = os.path.join(self.folders["images"], f"image_{step}.png")
         plot.fig.savefig(file_path, dpi=300)
         print(f"Saved network image at step {step}: {file_path}")
 
     def save_activities(self, activities, step):
+        if not self.base_dir:
+            return
         file_path = os.path.join(self.folders["activities"], f"activities_{step}.csv")
         np.savetxt(file_path, activities, fmt="%.6f", delimiter=",")
         print(f"Saved activities at step {step}: {file_path}")
 
 class Simulation:
-    def __init__(self, num_nodes, num_connections, output_dir, alpha=1.7, epsilon=0.4, random_seed=None):
+    def __init__(self, num_nodes, num_connections, output_dir=None, alpha=ALPHA, epsilon=EPSILON, random_seed=RANDOM_SEED):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
         self.output_manager = OutputManager(output_dir)
 
     def metrics(self, step, start):
         characteristic_path_length, clustering_coefficient = self.network.calculate_stats()
-        self.output_manager.save_stats(step, start, characteristic_path_length, clustering_coefficient, self.network.breakup_count)
+        time_since_start = time.time() - start
+        print(f"Iteration {step}: CPL={characteristic_path_length}, CC={clustering_coefficient}, Breakups={self.network.breakup_count}, Time={time_since_start:.2f}")
 
+        self.output_manager.save_stats(step, characteristic_path_length, clustering_coefficient, self.network.breakup_count, time_since_start)
         self.output_manager.save_matrix(self.network.adjacency_matrix, step)
         self.output_manager.save_histogram(np.sum(self.network.adjacency_matrix, axis=1), step)
         self.output_manager.save_activities(self.network.activities, step)
@@ -386,22 +394,22 @@ if __name__ == "__main__":
     if profiler: profiler.enable()
 
     # Run the simulation
-    # print("Nodes:", NUM_NODES, "Connections:", NUM_CONNECTIONS, "Steps:", NUM_STEPS)
-    # sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir="test")
-    # sim.run(num_steps=NUM_STEPS)
+    print("Nodes:", NUM_NODES, "Connections:", NUM_CONNECTIONS, "Steps:", NUM_STEPS)
+    sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir="test")
+    sim.run(num_steps=NUM_STEPS)
 
     # 1: Networks with varying connection densities
-    for num_connections in range(50, 5000, 50):  # Adjust connection density
-        scenario_dir = os.path.join("density_test_data", f"density_{num_connections}")
-        sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=42)
-        sim.run(num_steps=1_000_000, display_interval=100, metrics_interval=100, show=False)
+    # for num_connections in range(4400, 5000, 50):  # Adjust connection density
+    #     scenario_dir = os.path.join("density_test_data", f"density_{num_connections}")
+    #     sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=42)
+    #     sim.run(num_steps=1_000_000, display_interval=1000, metrics_interval=1000, show=False)
 
     # 2: 600-unit networks with connection matrix and histogram
-    num_connections_600 = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2))
-    for i in range(5):
-        scenario_dir = os.path.join("600_nodes_test_data", f"trial_{i}")
-        sim = Simulation(num_nodes=600, num_connections=num_connections_600, output_dir=f"metrics_600_nodes_{i}", random_seed=42)
-        sim.run(num_steps=1_000_000, display_interval=100, metrics_interval=100, show=False)
+    # num_connections_600 = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2))
+    # for i in range(5):
+    #     scenario_dir = os.path.join("600_nodes_test_data", f"trial_{i}")
+    #     sim = Simulation(num_nodes=600, num_connections=num_connections_600, output_dir=f"metrics_600_nodes_{i}", random_seed=i)
+    #     sim.run(num_steps=10_000_000, display_interval=1000, metrics_interval=1000, show=False)
 
     if profiler: profiler.disable()
 
