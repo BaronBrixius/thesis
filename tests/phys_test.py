@@ -4,8 +4,6 @@ from NodeNetwork import NodeNetwork, NetworkPlot
 import matplotlib.pyplot as plt
 
 # Constants for screen dimensions
-SCREEN_WIDTH = 1.0
-SCREEN_HEIGHT = 1.0
 RANDOM_SEED = None
 
 class TestNodeNetworkPhysics(unittest.TestCase):

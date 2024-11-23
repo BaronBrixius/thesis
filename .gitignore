@@ -1,3 +1,5 @@
 *.csv
 *.png
 *.npy
+__pycache__/*
+network_simulation/__pycache__/*
