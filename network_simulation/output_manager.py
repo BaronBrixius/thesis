@@ -12,6 +12,7 @@ class OutputManager:
             "images": os.path.join(base_dir, "images"),
             "matrices": os.path.join(base_dir, "matrices"),
             "activities": os.path.join(base_dir, "activities"),
+            "metrics_graphs": os.path.join(base_dir, "metrics_graphs"),
         }
         self.prepare_directories()
 
@@ -19,7 +20,7 @@ class OutputManager:
         for folder in self.folders.values():
             os.makedirs(folder, exist_ok=True)
 
-    def save_stats(self, step, characteristic_path_length, clustering_coefficient, breakup_count, time_since_start):
+    def save_metrics(self, step, characteristic_path_length, clustering_coefficient, breakup_count, time_since_start):
         if not self.base_dir:
             return
         metrics_file = os.path.join(self.base_dir, "metrics.csv")
@@ -65,3 +66,37 @@ class OutputManager:
         file_path = os.path.join(self.folders["activities"], f"activities_{step}.csv")
         np.savetxt(file_path, activities, fmt="%.6f", delimiter=",")
         print(f"Saved activities at step {step}: {file_path}")
+
+    # Reads the metrics.csv file and outputs as a graph
+    def convert_metrics_to_graph(self):
+        if not self.base_dir:
+            return
+
+        metrics_file = os.path.join(self.base_dir, "metrics.csv")
+        if os.path.exists(metrics_file):
+            # Read metrics.csv into a DataFrame
+            data = pd.read_csv(metrics_file)
+
+            # Check if required columns exist
+            if {'Step_Num', 'CPL', 'CC'}.issubset(data.columns):
+                # Plot CC and CPL on the same graph
+                plt.figure(figsize=(10, 6))
+                plt.plot(data['Step_Num'], data['CPL'], label='CPL (Characteristic Path Length)', color='blue')
+                plt.plot(data['Step_Num'], data['CC'], label='CC (Clustering Coefficient)', color='green')
+
+                # Add titles and labels
+                plt.title(f"Metrics Graph")
+                plt.xlabel("Step Number")
+                plt.ylabel("Value")
+                plt.legend()
+                plt.grid(True, linestyle='--', alpha=0.7)
+
+                # Save the graph to the metrics_graphs folder
+                output_file = os.path.join(self.folders["metrics_graphs"], "metrics_graph.png")
+                plt.savefig(output_file, dpi=300)
+                plt.close()
+                print(f"Saved metrics graph: {output_file}")
+            else:
+                print(f"Missing required columns in {metrics_file}")
+        else:
+            print(f"No metrics.csv found at {metrics_file}")
