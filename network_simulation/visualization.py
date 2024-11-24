@@ -1,9 +1,20 @@
+from enum import Enum
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np
 
+class ColorBy(Enum):
+    ACTIVITY = "activity"
+    CONNECTIONS = "connections"
+
 class NetworkPlot:
-    def __init__(self, positions, activities, adjacency_matrix, draw_lines=True, show=True):
+    COLOR_MAPS = {
+        ColorBy.ACTIVITY: 'cividis',
+        ColorBy.CONNECTIONS: 'inferno'
+    }
+
+    def __init__(self, positions, activities, adjacency_matrix, draw_lines=True, show=True, color_by:ColorBy=ColorBy.ACTIVITY):
+        self.color_by = color_by  # 'activity' or 'connections'
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
         self.initialize_plot(positions, activities, adjacency_matrix, draw_lines=draw_lines)
         if show:
@@ -15,6 +26,15 @@ class NetworkPlot:
         connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
         return connections
 
+    def compute_node_colors(self, adjacency_matrix, activities):
+        if self.color_by == ColorBy.CONNECTIONS:
+            node_degrees = np.sum(adjacency_matrix, axis=1)
+            return node_degrees
+        elif self.color_by == ColorBy.ACTIVITY:
+            return activities
+        else:
+            raise ValueError(f"Unsupported color_by value: {self.color_by}")
+
     def initialize_plot(self, positions, activities, adjacency_matrix, draw_lines=True):
         self.ax.set_xlim(0, 1.0)
         self.ax.set_ylim(0, 1.0)
@@ -24,8 +44,8 @@ class NetworkPlot:
         self.scatter = self.ax.scatter(
             positions[:, 0],
             positions[:, 1],
-            c=activities,
-            cmap='cividis',
+            c=self.compute_node_colors(adjacency_matrix, activities),
+            cmap=self.COLOR_MAPS[self.color_by],
             s=10,
             zorder=2
         )
@@ -47,7 +67,7 @@ class NetworkPlot:
 
         # Update node colors and positions
         self.scatter.set_offsets(positions)
-        self.scatter.set_array(activities)
+        self.scatter.set_array(self.compute_node_colors(adjacency_matrix, activities))
 
         # Update connection lines
         if draw_lines:
@@ -58,4 +78,4 @@ class NetworkPlot:
         self.ax.figure.canvas.flush_events()
 
     def close(self):
-        plt.close(self.plot.fig)
+        plt.close(self.fig)
