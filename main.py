@@ -10,7 +10,7 @@ NUM_NODES = 100
 NUM_CONNECTIONS = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2)) # 10% density * total possible connections n*(n-1)/2
 
 # Simulation parameters
-NUM_STEPS = 1_000
+NUM_STEPS = 500
 METRICS_INTERVAL = 100
 DISPLAY_INTERVAL = 100
 STABILIZATION_THRESHOLD = 0

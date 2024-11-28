@@ -2,6 +2,7 @@
 *.png
 *.jpg
 *.npy
+*.h5
 *.xlsx
 *.zip
 __pycache__/*
