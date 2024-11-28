@@ -1,10 +1,10 @@
 from network_simulation.network import NodeNetwork
-from network_simulation.output_manager import Output
+from network_simulation.output import Output
 from network_simulation.visualization import Visualization, ColorBy
 import numpy as np
 import time
 
-class SimulationManager:
+class Simulation:
     def __init__(self, num_nodes, num_connections, output_dir=None, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
         self.output = Output(output_dir)

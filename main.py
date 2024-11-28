@@ -1,4 +1,4 @@
-from network_simulation.simulation_manager import SimulationManager
+from network_simulation.simulation import Simulation
 from network_simulation.utils import print_times
 from network_simulation.visualization import ColorBy
 import cProfile
@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     # Run the simulation
     print("Nodes:", NUM_NODES, "Connections:", NUM_CONNECTIONS, "Steps:", NUM_STEPS)
-    sim = SimulationManager(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir=OUTPUT_DIR)
+    sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir=OUTPUT_DIR)
     sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=False, color_by=COLOR_BY)
 
     # 1: Networks with varying connection densities
