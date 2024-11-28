@@ -24,20 +24,23 @@ class SimulationManager:
             self.network.update_network()            
 
             if metrics_interval and step % metrics_interval == 0:
-                #metrics = self.network.calculate_stats()
-                self.output.save_state_snapshot(step, self.network.activities, self.network.adjacency_matrix)
-                print(f"Snapshot at step: {step}, time: {time.time() - start}")
+                self.output.output_state_snapshot(step, self.network.activities, self.network.adjacency_matrix)
 
             if display_interval and step % display_interval == 0:
                 self.network.apply_forces(min(25, display_interval))
                 self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
-                self.output.save_network_image(self.plot, step)
+                self.output.output_network_image(self.plot, step)
+
+        print("Run over:", time.time() - start)
 
         # Final metrics and outputs after the main loop ends
         if metrics_interval:
-            self.output.calculate_metrics_from_snapshots()
+            self.output.output_state_snapshot(step, self.network.activities, self.network.adjacency_matrix)
+            self.output.post_run_output()
 
         if display_interval:
             self.network.apply_forces(min(150, display_interval))
             self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
-            self.output.save_network_image(self.plot, step)
+            self.output.output_network_image(self.plot, step)
+
+        print("End time:", time.time() - start)

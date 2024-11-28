@@ -6,8 +6,8 @@ class Metrics:
     def __init__(self):
         # Initialize with default metrics
         self.metrics = {
-            "Clustering Coefficient": self.calculate_clustering_coefficient,
-            "Average Path Length": self.calculate_average_path_length,
+            "CC": self.calculate_clustering_coefficient,
+            "APL": self.calculate_average_path_length,
             "Modularity": self.calculate_modularity,
             "Assortativity": self.calculate_assortativity,
             "Betweenness Centrality": self.calculate_betweenness_centrality,
@@ -20,7 +20,7 @@ class Metrics:
             "Recurrence Quantification": self.calculate_recurrence_quantification,
         }
 
-    def calculate_all_metrics(self, adjacency_matrix):
+    def calculate_all(self, adjacency_matrix):
         results = {}
         for name, func in self.metrics.items():
             results[name] = func(adjacency_matrix)

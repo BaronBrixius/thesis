@@ -10,9 +10,9 @@ NUM_NODES = 100
 NUM_CONNECTIONS = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2)) # 10% density * total possible connections n*(n-1)/2
 
 # Simulation parameters
-NUM_STEPS = 500
-METRICS_INTERVAL = 100
-DISPLAY_INTERVAL = 100
+NUM_STEPS = 10000
+METRICS_INTERVAL = 1000
+DISPLAY_INTERVAL = 1000
 STABILIZATION_THRESHOLD = 0
 OUTPUT_DIR = "foo"
 COLOR_BY = ColorBy.CONNECTIONS
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     # Run the simulation
     print("Nodes:", NUM_NODES, "Connections:", NUM_CONNECTIONS, "Steps:", NUM_STEPS)
     sim = SimulationManager(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir=OUTPUT_DIR)
-    sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=True, color_by=COLOR_BY)
+    sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=False, color_by=COLOR_BY)
 
     # 1: Networks with varying connection densities
     # for num_connections in range(50, 5050, 50):  # Adjust connection density

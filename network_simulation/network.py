@@ -119,7 +119,7 @@ class NodeNetwork:
         return cpl_stable and cc_stable
 
     def calculate_stats(self):
-        metrics = self.metrics_manager.calculate_all_metrics(self.adjacency_matrix)
+        metrics = self.metrics_manager.calculate_all(self.adjacency_matrix)
         cpl = metrics.get("Characteristic Path Length", float('nan'))
         cc = metrics.get("Clustering Coefficient", float('nan'))
 
