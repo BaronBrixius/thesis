@@ -28,7 +28,7 @@ class Output:
 
         self.post_run_outputs = post_run_outputs or {
             "metrics_summary": self.output_metrics_from_snapshots,
-            "histogram": self.output_histogram_connection_distribution,
+            "histogram": self.output_average_metrics,
             "cc_apl_graph": self.output_cc_apl_graph,
         }
 
@@ -64,7 +64,7 @@ class Output:
         # Generate histogram if enabled
         if "histogram" in self.post_run_outputs:
             print("Generating average histogram...")
-            self.output_histogram_connection_distribution(last_steps=last_steps, xlim=xlim, ylim=ylim)
+            self.output_average_metrics(last_steps=last_steps, xlim=xlim, ylim=ylim)
 
         # Generate CC and APL graph if enabled
         if "cc_apl_graph" in self.post_run_outputs:
@@ -95,9 +95,10 @@ class Output:
         metrics_summary_df.to_csv(self.metrics_file_path, index=False)
         print(f"Metrics summary saved to {self.metrics_file_path}")
 
-    def output_histogram_connection_distribution(self, last_steps=200000, xlim=None, ylim=None):
+    def output_average_metrics(self, last_steps=200000, xlim=None, ylim=None):  #TODO uncombine this
         histogram_sum = None
         bin_edges = None
+        adjacency_sum = None
         count = 0
 
         for snapshot_file in sorted(os.listdir(self.snapshots_dir)):
@@ -113,6 +114,9 @@ class Output:
                 adjacency_matrix = h5file["adjacency_matrix"][:]
                 connections_per_node = np.sum(adjacency_matrix, axis=1)
 
+                # Update adjacency sum
+                adjacency_sum = (adjacency_matrix if adjacency_sum is None else adjacency_sum + adjacency_matrix)
+
                 # Determine bin edges dynamically
                 max_connections = int(connections_per_node.max()) + 1
                 new_bin_edges = np.arange(0, max_connections + 1)
@@ -125,12 +129,17 @@ class Output:
                     bin_edges = new_bin_edges
 
                 histogram, _ = np.histogram(connections_per_node, bins=bin_edges)
-                histogram_sum = (
-                    histogram if histogram_sum is None else histogram_sum + histogram
-                )
+                histogram_sum = (histogram if histogram_sum is None else histogram_sum + histogram)
                 count += 1
 
-        # Calculate average histogram
+        # Calculate and save average adjacency matrix
+        if adjacency_sum is not None and count > 0:
+            avg_adjacency_matrix = adjacency_sum / count
+            avg_matrix_path = os.path.join(self.base_dir, "average_adjacency_matrix.csv")
+            np.savetxt(avg_matrix_path, avg_adjacency_matrix, delimiter=",")
+            print(f"Saved average adjacency matrix to {avg_matrix_path}")
+
+        # Calculate and save average histogram
         if histogram_sum is not None:
             avg_histogram = histogram_sum / count
             plt.figure()
@@ -146,6 +155,7 @@ class Output:
             plt.savefig(output_path)
             plt.close()
             print(f"Saved average histogram to {output_path}")
+
 
     def output_cc_apl_graph(self, xlim=None, ylim_cc=None, ylim_apl=None):    # Line graph of CC and APL over the run
         if not os.path.exists(self.metrics_file_path):
