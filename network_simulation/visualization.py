@@ -7,7 +7,7 @@ class ColorBy(Enum):
     ACTIVITY = "activity"
     CONNECTIONS = "connections"
 
-class NetworkPlot:
+class Visualization:
     COLOR_MAPS = {
         ColorBy.ACTIVITY: 'cividis',
         ColorBy.CONNECTIONS: 'inferno'

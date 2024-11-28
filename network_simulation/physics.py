@@ -1,6 +1,6 @@
 import numpy as np
 
-class NetworkPhysics:
+class Physics:
     def __init__(self, adjacency_matrix, positions, normal_distance):
         self.positions = positions
         self.adjacency_matrix = adjacency_matrix

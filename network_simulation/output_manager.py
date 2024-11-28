@@ -1,10 +1,12 @@
+import csv
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pandas as pd
 
-class OutputManager:
+class Output:
     def __init__(self, base_dir):
-        self.base_dir = base_dir
+        self.base_dir = os.path.join("output", base_dir)
         if not self.base_dir:
             return
         self.folders = {
@@ -20,14 +22,15 @@ class OutputManager:
         for folder in self.folders.values():
             os.makedirs(folder, exist_ok=True)
 
-    def save_metrics(self, step, characteristic_path_length, clustering_coefficient, breakup_count, time_since_start):
-        if not self.base_dir:
-            return
-        metrics_file = os.path.join(self.base_dir, "metrics.csv")
-        with open(metrics_file, "a") as f:
-            if step == 0:  # Write headers if it's the first step
-                f.write("Step_Num,CPL,CC,Breakups,Time\n")
-            f.write(f"{step},{characteristic_path_length},{clustering_coefficient},{breakup_count},{time_since_start:.2f}\n")
+    def save_metrics(self, metrics, step):
+        file_path = os.path.join(self.base_dir, "metrics.csv")
+        write_header = not os.path.exists(file_path)
+        
+        with open(file_path, mode='a', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=["Step"] + list(metrics.keys()))
+            if write_header:
+                writer.writeheader()
+            writer.writerow({"Step": step, **metrics})
 
     def save_histogram(self, connections, step):
         if not self.base_dir:
@@ -41,8 +44,8 @@ class OutputManager:
         ax.grid(axis='y', linestyle='--', alpha=0.7)
 
         # Save the plot as an image
-        plot_path = os.path.join(self.folders["histograms"], f"histogram_{step}.png")
-        plt.savefig(plot_path, dpi=300)
+        plot_path = os.path.join(self.folders["histograms"], f"histogram_{step}.jpg")
+        plt.savefig(plot_path)
         plt.close(fig)
         print(f"Saved histogram plot at step {step}: {plot_path}")
 
@@ -56,8 +59,8 @@ class OutputManager:
     def save_network_image(self, plot, step):
         if not self.base_dir:
             return
-        file_path = os.path.join(self.folders["images"], f"image_{step}.png")
-        plot.fig.savefig(file_path, dpi=300)
+        file_path = os.path.join(self.folders["images"], f"image_{step}.jpg")
+        plot.fig.savefig(file_path, format="jpg")
         print(f"Saved network image at step {step}: {file_path}")
 
     def save_activities(self, activities, step):

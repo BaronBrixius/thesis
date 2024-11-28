@@ -1,5 +1,7 @@
+from collections import deque
 import numpy as np
-from network_simulation.physics import NetworkPhysics
+from network_simulation.metrics import Metrics
+from network_simulation.physics import Physics
 from scipy.sparse.csgraph import shortest_path
 
 class NodeNetwork:
@@ -16,13 +18,15 @@ class NodeNetwork:
 
         positions = np.random.uniform([0.1, 0.1], [0.9, 0.9], (num_nodes, 2))
         normal_distance = 0.5 * np.sqrt(self.num_connections + self.num_nodes) / self.num_nodes
-        self.physics = NetworkPhysics(self.adjacency_matrix, positions, normal_distance)
+        self.physics = Physics(self.adjacency_matrix, positions, normal_distance)
 
         self.initialize_connections(num_connections)    # Add initial connections
 
-        self.cpl_history = []
+        self.metrics_manager = Metrics()
         self.breakup_count = 0
-        self.cc_history = []
+
+        self.cpl_history = deque(maxlen=100)
+        self.cc_history = deque(maxlen=100)
         self.stabilization_threshold = stabilization_threshold
         self.stabilized = False # Relatable
 
@@ -102,34 +106,36 @@ class NodeNetwork:
             clustering_coefficients.append(connections / possible_connections)
         return np.mean(clustering_coefficients)
 
+    def check_stabilization(self):
+        if len(self.cpl_history) < self.cpl_history.maxlen or len(self.cc_history) < self.cc_history.maxlen:
+            return False
+
+        cpl_range = max(self.cpl_history) - min(self.cpl_history)
+        cc_range = max(self.cc_history) - min(self.cc_history)
+
+        cpl_stable = (cpl_range / max(self.cpl_history)) <= self.stabilization_threshold
+        cc_stable = (cc_range / max(self.cc_history)) <= self.stabilization_threshold
+
+        return cpl_stable and cc_stable
+
     def calculate_stats(self):
-        char_path_length = self.characteristic_path_length()
-        avg_clustering = self.clustering_coefficient()
+        metrics = self.metrics_manager.calculate_metrics(self.adjacency_matrix)
+        cpl = metrics.get("Characteristic Path Length", float('nan'))
+        cc = metrics.get("Clustering Coefficient", float('nan'))
 
-        if not self.stabilization_threshold:
-            return char_path_length, avg_clustering
+        if np.isnan(cpl):   # Network breakup
+            self.stabilized = False
+            return metrics
 
-        # Add the new CPL and CC values to history
-        self.cpl_history.append(char_path_length)
-        self.cc_history.append(avg_clustering)
+        # Add metrics to history
+        self.cpl_history.append(cpl)
+        self.cc_history.append(cc)
 
-        if len(self.cpl_history) > 100:
-            self.cpl_history.pop(0)
-        if len(self.cc_history) > 100:
-            self.cc_history.pop(0)
+        # Update stabilization state
+        self.stabilized = self.check_stabilization()
+        metrics["Stabilized"] = self.stabilized
 
-        # Check stabilization for both CPL and CC
-        if len(self.cpl_history) == 100 and len(self.cc_history) == 100:
-            cpl_min, cpl_max = min(self.cpl_history), max(self.cpl_history)
-            cpl_stable = (cpl_max - cpl_min) / cpl_max <= self.stabilization_threshold
-
-            cc_min, cc_max = min(self.cc_history), max(self.cc_history)
-            cc_stable = (cc_max - cc_min) / cc_max <= self.stabilization_threshold
-
-            # If both CPL and CC are stable, mark the network as stabilized
-            self.stabilized = cpl_stable and cc_stable
-
-        return char_path_length, avg_clustering
+        return metrics
 
     def apply_forces(self, effective_iterations=1):
         self.physics.apply_forces(self.adjacency_matrix, effective_iterations)
