@@ -6,13 +6,13 @@ import pstats
 import os
 
 # Network parameters
-NUM_NODES = 100
+NUM_NODES = 200
 NUM_CONNECTIONS = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2)) # 10% density * total possible connections n*(n-1)/2
 
 # Simulation parameters
-NUM_STEPS = 10000
-METRICS_INTERVAL = 1000
-DISPLAY_INTERVAL = 1000
+NUM_STEPS = 500
+METRICS_INTERVAL = 100
+DISPLAY_INTERVAL = 100
 STABILIZATION_THRESHOLD = 0
 OUTPUT_DIR = "foo"
 COLOR_BY = ColorBy.CONNECTIONS

@@ -8,7 +8,7 @@ from network_simulation.metrics import Metrics
 class Output:
     def __init__(self, base_dir, runtime_outputs=None, post_run_outputs=None):
         self.base_dir = os.path.join("output", base_dir)
-        self.metrics_file_path = os.path.join(self.base_dir, "metrics_summary.csv")
+        os.makedirs(self.base_dir, exist_ok=True)
 
         self.snapshots_dir = os.path.join(self.base_dir, "state_snapshots")
         os.makedirs(self.snapshots_dir, exist_ok=True)
@@ -19,6 +19,8 @@ class Output:
         self.plots_dir = os.path.join(self.base_dir, "plots")
         os.makedirs(self.plots_dir, exist_ok=True)
 
+        self.metrics_file_path = os.path.join(self.base_dir, "metrics_summary.csv")
+
         self.metrics = Metrics()
 
         self.runtime_outputs = runtime_outputs or {
@@ -28,7 +30,7 @@ class Output:
 
         self.post_run_outputs = post_run_outputs or {
             "metrics_summary": self.output_metrics_from_snapshots,
-            "histogram": self.output_average_metrics,
+            "average_metrics": self.output_average_metrics,
             "cc_apl_graph": self.output_cc_apl_graph,
         }
 
@@ -45,33 +47,30 @@ class Output:
         print(f"Saved snapshot for step {step} to {snapshot_file}")
 
     def output_network_image(self, visualization, step):
+        if "network_image" not in self.runtime_outputs:
+            return
         image_path = os.path.join(self.network_images_dir, f"network_{step}.jpg")
         visualization.fig.savefig(image_path, format="jpg")
         print(f"Saved network visualization for step {step} to {image_path}")
 
     ### Post-Run Metrics Calculation ###
 
-    def post_run_output(self, last_steps=200000, xlim=None, ylim=None, ylim_cc=None, ylim_apl=None):
+    def post_run_output(self, **kwargs):
+        """
+        Generate all post-run outputs.
+        """
         if not os.path.exists(self.snapshots_dir):
             print("No snapshots available for post-run outputs.")
             return
 
-        # Generate metrics summary first (required for other outputs)
-        if "metrics_summary" in self.post_run_outputs:
-            print("Generating metrics summary...")
-            self.output_metrics_from_snapshots()
-
-        # Generate histogram if enabled
-        if "histogram" in self.post_run_outputs:
-            print("Generating average histogram...")
-            self.output_average_metrics(last_steps=last_steps, xlim=xlim, ylim=ylim)
-
-        # Generate CC and APL graph if enabled
-        if "cc_apl_graph" in self.post_run_outputs:
-            print("Generating CC and APL graph...")
-            self.output_cc_apl_graph(xlim=xlim, ylim_cc=ylim_cc, ylim_apl=ylim_apl)
+        for output_name, output_function in self.post_run_outputs.items():
+            print(f"Generating post-run output: {output_name}")
+            output_function(**kwargs)
 
     def output_metrics_from_snapshots(self):
+        """
+        Calculate and save metrics summary from snapshots.
+        """
         metrics_summary = []
 
         for snapshot_file in sorted(os.listdir(self.snapshots_dir)):
@@ -82,20 +81,27 @@ class Output:
             snapshot_path = os.path.join(self.snapshots_dir, snapshot_file)
 
             with h5py.File(snapshot_path, "r") as h5file:
-                activities = h5file["activities"][:]
                 adjacency_matrix = h5file["adjacency_matrix"][:]
 
-            # Use MetricsManager to calculate all metrics
-            metrics = {"Step": step}  # Add "Step" as the first entry
+            # Compute metrics
+            metrics = {"Step": step}
             metrics.update(self.metrics.calculate_all(adjacency_matrix))
             metrics_summary.append(metrics)
 
-        # Save metrics summary to a file
+        # Save metrics summary
         metrics_summary_df = pd.DataFrame(metrics_summary)
         metrics_summary_df.to_csv(self.metrics_file_path, index=False)
         print(f"Metrics summary saved to {self.metrics_file_path}")
 
-    def output_average_metrics(self, last_steps=200000, xlim=None, ylim=None):  #TODO uncombine this
+    def output_average_metrics(self, last_steps=200000, xlim=None, ylim=None):
+        """
+        Generate and save average adjacency matrix and histogram.
+
+        Args:
+            last_steps (int): Consider snapshots from the last N steps.
+            xlim (tuple): X-axis limits for histogram.
+            ylim (tuple): Y-axis limits for histogram.
+        """
         histogram_sum = None
         bin_edges = None
         adjacency_sum = None
@@ -157,47 +163,30 @@ class Output:
             print(f"Saved average histogram to {output_path}")
 
 
-    def output_cc_apl_graph(self, xlim=None, ylim_cc=None, ylim_apl=None):    # Line graph of CC and APL over the run
+    def output_cc_apl_graph(self, xlim=None, ylim_cc=None, ylim_apl=None):
+        """
+        Generate CC and APL graph over time.
+        """
         if not os.path.exists(self.metrics_file_path):
             print(f"No metrics summary file found at {self.metrics_file_path}")
             return
 
         data = pd.read_csv(self.metrics_file_path)
-
-        # Ensure required columns exist
-        if not {"Step", "CC", "APL"}.issubset(data.columns):
-            print(f"Metrics summary file is missing required columns.")
+        if not {"Step", "Clustering Coefficient", "Average Path Length"}.issubset(data.columns):
+            print("Missing required columns in metrics summary.")
             return
 
         plt.figure(figsize=(10, 6))
-        # CC Plot
-        plt.plot(
-            data["Step"],
-            data["CC"],
-            label="Clustering Coefficient (CC)",
-            color="green",
-        )
-        if ylim_cc:
-            plt.ylim(ylim_cc)
+        plt.plot(data["Step"], data["Clustering Coefficient"], label="Clustering Coefficient", color="green")
+        plt.plot(data["Step"], data["Average Path Length"], label="Average Path Length", color="blue")
 
-        # APL Plot
-        plt.plot(
-            data["Step"],
-            data["APL"],
-            label="Average Path Length (APL)",
-            color="blue",
-        )
-        if ylim_apl:
-            plt.ylim(ylim_apl)
-
-        plt.title("CC and APL Over Time")
-        plt.xlabel("Step Number")
-        plt.ylabel("Value")
         if xlim:
             plt.xlim(xlim)
+        if ylim_cc:
+            plt.ylim(ylim_cc)
+        plt.title("Clustering Coefficient and APL Over Time")
+        plt.xlabel("Step Number")
         plt.legend()
-        plt.grid(True, linestyle="--", alpha=0.7)
-
         metrics_graph_path = os.path.join(self.plots_dir, "cc_apl.jpg")
         plt.savefig(metrics_graph_path)
         plt.close()
