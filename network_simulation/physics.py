@@ -43,7 +43,7 @@ class Physics:
             forces = np.einsum('ijk,ij->ik', normalized_directions, close_force - far_force + repulsion_force)
 
             # Update positions based on forces
-            self.positions += forces * 0.003  # Adjust the multiplier for movement speed
+            self.positions += forces * 0.0035  # Adjust the multiplier for movement speed
 
         self.pull_all_nodes_towards_center(central_force_strength)
         np.clip(self.positions, 0, [1.0, 1.0])

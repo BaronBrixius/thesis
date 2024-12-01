@@ -26,7 +26,6 @@ class Output:
 
         self.metrics = Metrics()
 
-
         # Set up logging
         logging.basicConfig(
             level=logging.INFO,
@@ -58,7 +57,7 @@ class Output:
             return
 
         self.output_metrics_from_snapshots()
-        self.logger.info("Generated metrics summar.")
+        self.logger.info("Generated metrics summary.")
 
         self.output_average_metrics(num_steps=num_steps, last_steps=last_steps, xlim=xlim, ylim=ylim)
         self.logger.info("Generated average metrics.")
@@ -66,21 +65,26 @@ class Output:
         self.output_line_graph(metrics=["Clustering Coefficient", "Average Path Length"], title=f"CC and APL, {self.num_nodes} Nodes, {self.num_connections} Connections", ylabel="Value")
         self.logger.info("Generated CC and APL graph.")
 
+    def get_sorted_snapshots(self):
+        #Returns: List[Tuple[int, str]]: A list of tuples where each tuple contains (step_number, file_name).
+        snapshot_files = [file for file in os.listdir(self.snapshots_dir) if file.endswith(".h5")]
+        sorted_snapshots = sorted(
+            [(int(file.split("_")[file.split("_").index("step") + 1].split(".")[0]), file)
+              for file in snapshot_files],
+            key=lambda x: x[0]  # Sort by step number
+        )
+
+        return sorted_snapshots
+
     def output_metrics_from_snapshots(self):
         metrics_summary = []
         previous_adjacency_matrix = None
         previous_cluster_assignments = None
 
-        for snapshot_file in sorted(os.listdir(self.snapshots_dir)):
-            if not snapshot_file.endswith(".h5"):
-                continue
-
-            filename_parts = snapshot_file.split("_")                   # split
-            step_index = filename_parts.index("step") + 1               # index right after "step"
-            step = int(filename_parts[step_index].split(".")[0])        # convert to int
+        for step, snapshot_file in self.get_sorted_snapshots():
+            self.logger.info(f"Analyzing {snapshot_file}")
 
             snapshot_path = os.path.join(self.snapshots_dir, snapshot_file)
-
             with h5py.File(snapshot_path, "r") as h5file:
                 adjacency_matrix = h5file["adjacency_matrix"][:]
 
@@ -90,21 +94,14 @@ class Output:
 
             # Detect communities for cluster stability
             current_cluster_assignments = self.metrics.detect_communities(adjacency_matrix)
+            unique, counts = np.unique(current_cluster_assignments, return_counts=True)
+            cluster_sizes = dict(zip(unique, counts))
 
-            # Calculate temporal metrics
-            if previous_adjacency_matrix is not None:
-                metrics["Edge Turnover"] = self.metrics.calculate_edge_turnover(
-                    adjacency_matrix, previous_adjacency_matrix
-                )
-            else:
-                metrics["Edge Turnover"] = None
+            metrics["Cluster Membership"] = current_cluster_assignments
+            metrics["Cluster Sizes"] = cluster_sizes
+            metrics["Cluster Membership Stability"] = self.metrics.calculate_cluster_membership_stability(current_cluster_assignments, previous_cluster_assignments)
 
-            if previous_cluster_assignments is not None:
-                metrics["Cluster Membership Stability"] = self.metrics.calculate_cluster_membership_stability(
-                    current_cluster_assignments, previous_cluster_assignments
-                )
-            else:
-                metrics["Cluster Membership Stability"] = None
+            metrics["Edge Persistence"] = self.metrics.calculate_edge_persistence(adjacency_matrix, previous_adjacency_matrix)
 
             # Update temporal states
             previous_adjacency_matrix = adjacency_matrix
@@ -118,7 +115,7 @@ class Output:
 
         # Ensure "Step" is the leftmost column
         cols = ["Step"] + [col for col in metrics_summary_df.columns if col != "Step"]
-        metrics_summary_df = metrics_summary_df[cols]
+        metrics_summary_df = metrics_summary_df[cols].sort_values(by="Step")
 
         metrics_summary_df.to_csv(self.metrics_file_path, index=False)
         self.logger.info(f"Metrics summary saved to {self.metrics_file_path}")
@@ -129,13 +126,7 @@ class Output:
         adjacency_sum = None
         count = 0
 
-        for snapshot_file in sorted(os.listdir(self.snapshots_dir)):
-            if not snapshot_file.endswith(".h5"):
-                continue
-
-            filename_parts = snapshot_file.split("_")                   # split
-            step_index = filename_parts.index("step") + 1               # index right after "step"
-            step = int(filename_parts[step_index].split(".")[0])        # convert to int
+        for step, snapshot_file in self.get_sorted_snapshots():
             if step < (num_steps - last_steps):
                 continue
 
@@ -224,3 +215,45 @@ class Output:
         plt.savefig(metrics_graph_path)
         plt.close()
         self.logger.info(f"Saved line graph for metrics {metrics} to {metrics_graph_path}")
+
+    @staticmethod
+    def aggregate_metrics(root_dir, output_filepath=None):
+        """
+        Aggregates metrics from all metrics_summary_nodes_{num_nodes}_edges_{num_edges}.csv files
+        in subfolders of the specified root directory into a single CSV file.
+        """
+        if output_filepath == None:
+            output_filepath = os.path.join(root_dir, "aggregated_metrics.csv")
+
+        aggregated_data = []
+
+        for subfolder in os.listdir(root_dir):
+            subfolder_path = os.path.join(root_dir, subfolder)
+            if not os.path.isdir(subfolder_path):
+                continue
+
+            for file in os.listdir(subfolder_path):
+                if file.startswith("metrics_summary_nodes_") and file.endswith(".csv"):
+                    # Extract num_nodes and num_edges from the file name
+                    try:
+                        parts = file.split("_")
+                        num_nodes = int(parts[3])
+                        num_edges = int(parts[5].split(".")[0])
+                    except (IndexError, ValueError):
+                        continue
+
+                    # Read the metrics file and add num_nodes and num_edges columns
+                    file_path = os.path.join(subfolder_path, file)
+                    df = pd.read_csv(file_path)
+                    df["Nodes"] = num_nodes
+                    df["Edges"] = num_edges
+
+                    # Ensure "Nodes" and "Edges" are the leftmost columns
+                    columns_order = ["Nodes", "Edges"] + [col for col in df.columns if col not in ["Nodes", "Edges"]]
+                    df = df[columns_order]
+
+                    aggregated_data.append(df)
+
+        # Combine all dataframes and save to a single CSV
+        aggregated_df = pd.concat(aggregated_data, ignore_index=True)
+        aggregated_df.to_csv(output_filepath, index=False)

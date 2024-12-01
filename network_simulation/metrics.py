@@ -119,11 +119,13 @@ class Metrics:
 
     # Temporal Metrics
 
-    def calculate_edge_turnover(self, current_adjacency, previous_adjacency):
+    def calculate_edge_persistence(self, current_adjacency, previous_adjacency):
         """
-        Edge Turnover:
+        Edge Persistence:
         Ratio of persistent edges to the total number of edges over time.
         """
+        if previous_adjacency is None:
+            return None
         overlap = np.sum((previous_adjacency > 0) & (current_adjacency > 0))
         total_edges = np.sum((previous_adjacency > 0) | (current_adjacency > 0))
         return overlap / total_edges if total_edges > 0 else 0

@@ -14,11 +14,12 @@ class Simulation:
             self.plot = Visualization(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, show=show, color_by=color_by)
 
         start = time.time()
+        self.output.logger.info(f"Starting with Nodes: {self.network.num_nodes}, Connections: {self.network.num_connections}, Steps: {num_steps}")
 
         # Main Loop
         for step in range(num_steps):
             if self.network.stabilized == True:
-                print(f"Stabilized after {step} iterations.")
+                self.output.logger(f"Stabilized after {step} iterations.")
                 break
 
             self.network.update_network()            
@@ -27,20 +28,20 @@ class Simulation:
                 self.output.output_state_snapshot(step, self.network.activities, self.network.adjacency_matrix)
 
             if display_interval and step % display_interval == 0:
-                self.network.apply_forces(min(25, display_interval))
+                self.network.apply_forces(min(50, display_interval))
                 self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
                 self.output.output_network_image(self.plot, step)
 
-        print("Run over:", time.time() - start)
+        self.output.logger.info(f"Run over: {time.time() - start}")
 
         # Final metrics and outputs after the main loop ends
-        if metrics_interval:
-            self.output.output_state_snapshot(step, self.network.activities, self.network.adjacency_matrix)
-            self.output.post_run_output(num_steps=num_steps)
-
         if display_interval:
             self.network.apply_forces(min(150, display_interval))
-            self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
-            self.output.output_network_image(self.plot, step)
+            self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {num_steps}")
+            self.output.output_network_image(self.plot, num_steps)
 
-        print("End time:", time.time() - start)
+        if metrics_interval:
+            self.output.output_state_snapshot(num_steps, self.network.activities, self.network.adjacency_matrix)
+            self.output.post_run_output(num_steps=num_steps)
+
+        self.output.logger.info(f"End time: {time.time() - start}")
