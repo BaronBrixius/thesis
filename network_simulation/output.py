@@ -1,3 +1,4 @@
+import logging
 import os
 import numpy as np
 import pandas as pd
@@ -24,15 +25,23 @@ class Output:
         self.metrics = Metrics()
 
         self.runtime_outputs = runtime_outputs or {
-            "state_snapshot": self.output_state_snapshot,
-            "network_image": self.output_network_image,
+            "state_snapshot",
+            "network_image",
         }
 
         self.post_run_outputs = post_run_outputs or {
-            "metrics_summary": self.output_metrics_from_snapshots,
-            "average_metrics": self.output_average_metrics,
-            "cc_apl_graph": self.output_cc_apl_graph,
+            "metrics_summary",
+            "average_metrics",
+            "cc_apl_graph",
         }
+
+        # Set up logging
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s.%(msecs)03d - %(levelname)s - %(message)s",
+            datefmt="%H:%M:%S"
+        )
+        self.logger = logging.getLogger(__name__)
 
     ### Runtime Snapshot Methods ###
 
@@ -44,34 +53,35 @@ class Output:
         with h5py.File(snapshot_file, "w") as h5file:
             h5file.create_dataset("activities", data=activities)
             h5file.create_dataset("adjacency_matrix", data=adjacency_matrix)
-        print(f"Saved snapshot for step {step} to {snapshot_file}")
+        self.logger.info(f"Saved snapshot for step {step} to {snapshot_file}")
 
     def output_network_image(self, visualization, step):
         if "network_image" not in self.runtime_outputs:
             return
         image_path = os.path.join(self.network_images_dir, f"network_{step}.jpg")
         visualization.fig.savefig(image_path, format="jpg")
-        print(f"Saved network visualization for step {step} to {image_path}")
+        self.logger.info(f"Saved network visualization for step {step} to {image_path}")
 
     ### Post-Run Metrics Calculation ###
 
-    def post_run_output(self, **kwargs):
-        """
-        Generate all post-run outputs.
-        """
+    def post_run_output(self, last_steps=200000, xlim=None, ylim=None, ylim_cc=None, ylim_apl=None):
         if not os.path.exists(self.snapshots_dir):
             print("No snapshots available for post-run outputs.")
             return
 
-        for output_name, output_function in self.post_run_outputs.items():
-            print(f"Generating post-run output: {output_name}")
-            output_function(**kwargs)
+        self.output_metrics_from_snapshots()
+        self.logger.info("Generated metrics summar.")
+
+        self.output_average_metrics(last_steps=last_steps, xlim=xlim, ylim=ylim)
+        self.logger.info("Generated average metrics.")
+
+        self.output_line_graph(metrics=["Clustering Coefficient", "Average Path Length"], title="CC and APL Over Time", ylabel="Value")
+        self.logger.info("Generated CC and APL graph.")
 
     def output_metrics_from_snapshots(self):
-        """
-        Calculate and save metrics summary from snapshots.
-        """
         metrics_summary = []
+        previous_adjacency_matrix = None
+        previous_cluster_assignments = None
 
         for snapshot_file in sorted(os.listdir(self.snapshots_dir)):
             if not snapshot_file.endswith(".h5"):
@@ -83,29 +93,51 @@ class Output:
             with h5py.File(snapshot_path, "r") as h5file:
                 adjacency_matrix = h5file["adjacency_matrix"][:]
 
-            # Compute metrics
-            metrics = {"Step": step}
+            # Calculate metrics
+            metrics = {"Step": step}    # So "Step" is on the left in the output
             metrics.update(self.metrics.calculate_all(adjacency_matrix))
+
+            # Detect communities for cluster stability
+            current_cluster_assignments = self.metrics.detect_communities(adjacency_matrix)
+
+            # Calculate temporal metrics
+            if previous_adjacency_matrix is not None:
+                metrics["Edge Turnover"] = self.metrics.calculate_edge_turnover(
+                    adjacency_matrix, previous_adjacency_matrix
+                )
+            else:
+                metrics["Edge Turnover"] = None
+
+            if previous_cluster_assignments is not None:
+                metrics["Cluster Membership Stability"] = self.metrics.calculate_cluster_membership_stability(
+                    current_cluster_assignments, previous_cluster_assignments
+                )
+            else:
+                metrics["Cluster Membership Stability"] = None
+
+            # Update temporal states
+            previous_adjacency_matrix = adjacency_matrix
+            previous_cluster_assignments = current_cluster_assignments
+
+            # Add metrics to the summary
             metrics_summary.append(metrics)
 
         # Save metrics summary
         metrics_summary_df = pd.DataFrame(metrics_summary)
+
+        # Ensure "Step" is the leftmost column
+        cols = ["Step"] + [col for col in metrics_summary_df.columns if col != "Step"]
+        metrics_summary_df = metrics_summary_df[cols]
+
         metrics_summary_df.to_csv(self.metrics_file_path, index=False)
-        print(f"Metrics summary saved to {self.metrics_file_path}")
+        self.logger.info(f"Metrics summary saved to {self.metrics_file_path}")
 
     def output_average_metrics(self, last_steps=200000, xlim=None, ylim=None):
-        """
-        Generate and save average adjacency matrix and histogram.
-
-        Args:
-            last_steps (int): Consider snapshots from the last N steps.
-            xlim (tuple): X-axis limits for histogram.
-            ylim (tuple): Y-axis limits for histogram.
-        """
         histogram_sum = None
         bin_edges = None
         adjacency_sum = None
         count = 0
+        recurrence_rates = []  # To store recurrence rates for each snapshot
 
         for snapshot_file in sorted(os.listdir(self.snapshots_dir)):
             if not snapshot_file.endswith(".h5"):
@@ -143,7 +175,7 @@ class Output:
             avg_adjacency_matrix = adjacency_sum / count
             avg_matrix_path = os.path.join(self.base_dir, "average_adjacency_matrix.csv")
             np.savetxt(avg_matrix_path, avg_adjacency_matrix, delimiter=",")
-            print(f"Saved average adjacency matrix to {avg_matrix_path}")
+            self.logger.info(f"Saved average adjacency matrix to {avg_matrix_path}")
 
         # Calculate and save average histogram
         if histogram_sum is not None:
@@ -160,34 +192,43 @@ class Output:
             output_path = os.path.join(self.plots_dir, "connection_distribution.jpg")
             plt.savefig(output_path)
             plt.close()
-            print(f"Saved average histogram to {output_path}")
+            self.logger.info(f"Saved average histogram to {output_path}")
 
-
-    def output_cc_apl_graph(self, xlim=None, ylim_cc=None, ylim_apl=None):
+    def output_line_graph(self, metrics, xlim=None, ylim=None, title=None, xlabel="Step Number", ylabel="Value"):
         """
-        Generate CC and APL graph over time.
+        Generate a line graph for specified metrics over time.
         """
         if not os.path.exists(self.metrics_file_path):
-            print(f"No metrics summary file found at {self.metrics_file_path}")
+            self.logger.warning(f"No metrics summary file found at {self.metrics_file_path}")
             return
 
         data = pd.read_csv(self.metrics_file_path)
-        if not {"Step", "Clustering Coefficient", "Average Path Length"}.issubset(data.columns):
-            print("Missing required columns in metrics summary.")
+
+        # Validate the existence of metrics in the data
+        missing_metrics = [metric for metric in metrics if metric not in data.columns]
+        if missing_metrics:
+            self.logger.warning(f"Missing required metrics in metrics summary: {missing_metrics}")
             return
 
         plt.figure(figsize=(10, 6))
-        plt.plot(data["Step"], data["Clustering Coefficient"], label="Clustering Coefficient", color="green")
-        plt.plot(data["Step"], data["Average Path Length"], label="Average Path Length", color="blue")
+        for metric in metrics:
+            plt.plot(data["Step"], data[metric], label=metric)
 
         if xlim:
             plt.xlim(xlim)
-        if ylim_cc:
-            plt.ylim(ylim_cc)
-        plt.title("Clustering Coefficient and APL Over Time")
-        plt.xlabel("Step Number")
+        if ylim:
+            plt.ylim(ylim)
+        if not title:
+            title = f"{', '.join(metrics)} Over Time"
+
+        plt.title(title)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
         plt.legend()
-        metrics_graph_path = os.path.join(self.plots_dir, "cc_apl.jpg")
+        plt.grid(True, linestyle="--", alpha=0.7)
+
+        # Save the graph
+        metrics_graph_path = os.path.join(self.plots_dir, f"{'_'.join(metrics)}.jpg")
         plt.savefig(metrics_graph_path)
         plt.close()
-        print(f"Saved CC and APL graph to {metrics_graph_path}")
+        self.logger.info(f"Saved line graph for metrics {metrics} to {metrics_graph_path}")

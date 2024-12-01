@@ -16,12 +16,15 @@ class Metrics:
             "Assortativity": self.calculate_assortativity(graph),
             "Betweenness Centrality": self.calculate_betweenness_centrality(graph),
             "Efficiency": self.calculate_efficiency(graph),
-            "Robustness": self.calculate_robustness(graph, adjacency_matrix),
             "Network Entropy": self.calculate_network_entropy(adjacency_matrix),
             "Rich-Club Coefficient": self.calculate_rich_club_coefficient(graph),
-            "Hierarchical Metrics": self.calculate_hierarchical_metrics(graph),
-            "Recurrence Quantification": self.calculate_recurrence_quantification(graph),
         }
+
+        hierarchical_metrics = self.calculate_cliques(graph)
+        if hierarchical_metrics:
+            for key, value in hierarchical_metrics.items():
+                metrics[str(key)] = value
+
         return metrics
 
     ## Individual Metric Calculation Methods ##
@@ -72,16 +75,9 @@ class Metrics:
         """
         Efficiency:
         How efficiently information is exchanged in the network.
+        Average of multiplicative inverse of the shortest path distance between each pair of nodes
         """
         return nx.global_efficiency(graph)
-
-    def calculate_robustness(self, graph, adjacency_matrix):
-        """
-        Robustness:
-        The proportion of nodes in the largest connected component of the graph. Indicates the network's resilience to fragmentation.
-        """
-        largest_cc = max(nx.connected_components(graph), key=len)
-        return len(largest_cc) / adjacency_matrix.shape[0]
 
     def calculate_network_entropy(self, adjacency_matrix):
         """
@@ -97,31 +93,31 @@ class Metrics:
         Rich-Club Coefficient:
         Tendency of high-degree nodes to form tightly interconnected subgraphs.
         """
-        return 0# nx.rich_club_coefficient(graph, normalized=True)
+        return nx.rich_club_coefficient(graph, normalized=False)    # normalization=True gives divide by zero errors in the code for generating the random graph (weird)
 
-    def calculate_hierarchical_metrics(self, graph):
+    def calculate_cliques(self, graph):
         """
         Hierarchical Metrics:
+        Analyzes the hierarchical structure of the network, focusing on cliques and nested communities.
         """
-        #levels = nx.graph_clique_number(graph)
-        return None # {"Max Clique Size": levels}
+        # Find all cliques in the graph
+        cliques = list(nx.find_cliques(graph))
 
-    def calculate_recurrence_quantification(self, graph):
-        """
-        Recurrence Quantification:
-        """
-        return {"Recurrence Rate": None}
+        # Maximum clique size
+        max_clique_size = max(len(clique) for clique in cliques)
+
+        # Clique distribution
+        clique_distribution = {}
+        for clique in cliques:
+            size = len(clique)
+            clique_distribution[size] = clique_distribution.get(size, 0) + 1
+
+        return {
+            "Max Clique Size": max_clique_size,
+            "Clique Distribution": clique_distribution,
+        }
 
     # Temporal Metrics
-
-    def calculate_temporal_modularity(self, current_modularity, previous_modularity):
-        """
-        Temporal Modularity:
-        Change in modularity between consecutive time steps.
-        """
-        if previous_modularity is None:
-            return None
-        return current_modularity - previous_modularity
 
     def calculate_edge_turnover(self, current_adjacency, previous_adjacency):
         """
@@ -142,11 +138,11 @@ class Metrics:
         return adjusted_rand_score(previous_assignments, current_assignments)
 
     # Community Detection Helper
-
-    def detect_communities(self, graph):
+    def detect_communities(self, adjacency_matrix):
         """
         Assigns nodes to communities for modularity and cluster stability calculations.
         """
+        graph = nx.from_numpy_array(adjacency_matrix)
         clusters = nx.algorithms.community.louvain_communities(graph)
 
         cluster_assignments = {}

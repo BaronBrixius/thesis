@@ -6,13 +6,13 @@ import pstats
 import os
 
 # Network parameters
-NUM_NODES = 200
+NUM_NODES = 300
 NUM_CONNECTIONS = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2)) # 10% density * total possible connections n*(n-1)/2
 
 # Simulation parameters
-NUM_STEPS = 500
-METRICS_INTERVAL = 100
-DISPLAY_INTERVAL = 100
+NUM_STEPS = 25000
+METRICS_INTERVAL = 5000
+DISPLAY_INTERVAL = 0000
 STABILIZATION_THRESHOLD = 0
 OUTPUT_DIR = "foo"
 COLOR_BY = ColorBy.CONNECTIONS
@@ -21,7 +21,7 @@ COLOR_BY = ColorBy.CONNECTIONS
 RANDOM_SEED = 42
 
 if __name__ == "__main__":
-    profiler = None #cProfile.Profile()
+    profiler = cProfile.Profile()
     if profiler: profiler.enable()
 
     # Run the simulation
