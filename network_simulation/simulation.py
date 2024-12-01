@@ -7,7 +7,7 @@ import time
 class Simulation:
     def __init__(self, num_nodes, num_connections, output_dir=None, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
-        self.output = Output(output_dir)
+        self.output = Output(output_dir, num_nodes=num_nodes, num_connections=num_connections)
 
     def run(self, num_steps, display_interval=1000, metrics_interval=1000, show=True, color_by:ColorBy=ColorBy.ACTIVITY):
         if display_interval:
@@ -36,7 +36,7 @@ class Simulation:
         # Final metrics and outputs after the main loop ends
         if metrics_interval:
             self.output.output_state_snapshot(step, self.network.activities, self.network.adjacency_matrix)
-            self.output.post_run_output()
+            self.output.post_run_output(num_steps=num_steps)
 
         if display_interval:
             self.network.apply_forces(min(150, display_interval))

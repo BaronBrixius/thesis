@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from network_simulation.metrics import Metrics
 
 class Output:
-    def __init__(self, base_dir, runtime_outputs=None, post_run_outputs=None):
+    def __init__(self, base_dir, num_nodes=None, num_connections=None):
         self.base_dir = os.path.join("output", base_dir)
         os.makedirs(self.base_dir, exist_ok=True)
 
@@ -20,20 +20,12 @@ class Output:
         self.plots_dir = os.path.join(self.base_dir, "plots")
         os.makedirs(self.plots_dir, exist_ok=True)
 
-        self.metrics_file_path = os.path.join(self.base_dir, "metrics_summary.csv")
+        self.num_nodes = num_nodes
+        self.num_connections = num_connections
+        self.metrics_file_path = os.path.join(self.base_dir, f"metrics_summary_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
 
         self.metrics = Metrics()
 
-        self.runtime_outputs = runtime_outputs or {
-            "state_snapshot",
-            "network_image",
-        }
-
-        self.post_run_outputs = post_run_outputs or {
-            "metrics_summary",
-            "average_metrics",
-            "cc_apl_graph",
-        }
 
         # Set up logging
         logging.basicConfig(
@@ -47,24 +39,20 @@ class Output:
 
     def output_state_snapshot(self, step, activities, adjacency_matrix):
         # Save activities and adjacency matrix for a given step
-        if "state_snapshot" not in self.runtime_outputs:
-            return
-        snapshot_file = os.path.join(self.snapshots_dir, f"snapshot_{step}.h5")
+        snapshot_file = os.path.join(self.snapshots_dir, f"snapshot_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.h5")
         with h5py.File(snapshot_file, "w") as h5file:
             h5file.create_dataset("activities", data=activities)
             h5file.create_dataset("adjacency_matrix", data=adjacency_matrix)
         self.logger.info(f"Saved snapshot for step {step} to {snapshot_file}")
 
     def output_network_image(self, visualization, step):
-        if "network_image" not in self.runtime_outputs:
-            return
-        image_path = os.path.join(self.network_images_dir, f"network_{step}.jpg")
-        visualization.fig.savefig(image_path, format="jpg")
+        image_path = os.path.join(self.network_images_dir, f"network_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.jpg")
+        visualization.fig.savefig(image_path)
         self.logger.info(f"Saved network visualization for step {step} to {image_path}")
 
     ### Post-Run Metrics Calculation ###
 
-    def post_run_output(self, last_steps=200000, xlim=None, ylim=None, ylim_cc=None, ylim_apl=None):
+    def post_run_output(self, num_steps, last_steps=200000, xlim=None, ylim=None):
         if not os.path.exists(self.snapshots_dir):
             print("No snapshots available for post-run outputs.")
             return
@@ -72,10 +60,10 @@ class Output:
         self.output_metrics_from_snapshots()
         self.logger.info("Generated metrics summar.")
 
-        self.output_average_metrics(last_steps=last_steps, xlim=xlim, ylim=ylim)
+        self.output_average_metrics(num_steps=num_steps, last_steps=last_steps, xlim=xlim, ylim=ylim)
         self.logger.info("Generated average metrics.")
 
-        self.output_line_graph(metrics=["Clustering Coefficient", "Average Path Length"], title="CC and APL Over Time", ylabel="Value")
+        self.output_line_graph(metrics=["Clustering Coefficient", "Average Path Length"], title=f"CC and APL, {self.num_nodes} Nodes, {self.num_connections} Connections", ylabel="Value")
         self.logger.info("Generated CC and APL graph.")
 
     def output_metrics_from_snapshots(self):
@@ -87,7 +75,10 @@ class Output:
             if not snapshot_file.endswith(".h5"):
                 continue
 
-            step = int(snapshot_file.split("_")[1].split(".")[0])
+            filename_parts = snapshot_file.split("_")                   # split
+            step_index = filename_parts.index("step") + 1               # index right after "step"
+            step = int(filename_parts[step_index].split(".")[0])        # convert to int
+
             snapshot_path = os.path.join(self.snapshots_dir, snapshot_file)
 
             with h5py.File(snapshot_path, "r") as h5file:
@@ -132,19 +123,20 @@ class Output:
         metrics_summary_df.to_csv(self.metrics_file_path, index=False)
         self.logger.info(f"Metrics summary saved to {self.metrics_file_path}")
 
-    def output_average_metrics(self, last_steps=200000, xlim=None, ylim=None):
+    def output_average_metrics(self, num_steps, last_steps=200000, xlim=None, ylim=None):
         histogram_sum = None
         bin_edges = None
         adjacency_sum = None
         count = 0
-        recurrence_rates = []  # To store recurrence rates for each snapshot
 
         for snapshot_file in sorted(os.listdir(self.snapshots_dir)):
             if not snapshot_file.endswith(".h5"):
                 continue
 
-            step = int(snapshot_file.split("_")[1].split(".")[0])
-            if step < max(0, step - last_steps):
+            filename_parts = snapshot_file.split("_")                   # split
+            step_index = filename_parts.index("step") + 1               # index right after "step"
+            step = int(filename_parts[step_index].split(".")[0])        # convert to int
+            if step < (num_steps - last_steps):
                 continue
 
             snapshot_path = os.path.join(self.snapshots_dir, snapshot_file)
@@ -173,7 +165,7 @@ class Output:
         # Calculate and save average adjacency matrix
         if adjacency_sum is not None and count > 0:
             avg_adjacency_matrix = adjacency_sum / count
-            avg_matrix_path = os.path.join(self.base_dir, "average_adjacency_matrix.csv")
+            avg_matrix_path = os.path.join(self.base_dir, f"average_adjacency_matrix_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{max(0, num_steps-last_steps)}_to_{num_steps}.csv")
             np.savetxt(avg_matrix_path, avg_adjacency_matrix, delimiter=",")
             self.logger.info(f"Saved average adjacency matrix to {avg_matrix_path}")
 
@@ -184,12 +176,12 @@ class Output:
             plt.bar(bin_edges[:-1], avg_histogram, color="gray", align="center", width=1)
             plt.xlabel("Connections per Node")
             plt.ylabel("Frequency")
-            plt.title("Average Connection Distribution")
+            plt.title(f"Connection Distribution, {self.num_nodes} Nodes, {self.num_connections} Connections, Step {max(0, num_steps - last_steps)} to {num_steps}")
             if xlim:
                 plt.xlim(xlim)
             if ylim:
                 plt.ylim(ylim)
-            output_path = os.path.join(self.plots_dir, "connection_distribution.jpg")
+            output_path = os.path.join(self.plots_dir, f"connection_distribution_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{max(0, num_steps-last_steps)}_to_{num_steps}.jpg")
             plt.savefig(output_path)
             plt.close()
             self.logger.info(f"Saved average histogram to {output_path}")
@@ -228,7 +220,7 @@ class Output:
         plt.grid(True, linestyle="--", alpha=0.7)
 
         # Save the graph
-        metrics_graph_path = os.path.join(self.plots_dir, f"{'_'.join(metrics)}.jpg")
+        metrics_graph_path = os.path.join(self.plots_dir, f"{'_'.join(metrics)}_nodes_{self.num_nodes}_edges_{self.num_connections}.jpg")
         plt.savefig(metrics_graph_path)
         plt.close()
         self.logger.info(f"Saved line graph for metrics {metrics} to {metrics_graph_path}")

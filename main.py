@@ -12,9 +12,9 @@ NUM_CONNECTIONS = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2)) # 10% density * t
 # Simulation parameters
 NUM_STEPS = 25000
 METRICS_INTERVAL = 5000
-DISPLAY_INTERVAL = 0000
+DISPLAY_INTERVAL = 5000
 STABILIZATION_THRESHOLD = 0
-OUTPUT_DIR = "foo"
+OUTPUT_DIR = "C:/foo"
 COLOR_BY = ColorBy.CONNECTIONS
 
 # Misc
@@ -30,16 +30,16 @@ if __name__ == "__main__":
     sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=False, color_by=COLOR_BY)
 
     # 1: Networks with varying connection densities
-    # for num_connections in range(50, 5050, 50):  # Adjust connection density
-    #     scenario_dir = os.path.join("density_test_data", f"density_{num_connections}")
-    #     sim = SimulationManager(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=42)
-    #     sim.run(num_steps=1_000_000, display_interval=1000, metrics_interval=1000, show=False)
+    for num_connections in range(50, 5050, 50):  # Adjust connection density
+        scenario_dir = os.path.join("density_test_data", f"density_{num_connections}")
+        sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=42)
+        sim.run(num_steps=1_000_000, display_interval=1000, metrics_interval=1000, show=False, color_by=ColorBy.CONNECTIONS)
 
     # 2: 600-unit networks with connection matrix and histogram
     # num_connections_600 = int(0.1 * (600 * (600 - 1) / 2))
-    # for i in range(1,3):
+    # for i in range(3):
     #     scenario_dir = os.path.join("600_nodes_test_data", f"seed_{i}")
-    #     sim = SimulationManager(num_nodes=600, num_connections=num_connections_600, output_dir=scenario_dir, random_seed=i)
+    #     sim = Simulation(num_nodes=600, num_connections=num_connections_600, output_dir=scenario_dir, random_seed=i)
     #     sim.run(num_steps=10_000_000, display_interval=1000000, metrics_interval=1000000, show=False, color_by=ColorBy.CONNECTIONS)
 
     # 10_000_000 steps 1000 interval
