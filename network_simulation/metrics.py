@@ -1,13 +1,14 @@
 import networkx as nx
 import numpy as np
 from scipy.sparse.csgraph import shortest_path
+from scipy.spatial.distance import cdist
 from sklearn.metrics.cluster import adjusted_rand_score
 
 class Metrics:
     def __init__(self):
         pass
 
-    def calculate_all(self, adjacency_matrix):
+    def calculate_all(self, adjacency_matrix, activities):
         graph = nx.from_numpy_array(adjacency_matrix)
         metrics = {
             "Clustering Coefficient": self.calculate_clustering_coefficient(graph),
@@ -18,6 +19,7 @@ class Metrics:
             "Efficiency": self.calculate_efficiency(graph),
             "Network Entropy": self.calculate_network_entropy(adjacency_matrix),
             "Rich-Club Coefficient": self.calculate_rich_club_coefficient(graph),
+            "Rewiring Chance": self.calculate_rewiring_chance(adjacency_matrix, activities), 
         }
 
         hierarchical_metrics = self.calculate_cliques(graph)
@@ -45,6 +47,29 @@ class Metrics:
             return nx.average_shortest_path_length(graph)
         except nx.NetworkXError:
             return None  # Disconnected graph
+
+    def calculate_rewiring_chance(self, adjacency_matrix, activities):
+        """
+        Rewiring Chance:
+        Ratio of nodes that are not connected to their most similar node in the activity space.
+        """
+        num_nodes = activities.shape[0]
+        not_connected_count = 0
+
+        for i in range(num_nodes):
+            # Compute similarity with all other nodes
+            activity_diff = np.abs(activities - activities[i])
+            activity_diff[i] = np.inf  # Ignore self-similarity
+
+            # Find the most similar node
+            most_similar_node = np.argmin(activity_diff)
+
+            # Check if not connected
+            if adjacency_matrix[i, most_similar_node] == 0:
+                not_connected_count += 1
+
+        # Calculate and return the ratio
+        return not_connected_count / num_nodes
 
     def calculate_modularity(self, graph):
         """

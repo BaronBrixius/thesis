@@ -24,6 +24,7 @@ class NodeNetwork:
 
         self.metrics_manager = Metrics()
         self.breakup_count = 0
+        self.successful_rewirings = 0
 
         self.cpl_history = deque(maxlen=100)
         self.cc_history = deque(maxlen=100)
@@ -80,6 +81,7 @@ class NodeNetwork:
         # 3b. If there is no connection between the pivot and the candidate, establish it, and break the connection between the pivot and its least synchronized neighbor.
         self.add_connection(pivot, candidate)
         self.remove_connection(pivot, least_synchronized_neighbor)
+        self.successful_rewirings += 1
 
     # Update the activity of all nodes
     def update_network(self):

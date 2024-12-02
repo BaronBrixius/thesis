@@ -36,12 +36,13 @@ class Output:
 
     ### Runtime Snapshot Methods ###
 
-    def output_state_snapshot(self, step, activities, adjacency_matrix):
+    def output_state_snapshot(self, step, activities, adjacency_matrix, successful_rewirings):
         # Save activities and adjacency matrix for a given step
         snapshot_file = os.path.join(self.snapshots_dir, f"snapshot_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.h5")
         with h5py.File(snapshot_file, "w") as h5file:
             h5file.create_dataset("activities", data=activities)
             h5file.create_dataset("adjacency_matrix", data=adjacency_matrix)
+            h5file.create_dataset("successful_rewirings", data=successful_rewirings)    # TODO I think this can be calculated post-run at some point, but need permission
         self.logger.info(f"Saved snapshot for step {step} to {snapshot_file}")
 
     def output_network_image(self, visualization, step):
@@ -80,17 +81,23 @@ class Output:
         metrics_summary = []
         previous_adjacency_matrix = None
         previous_cluster_assignments = None
+        total_rewirings = 0
 
         for step, snapshot_file in self.get_sorted_snapshots():
             self.logger.info(f"Analyzing {snapshot_file}")
 
             snapshot_path = os.path.join(self.snapshots_dir, snapshot_file)
             with h5py.File(snapshot_path, "r") as h5file:
+                activities = h5file["activities"][:]
                 adjacency_matrix = h5file["adjacency_matrix"][:]
+                successful_rewirings = h5file["successful_rewirings"][()]
 
             # Calculate metrics
             metrics = {"Step": step}    # So "Step" is on the left in the output
-            metrics.update(self.metrics.calculate_all(adjacency_matrix))
+            metrics.update(self.metrics.calculate_all(adjacency_matrix, activities))
+            metrics["Rewirings (interval)"] = successful_rewirings
+            total_rewirings += successful_rewirings
+            metrics["Rewirings (total)"] = total_rewirings
 
             # Detect communities for cluster stability
             current_cluster_assignments = self.metrics.detect_communities(adjacency_matrix)
