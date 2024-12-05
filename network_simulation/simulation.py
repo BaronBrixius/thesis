@@ -27,13 +27,11 @@ class Simulation:
                 self.network.successful_rewirings = 0   #FIXME this is a bad, hacky way to do this!
 
             if display_interval and step % display_interval == 0:
-                self.network.apply_forces(min(50, display_interval))
+                self.network.apply_forces(min(100, display_interval))
                 self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
                 self.output.output_network_image(self.plot, step)
 
             self.network.update_network()
-
-        self.output.logger.info(f"Run over: {time.time() - start}")
 
         # Final metrics and outputs after the main loop ends
         if display_interval:
@@ -43,6 +41,10 @@ class Simulation:
 
         if metrics_interval:
             self.output.output_state_snapshot(num_steps, self.network.activities, self.network.adjacency_matrix, self.network.successful_rewirings)
-            self.output.post_run_output(num_steps=num_steps)
+
+        self.output.logger.info(f"Run over: {time.time() - start}")
+        
+        if metrics_interval:
+            self.output.post_run_output()
 
         self.output.logger.info(f"End time: {time.time() - start}")

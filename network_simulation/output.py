@@ -1,5 +1,6 @@
 import logging
 import os
+import networkx as nx
 import numpy as np
 import pandas as pd
 import h5py
@@ -22,7 +23,7 @@ class Output:
 
         self.num_nodes = num_nodes
         self.num_connections = num_connections
-        self.metrics_file_path = os.path.join(self.base_dir, f"metrics_summary_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
+        self.metrics_file_path = os.path.join(self.base_dir, f"summary_metrics_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
 
         self.metrics = Metrics()
 
@@ -52,16 +53,13 @@ class Output:
 
     ### Post-Run Metrics Calculation ###
 
-    def post_run_output(self, num_steps, last_steps=200000, xlim=None, ylim=None):
+    def post_run_output(self):
         if not os.path.exists(self.snapshots_dir):
             print("No snapshots available for post-run outputs.")
             return
 
         self.output_metrics_from_snapshots()
-        self.logger.info("Generated metrics summary.")
-
-        self.output_average_metrics(num_steps=num_steps, last_steps=last_steps, xlim=xlim, ylim=ylim)
-        self.logger.info("Generated average metrics.")
+        self.logger.info("Generated summary metrics.")
 
         self.output_line_graph(metrics=["Clustering Coefficient", "Average Path Length"], title=f"CC and APL, {self.num_nodes} Nodes, {self.num_connections} Connections", ylabel="Value")
         self.logger.info("Generated CC and APL graph.")
@@ -74,115 +72,57 @@ class Output:
               for file in snapshot_files],
             key=lambda x: x[0]  # Sort by step number
         )
-
         return sorted_snapshots
 
     def output_metrics_from_snapshots(self):
         metrics_summary = []
         previous_adjacency_matrix = None
         previous_cluster_assignments = None
-        total_rewirings = 0
 
         for step, snapshot_file in self.get_sorted_snapshots():
-            self.logger.info(f"Analyzing {snapshot_file}")
+            self.logger.info(f"Analyzing snapshot: {snapshot_file}")
 
+            # Load snapshot data
             snapshot_path = os.path.join(self.snapshots_dir, snapshot_file)
             with h5py.File(snapshot_path, "r") as h5file:
                 activities = h5file["activities"][:]
                 adjacency_matrix = h5file["adjacency_matrix"][:]
                 successful_rewirings = h5file["successful_rewirings"][()]
 
-            # Calculate metrics
-            metrics = {"Step": step}    # So "Step" is on the left in the output
-            metrics.update(self.metrics.calculate_all(adjacency_matrix, activities))
+            # Initialize metrics dictionary
+            metrics = {"Step": step}
+
+            # Calculate selected metrics
+            adjacency_matrix_nx = nx.from_numpy_array(adjacency_matrix)
+            metrics["Clustering Coefficient"] = self.metrics.calculate_clustering_coefficient(adjacency_matrix_nx)
             metrics["Rewirings (interval)"] = successful_rewirings
-            total_rewirings += successful_rewirings
-            metrics["Rewirings (total)"] = total_rewirings
-
-            # Detect communities for cluster stability
-            current_cluster_assignments = self.metrics.detect_communities(adjacency_matrix)
-            unique, counts = np.unique(current_cluster_assignments, return_counts=True)
-            cluster_sizes = dict(zip(unique, counts))
-
-            metrics["Cluster Membership"] = current_cluster_assignments
-            metrics["Cluster Sizes"] = cluster_sizes
-            metrics["Cluster Membership Stability"] = self.metrics.calculate_cluster_membership_stability(current_cluster_assignments, previous_cluster_assignments)
-
+            metrics["Rewiring Chance"] = self.metrics.calculate_rewiring_chance(adjacency_matrix, activities)
             metrics["Edge Persistence"] = self.metrics.calculate_edge_persistence(adjacency_matrix, previous_adjacency_matrix)
+            metrics["Average Path Length"] = self.metrics.calculate_average_path_length(adjacency_matrix_nx)
+            # metrics["Modularity"] = self.metrics.calculate_modularity(adjacency_matrix_nx)
+            # metrics["Assortativity"] = self.metrics.calculate_assortativity(adjacency_matrix_nx)
+            # metrics["Betweenness Centrality"] = self.metrics.calculate_betweenness_centrality(adjacency_matrix_nx)
+
+            cluster_assignments = self.metrics.detect_communities(adjacency_matrix)
+            metrics["Cluster Membership Stability"] = self.metrics.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments)
 
             # Update temporal states
             previous_adjacency_matrix = adjacency_matrix
-            previous_cluster_assignments = current_cluster_assignments
+            previous_cluster_assignments = cluster_assignments
+
+            # Clique metrics
+            # clique_metrics = self.metrics.calculate_cliques(adjacency_matrix_nx)
+            # if clique_metrics:
+            #     for key, value in clique_metrics.items():
+            #         metrics[str(key)] = value
 
             # Add metrics to the summary
             metrics_summary.append(metrics)
 
         # Save metrics summary
         metrics_summary_df = pd.DataFrame(metrics_summary)
-
-        # Ensure "Step" is the leftmost column
-        cols = ["Step"] + [col for col in metrics_summary_df.columns if col != "Step"]
-        metrics_summary_df = metrics_summary_df[cols].sort_values(by="Step")
-
         metrics_summary_df.to_csv(self.metrics_file_path, index=False)
-        self.logger.info(f"Metrics summary saved to {self.metrics_file_path}")
-
-    def output_average_metrics(self, num_steps, last_steps=200000, xlim=None, ylim=None):
-        histogram_sum = None
-        bin_edges = None
-        adjacency_sum = None
-        count = 0
-
-        for step, snapshot_file in self.get_sorted_snapshots():
-            if step < (num_steps - last_steps):
-                continue
-
-            snapshot_path = os.path.join(self.snapshots_dir, snapshot_file)
-            with h5py.File(snapshot_path, "r") as h5file:
-                adjacency_matrix = h5file["adjacency_matrix"][:]
-                connections_per_node = np.sum(adjacency_matrix, axis=1)
-
-                # Update adjacency sum
-                adjacency_sum = (adjacency_matrix if adjacency_sum is None else adjacency_sum + adjacency_matrix)
-
-                # Determine bin edges dynamically
-                max_connections = int(connections_per_node.max()) + 1
-                new_bin_edges = np.arange(0, max_connections + 1)
-                if bin_edges is None or len(new_bin_edges) > len(bin_edges):
-                    # Update bin edges and adjust histogram_sum to match new bins
-                    if histogram_sum is not None:
-                        expanded_histogram_sum = np.zeros(len(new_bin_edges) - 1)
-                        expanded_histogram_sum[: len(histogram_sum)] = histogram_sum
-                        histogram_sum = expanded_histogram_sum
-                    bin_edges = new_bin_edges
-
-                histogram, _ = np.histogram(connections_per_node, bins=bin_edges)
-                histogram_sum = (histogram if histogram_sum is None else histogram_sum + histogram)
-                count += 1
-
-        # Calculate and save average adjacency matrix
-        if adjacency_sum is not None and count > 0:
-            avg_adjacency_matrix = adjacency_sum / count
-            avg_matrix_path = os.path.join(self.base_dir, f"average_adjacency_matrix_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{max(0, num_steps-last_steps)}_to_{num_steps}.csv")
-            np.savetxt(avg_matrix_path, avg_adjacency_matrix, delimiter=",")
-            self.logger.info(f"Saved average adjacency matrix to {avg_matrix_path}")
-
-        # Calculate and save average histogram
-        if histogram_sum is not None:
-            avg_histogram = histogram_sum / count
-            plt.figure()
-            plt.bar(bin_edges[:-1], avg_histogram, color="gray", align="center", width=1)
-            plt.xlabel("Connections per Node")
-            plt.ylabel("Frequency")
-            plt.title(f"Connection Distribution, {self.num_nodes} Nodes, {self.num_connections} Connections, Step {max(0, num_steps - last_steps)} to {num_steps}")
-            if xlim:
-                plt.xlim(xlim)
-            if ylim:
-                plt.ylim(ylim)
-            output_path = os.path.join(self.plots_dir, f"connection_distribution_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{max(0, num_steps-last_steps)}_to_{num_steps}.jpg")
-            plt.savefig(output_path)
-            plt.close()
-            self.logger.info(f"Saved average histogram to {output_path}")
+        self.logger.info(f"Summary metrics saved to {self.metrics_file_path}")
 
     def output_line_graph(self, metrics, xlim=None, ylim=None, title=None, xlabel="Step Number", ylabel="Value"):
         """

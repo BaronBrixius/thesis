@@ -7,16 +7,15 @@ import pstats
 import os
 
 # Network parameters
-NUM_NODES = 250
+NUM_NODES = 200
 NUM_CONNECTIONS = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2)) # 10% density * total possible connections n*(n-1)/2
 
 # Simulation parameters
-NUM_STEPS = 40_000
-METRICS_INTERVAL = 10_000
-DISPLAY_INTERVAL = 10_000
+NUM_STEPS = 5_000
+METRICS_INTERVAL = 1_000
+DISPLAY_INTERVAL = 1_000
 STABILIZATION_THRESHOLD = 0
-OUTPUT_DIR = "test_rewiring"
-COLOR_BY = ColorBy.ACTIVITY
+OUTPUT_DIR = "foo"
 
 # Misc
 RANDOM_SEED = 42
@@ -26,16 +25,16 @@ if __name__ == "__main__":
     if profiler: profiler.enable()
 
     # Run the simulation
-    # sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir=OUTPUT_DIR, random_seed=RANDOM_SEED)
-    # sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=False, color_by=ColorBy.ACTIVITY)
+    sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir=OUTPUT_DIR, random_seed=RANDOM_SEED)
+    sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=False)
 
     # 1: Networks with varying connection densities
-    folder_name = "density_data"
-    for num_connections in [1200, 1700, 2400, 3000, 3500, 3950, 4150, 4450, 4600, 4850]:  # Adjust connection density
-        scenario_dir = os.path.join(folder_name, f"edges_{num_connections}")
-        sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=42)
-        sim.run(num_steps=1_000_000, display_interval=100_000, metrics_interval=1_000, show=False)
-    Output.aggregate_metrics(os.path.join("output", folder_name))
+    # folder_name = "density_data"
+    # for num_connections in [1200, 1700, 2400, 3000, 3500, 3950, 4150, 4450, 4600, 4850]:  # Adjust connection density
+    #     scenario_dir = os.path.join(folder_name, f"edges_{num_connections}")
+    #     sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=42)
+    #     sim.run(num_steps=1_000_000, display_interval=100_000, metrics_interval=1_000, show=False)
+    # Output.aggregate_metrics(os.path.join("output", folder_name))
 
     # 2: 600-unit networks with connection matrix and histogram
     # num_connections_600 = int(0.1 * (600 * (600 - 1) / 2))

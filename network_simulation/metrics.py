@@ -8,27 +8,6 @@ class Metrics:
     def __init__(self):
         pass
 
-    def calculate_all(self, adjacency_matrix, activities):
-        graph = nx.from_numpy_array(adjacency_matrix)
-        metrics = {
-            "Clustering Coefficient": self.calculate_clustering_coefficient(graph),
-            "Average Path Length": self.calculate_average_path_length(graph),
-            "Modularity": self.calculate_modularity(graph),
-            "Assortativity": self.calculate_assortativity(graph),
-            "Betweenness Centrality": self.calculate_betweenness_centrality(graph),
-            "Efficiency": self.calculate_efficiency(graph),
-            "Network Entropy": self.calculate_network_entropy(adjacency_matrix),
-            "Rich-Club Coefficient": self.calculate_rich_club_coefficient(graph),
-            "Rewiring Chance": self.calculate_rewiring_chance(adjacency_matrix, activities), 
-        }
-
-        hierarchical_metrics = self.calculate_cliques(graph)
-        if hierarchical_metrics:
-            for key, value in hierarchical_metrics.items():
-                metrics[str(key)] = value
-
-        return metrics
-
     ## Individual Metric Calculation Methods ##
     
     def calculate_clustering_coefficient(self, graph):
@@ -96,14 +75,6 @@ class Metrics:
         betweenness = nx.betweenness_centrality(graph)
         return np.mean(list(betweenness.values()))
 
-    def calculate_efficiency(self, graph):
-        """
-        Efficiency:
-        How efficiently information is exchanged in the network.
-        Average of multiplicative inverse of the shortest path distance between each pair of nodes
-        """
-        return nx.global_efficiency(graph)
-
     def calculate_network_entropy(self, adjacency_matrix):
         """
         Network Entropy:
@@ -127,8 +98,6 @@ class Metrics:
         """
         # Find all cliques in the graph
         cliques = list(nx.find_cliques(graph))
-
-        # Maximum clique size
         max_clique_size = max(len(clique) for clique in cliques)
 
         # Clique distribution
