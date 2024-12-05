@@ -184,7 +184,7 @@ class Output:
                 continue
 
             for file in os.listdir(subfolder_path):
-                if file.startswith("metrics_summary_nodes_") and file.endswith(".csv"):
+                if file.startswith("summary_metrics_nodes_") and file.endswith(".csv"):
                     # Extract num_nodes and num_edges from the file name
                     try:
                         parts = file.split("_")
