@@ -25,15 +25,26 @@ if __name__ == "__main__":
     if profiler: profiler.enable()
 
     # Run the simulation
-    sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir=OUTPUT_DIR, random_seed=RANDOM_SEED)
-    sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=False)
+    # sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir=OUTPUT_DIR, random_seed=RANDOM_SEED)
+    # sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=False)
+
+    folder_name = f"density_data_2_seed_7"
+    # for num_connections in range(4600, 4601, 300):  # [1200, 1700, 2400, 3000, 3500, 3950, 4150, 4450, 4600, 4850]:  # Adjust connection density
+    #     scenario_dir = os.path.join(folder_name, f"edges_{num_connections}")
+    #     sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=7)
+    #     #sim.run(num_steps=2_000_000, display_interval=100_000, metrics_interval=1_000, show=False)
+    #     sim.output.post_run_output()
+    Output.aggregate_metrics(os.path.join("output", folder_name), starting_step=1500_000)
 
     # 1: Networks with varying connection densities
-    # folder_name = "density_data"
-    # for num_connections in [1200, 1700, 2400, 3000, 3500, 3950, 4150, 4450, 4600, 4850]:  # Adjust connection density
-    #     scenario_dir = os.path.join(folder_name, f"edges_{num_connections}")
-    #     sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=42)
-    #     sim.run(num_steps=1_000_000, display_interval=100_000, metrics_interval=1_000, show=False)
+    # folder_name = f"density_data_2_long_small_runs"
+    # for off in range(0, 100, 25):
+    #     for num_connections in range(1600 + off, 1901, 100):  # [1200, 1700, 2400, 3000, 3500, 3950, 4150, 4450, 4600, 4850]:  # Adjust connection density
+    #         if num_connections == 1600:
+    #             continue
+    #         scenario_dir = os.path.join(folder_name, f"edges_{num_connections}")
+    #         sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=7)
+    #         sim.run(num_steps=20_000_000, display_interval=100_000, metrics_interval=1_000, show=False)
     # Output.aggregate_metrics(os.path.join("output", folder_name))
 
     # 2: 600-unit networks with connection matrix and histogram
