@@ -26,13 +26,15 @@ class NetworkControlApp:
 
         # Shared variables
         self.epsilon = tk.DoubleVar(value=0.4)
-        self.display_interval = tk.IntVar(value=1)
-        self.running = Event()  # Simulation running state (paused initially)
+        self.display_interval = tk.IntVar(value=100)
+        self.metrics_interval = tk.IntVar(value=100)  # New variable for metrics update interval
+        self.running = Event()
         self.stop_event = Event()
 
         # Input fields to track changes
         self.epsilon_input = tk.StringVar(value=str(self.epsilon.get()))
         self.display_interval_input = tk.StringVar(value=str(self.display_interval.get()))
+        self.metrics_interval_input = tk.StringVar(value=str(self.metrics_interval.get()))
         self.node_count_input = tk.StringVar(value=str(self.num_nodes))
         self.connection_count_input = tk.StringVar(value=str(self.initial_connections))
         self.changes_pending = False
@@ -89,30 +91,43 @@ class NetworkControlApp:
         interval_entry.grid(row=1, column=1, sticky="EW")
         interval_entry.bind("<KeyRelease>", self.on_input_change)
 
+        # Metrics Interval Control
+        ttk.Label(control_frame, text="Metrics Interval:").grid(row=2, column=0, sticky="W")
+        metrics_interval_entry = ttk.Entry(control_frame, textvariable=self.metrics_interval_input, width=10)
+        metrics_interval_entry.grid(row=2, column=1, sticky="EW")
+        metrics_interval_entry.bind("<KeyRelease>", self.on_input_change)
+
+        # Metrics Display
+        metrics_frame = ttk.LabelFrame(control_frame, text="Metrics", padding="10")
+        metrics_frame.grid(row=8, column=0, columnspan=2, sticky="EW", pady=10)
+
+        self.metrics_display = tk.Text(metrics_frame, height=10, width=35, wrap="word", state="disabled", bg="lightgray")
+        self.metrics_display.grid(row=0, column=0, sticky="NSEW")
+
         # Node Count Control
-        ttk.Label(control_frame, text="Node Count:").grid(row=2, column=0, sticky="W")
+        ttk.Label(control_frame, text="Node Count:").grid(row=3, column=0, sticky="W")
         node_count_entry = ttk.Entry(control_frame, textvariable=self.node_count_input, width=10)
-        node_count_entry.grid(row=2, column=1, sticky="EW")
+        node_count_entry.grid(row=3, column=1, sticky="EW")
         node_count_entry.bind("<KeyRelease>", self.on_input_change)
 
         # Connection Count Control
-        ttk.Label(control_frame, text="Connection Count:").grid(row=3, column=0, sticky="W")
+        ttk.Label(control_frame, text="Connection Count:").grid(row=4, column=0, sticky="W")
         connection_count_entry = ttk.Entry(control_frame, textvariable=self.connection_count_input, width=10)
-        connection_count_entry.grid(row=3, column=1, sticky="EW")
+        connection_count_entry.grid(row=4, column=1, sticky="EW")
         connection_count_entry.bind("<KeyRelease>", self.on_input_change)
 
         # Apply/Cancel Buttons
         action_buttons_frame = ttk.Frame(control_frame)
-        action_buttons_frame.grid(row=4, column=0, columnspan=2, pady=10)
+        action_buttons_frame.grid(row=5, column=0, columnspan=2, pady=10)
         apply_button = ttk.Button(action_buttons_frame, text="Apply Changes", command=self.apply_changes)
         apply_button.grid(row=0, column=0, padx=5)
         cancel_button = ttk.Button(action_buttons_frame, text="Cancel Changes", command=self.cancel_changes)
         cancel_button.grid(row=0, column=1, padx=5)
 
         # Play and Pause Buttons
-        ttk.Label(control_frame, text="Simulation Control:").grid(row=5, column=0, sticky="W")
+        ttk.Label(control_frame, text="Simulation Control:").grid(row=6, column=0, sticky="W")
         control_buttons_frame = ttk.Frame(control_frame)
-        control_buttons_frame.grid(row=5, column=1, sticky="EW")
+        control_buttons_frame.grid(row=6, column=1, sticky="EW")
         play_button = ttk.Button(control_buttons_frame, text="Play", command=self.start_simulation)
         play_button.grid(row=0, column=0, padx=5)
         pause_button = ttk.Button(control_buttons_frame, text="Pause", command=self.pause_simulation)
@@ -120,7 +135,7 @@ class NetworkControlApp:
 
         # Quit Button
         quit_button = ttk.Button(control_frame, text="Quit", command=self.quit_application)
-        quit_button.grid(row=6, column=0, columnspan=2, pady=10)
+        quit_button.grid(row=7, column=0, columnspan=2, pady=10)
 
         # Network Visualization
         display_frame = ttk.Frame(main_frame)
@@ -142,6 +157,9 @@ class NetworkControlApp:
                 if self.step % self.display_interval.get() == 0:
                     self.update_visualization()
 
+                if self.step % self.metrics_interval.get() == 0:
+                    self.update_metrics()
+
                 time.sleep(0.00000001)  # Small delay to avoid busy looping
                 self.step += 1
             else:
@@ -149,31 +167,40 @@ class NetworkControlApp:
 
     def update_visualization(self):
         """Update the visualization with current network state."""
-        self.network.apply_forces(min(25, self.display_interval.get()))
-                    
-        # Calculate metrics
-        clustering_coeff = self.network.metrics.calculate_clustering_coefficient(nx.from_numpy_array(self.network.adjacency_matrix))
-        self.clustering_coeffs.append(clustering_coeff)
-        if len(self.clustering_coeffs) > 100:  # Keep only the last 100 values for stddev
-            self.clustering_coeffs.pop(0)
-
-        cc_stddev = np.std(self.clustering_coeffs) if self.clustering_coeffs else 0
-        rewiring_chance = self.network.metrics.calculate_rewiring_chance(
-            self.network.adjacency_matrix, self.network.activities
-        )
-        rewiring_rate = self.network.successful_rewirings / self.display_interval.get()
-        self.network.successful_rewirings = 0
-
-        title = (f"Step: {self.step} CC: {clustering_coeff:.3f}, CC StdDev: {cc_stddev:.5f}, Rewiring Chance: {rewiring_chance:.3f}, Rewiring Rate: {rewiring_rate:.3f}")
+        self.network.apply_forces(min(50, self.display_interval.get()))
         self.visualizer.update_plot(
             positions=self.network.positions,
             activities=self.network.activities,
             adjacency_matrix=self.network.adjacency_matrix,
-            title=title,
+            title=None,
             draw_lines=True
         )
         self.canvas.draw()
 
+    def update_metrics(self):
+        """Update and display metrics in the metrics panel."""
+        clustering_coeff = self.network.metrics.calculate_clustering_coefficient(nx.from_numpy_array(self.network.adjacency_matrix))
+        self.clustering_coeffs.append(clustering_coeff)
+        cc_stddev = np.std(self.clustering_coeffs) if self.clustering_coeffs else 0
+        rewiring_chance = self.network.metrics.calculate_rewiring_chance(self.network.adjacency_matrix, self.network.activities)
+        rewiring_rate = self.network.successful_rewirings / self.metrics_interval.get()
+        self.network.successful_rewirings = 0
+        cluster_assignments = self.network.metrics.detect_communities(self.network.adjacency_matrix)
+
+        metrics_text = (
+            f"Step: {self.step}\n"
+            f"Clustering Coefficient: {clustering_coeff:.3f}\n"
+            f"CC StdDev: {cc_stddev:.5f}\n"
+            f"Rewiring Chance: {rewiring_chance:.3f}\n"
+            f"Rewiring Rate: {rewiring_rate:.3f}\n"
+            f"Cluster Count: {np.max(cluster_assignments) + 1}\n"
+        )
+
+        # Display metrics in the text widget
+        self.metrics_display.config(state="normal")
+        self.metrics_display.delete("1.0", tk.END)
+        self.metrics_display.insert(tk.END, metrics_text)
+        self.metrics_display.config(state="disabled")
 
     def on_input_change(self, event):
         """Highlight text fields when their values differ from current settings."""
@@ -201,18 +228,27 @@ class NetworkControlApp:
                 self.changes_pending = True
 
     def apply_changes(self):
-        self.epsilon.set(float(self.epsilon_input.get()))
-        self.display_interval.set(int(self.display_interval_input.get()))
+        new_epsilon = float(self.epsilon_input.get())
+        if new_epsilon != self.epsilon:
+            self.epsilon.set(new_epsilon)
 
-        # Update node and connection counts
         new_node_count = int(self.node_count_input.get())
-        new_connection_count = int(self.connection_count_input.get())
         if new_node_count != self.num_nodes:
             self.network.update_node_count(new_node_count)
             self.num_nodes = new_node_count
+
+        new_connection_count = int(self.connection_count_input.get())
         if new_connection_count != self.initial_connections:
             self.network.update_connection_count(new_connection_count)
             self.initial_connections = new_connection_count
+
+        new_display_interval = int(self.display_interval_input.get())
+        if new_display_interval != self.display_interval.get():
+            self.display_interval.set(new_display_interval)
+
+        new_metrics_interval = int(self.metrics_interval_input.get())
+        if new_metrics_interval != self.metrics_interval.get():
+            self.metrics_interval.set(new_metrics_interval)
 
         self.update_visualization()
 
@@ -220,6 +256,7 @@ class NetworkControlApp:
         """Reset inputs to current settings."""
         self.epsilon_input.set(str(self.epsilon.get()))
         self.display_interval_input.set(str(self.display_interval.get()))
+        self.metrics_interval_input.set(str(self.metrics_interval.get()))
         self.node_count_input.set(str(self.num_nodes))
         self.connection_count_input.set(str(self.initial_connections))
 
@@ -235,7 +272,6 @@ class NetworkControlApp:
         self.simulation_thread.join(timeout=1)  # Ensure the simulation thread exits
         self.root.quit()  # Quit the Tkinter main loop
         self.root.destroy()  # Destroy the root window
-
 
 # Main Application
 if __name__ == "__main__":

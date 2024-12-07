@@ -17,7 +17,7 @@ class Physics:
         elif network_area < target_coverage - tolerance:
             self.normal_distance *= (1 + adjustment_rate)  # Increase normal_distance to expand the network
 
-    def apply_forces(self, adjacency_matrix, positions, effective_iterations=1, central_force_strength=0.0002):
+    def apply_forces(self, adjacency_matrix, positions, effective_iterations=1, central_force_strength=0.0005):
         self.adjust_normal_distance(positions)
 
         for _ in range(effective_iterations):
