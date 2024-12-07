@@ -22,7 +22,7 @@ class NodeNetwork:
 
         self.initialize_connections(num_connections)    # Add initial connections
 
-        self.metrics_manager = Metrics()
+        self.metrics = Metrics()
         self.breakup_count = 0
         self.successful_rewirings = 0
 
@@ -121,7 +121,7 @@ class NodeNetwork:
         return cpl_stable and cc_stable
 
     def calculate_stats(self):
-        metrics = self.metrics_manager.calculate_all(self.adjacency_matrix)
+        metrics = self.metrics.calculate_all(self.adjacency_matrix)
         cpl = metrics.get("Characteristic Path Length", float('nan'))
         cc = metrics.get("Clustering Coefficient", float('nan'))
 
