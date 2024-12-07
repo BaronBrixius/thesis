@@ -36,8 +36,8 @@ class Visualization:
             raise ValueError(f"Unsupported color_by value: {self.color_by}")
 
     def initialize_plot(self, positions, activities, adjacency_matrix, draw_lines=True):
-        self.ax.set_xlim(0, 1.0)
-        self.ax.set_ylim(0, 1.0)
+        self.ax.set_xlim(-0.05, 1.05)
+        self.ax.set_ylim(-0.05, 1.05)
         self.ax.set_aspect('equal')
 
         # Initialize scatter plot for nodes

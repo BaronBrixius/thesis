@@ -5,6 +5,8 @@ from network_simulation.network import NodeNetwork
 from network_simulation.visualization import Visualization, ColorBy
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import networkx as nx
+import numpy as np
 import time
 
 matplotlib.use("TkAgg")
@@ -13,6 +15,9 @@ class NetworkControlApp:
     def __init__(self, root, num_nodes, initial_connections, alpha=1.7):
         self.root = root
         self.root.title("Network Control Panel")
+        self.root.protocol("WM_DELETE_WINDOW", self.quit_application)
+        self.step = 0
+        self.clustering_coeffs = []  # To track clustering coefficients for calculating stddev
 
         # Simulation parameters
         self.num_nodes = num_nodes
@@ -23,6 +28,7 @@ class NetworkControlApp:
         self.epsilon = tk.DoubleVar(value=0.4)
         self.display_interval = tk.IntVar(value=1)
         self.running = Event()  # Simulation running state (paused initially)
+        self.stop_event = Event()
 
         # Input fields to track changes
         self.epsilon_input = tk.StringVar(value=str(self.epsilon.get()))
@@ -41,7 +47,7 @@ class NetworkControlApp:
 
         # Visualization setup
         self.visualizer = Visualization(
-            positions=self.network.physics.positions,
+            positions=self.network.positions,
             activities=self.network.activities,
             adjacency_matrix=self.network.adjacency_matrix,
             color_by=ColorBy.ACTIVITY,
@@ -128,32 +134,46 @@ class NetworkControlApp:
         self.canvas.draw()
 
     def run_simulation(self):
-        step = 0
         while True:
             if self.running.is_set():
                 # Update network state
                 self.network.update_network()
 
-                # Display network at intervals
-                if step % self.display_interval.get() == 0:
-                    self.network.apply_forces(min(10, self.display_interval.get()))
-                    self.update_visualization(step)
-                    self.canvas.draw()
+                if self.step % self.display_interval.get() == 0:
+                    self.update_visualization()
 
-                time.sleep(0.001)  # Small delay to avoid busy looping
-                step += 1
+                time.sleep(0.00000001)  # Small delay to avoid busy looping
+                self.step += 1
             else:
                 time.sleep(0.1)  # Sleep briefly when paused
 
-    def update_visualization(self, step):
+    def update_visualization(self):
         """Update the visualization with current network state."""
+        self.network.apply_forces(min(25, self.display_interval.get()))
+                    
+        # Calculate metrics
+        clustering_coeff = self.network.metrics.calculate_clustering_coefficient(nx.from_numpy_array(self.network.adjacency_matrix))
+        self.clustering_coeffs.append(clustering_coeff)
+        if len(self.clustering_coeffs) > 100:  # Keep only the last 100 values for stddev
+            self.clustering_coeffs.pop(0)
+
+        cc_stddev = np.std(self.clustering_coeffs) if self.clustering_coeffs else 0
+        rewiring_chance = self.network.metrics.calculate_rewiring_chance(
+            self.network.adjacency_matrix, self.network.activities
+        )
+        rewiring_rate = self.network.successful_rewirings / self.display_interval.get()
+        self.network.successful_rewirings = 0
+
+        title = (f"Step: {self.step} CC: {clustering_coeff:.3f}, CC StdDev: {cc_stddev:.5f}, Rewiring Chance: {rewiring_chance:.3f}, Rewiring Rate: {rewiring_rate:.3f}")
         self.visualizer.update_plot(
-            positions=self.network.physics.positions,
+            positions=self.network.positions,
             activities=self.network.activities,
             adjacency_matrix=self.network.adjacency_matrix,
-            title=f"Step: {step}, Epsilon: {self.network.epsilon:.3f}",
+            title=title,
             draw_lines=True
         )
+        self.canvas.draw()
+
 
     def on_input_change(self, event):
         """Highlight text fields when their values differ from current settings."""
@@ -194,8 +214,7 @@ class NetworkControlApp:
             self.network.update_connection_count(new_connection_count)
             self.initial_connections = new_connection_count
 
-        print(f"Applied changes: Epsilon={self.epsilon.get()}, Display Interval={self.display_interval.get()}, "
-              f"Nodes={self.num_nodes}, Connections={self.initial_connections}")
+        self.update_visualization()
 
     def cancel_changes(self):
         """Reset inputs to current settings."""
@@ -203,7 +222,6 @@ class NetworkControlApp:
         self.display_interval_input.set(str(self.display_interval.get()))
         self.node_count_input.set(str(self.num_nodes))
         self.connection_count_input.set(str(self.initial_connections))
-        print("Canceled changes.")
 
     def start_simulation(self):
         self.running.set()
@@ -212,14 +230,17 @@ class NetworkControlApp:
         self.running.clear()
 
     def quit_application(self):
-        self.running.clear()
-        self.root.destroy()
+        """Terminate the simulation and close the application."""
+        self.running.clear()  # Stop the simulation
+        self.simulation_thread.join(timeout=1)  # Ensure the simulation thread exits
+        self.root.quit()  # Quit the Tkinter main loop
+        self.root.destroy()  # Destroy the root window
 
 
 # Main Application
 if __name__ == "__main__":
     num_nodes = 200
-    initial_connections = 1200
+    initial_connections = int(0.1 * (num_nodes * (num_nodes - 1) / 2))
     alpha = 1.7
 
     root = tk.Tk()

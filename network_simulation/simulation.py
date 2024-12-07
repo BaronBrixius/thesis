@@ -11,7 +11,7 @@ class Simulation:
 
     def run(self, num_steps, display_interval=1000, metrics_interval=1000, show=True, color_by:ColorBy=ColorBy.ACTIVITY):
         if display_interval:
-            self.plot = Visualization(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, show=show, color_by=color_by)
+            self.plot = Visualization(self.network.positions, self.network.activities, self.network.adjacency_matrix, show=show, color_by=color_by)
 
         start = time.time()
         self.output.logger.info(f"Starting with Nodes: {self.network.num_nodes}, Connections: {self.network.num_connections}, Steps: {num_steps}")
@@ -28,7 +28,7 @@ class Simulation:
 
             if display_interval and step % display_interval == 0:
                 self.network.apply_forces(min(100, display_interval))
-                self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
+                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
                 self.output.output_network_image(self.plot, step)
 
             self.network.update_network()
@@ -36,7 +36,7 @@ class Simulation:
         # Final metrics and outputs after the main loop ends
         if display_interval:
             self.network.apply_forces(min(150, display_interval))
-            self.plot.update_plot(self.network.physics.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {num_steps}")
+            self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {num_steps}")
             self.output.output_network_image(self.plot, num_steps)
 
         if metrics_interval:
