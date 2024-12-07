@@ -1,15 +1,13 @@
 import tkinter as tk
 from tkinter import ttk
-from tkinter import simpledialog
 from threading import Thread, Event
 from network_simulation.network import NodeNetwork
-from network_simulation.gui_visualizer import GUIVisualizer
+from network_simulation.visualization import Visualization, ColorBy
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time
 
 matplotlib.use("TkAgg")
-
 
 class NetworkControlApp:
     def __init__(self, root, num_nodes, initial_connections, alpha=1.7):
@@ -29,16 +27,27 @@ class NetworkControlApp:
         # Input fields to track changes
         self.epsilon_input = tk.StringVar(value=str(self.epsilon.get()))
         self.display_interval_input = tk.StringVar(value=str(self.display_interval.get()))
+        self.node_count_input = tk.StringVar(value=str(self.num_nodes))
+        self.connection_count_input = tk.StringVar(value=str(self.initial_connections))
         self.changes_pending = False
 
-        # Network and Visualizer
+        # Network
         self.network = NodeNetwork(
             num_nodes=self.num_nodes,
             num_connections=self.initial_connections,
             alpha=self.alpha,
             epsilon=self.epsilon.get()
         )
-        self.visualizer = GUIVisualizer(self.network)
+
+        # Visualization setup
+        self.visualizer = Visualization(
+            positions=self.network.physics.positions,
+            activities=self.network.activities,
+            adjacency_matrix=self.network.adjacency_matrix,
+            color_by=ColorBy.ACTIVITY,
+            draw_lines=True,
+            show=False
+        )
 
         # Create UI
         self.create_widgets()
@@ -74,27 +83,30 @@ class NetworkControlApp:
         interval_entry.grid(row=1, column=1, sticky="EW")
         interval_entry.bind("<KeyRelease>", self.on_input_change)
 
-        # Add/Remove Nodes Buttons
-        ttk.Label(control_frame, text="Modify Nodes:").grid(row=2, column=0, sticky="W")
-        node_buttons_frame = ttk.Frame(control_frame)
-        node_buttons_frame.grid(row=2, column=1, sticky="EW")
-        add_nodes_button = ttk.Button(node_buttons_frame, text="Add Nodes", command=self.add_nodes)
-        add_nodes_button.grid(row=0, column=0, padx=5)
-        remove_nodes_button = ttk.Button(node_buttons_frame, text="Remove Nodes", command=self.remove_nodes)
-        remove_nodes_button.grid(row=0, column=1, padx=5)
+        # Node Count Control
+        ttk.Label(control_frame, text="Node Count:").grid(row=2, column=0, sticky="W")
+        node_count_entry = ttk.Entry(control_frame, textvariable=self.node_count_input, width=10)
+        node_count_entry.grid(row=2, column=1, sticky="EW")
+        node_count_entry.bind("<KeyRelease>", self.on_input_change)
+
+        # Connection Count Control
+        ttk.Label(control_frame, text="Connection Count:").grid(row=3, column=0, sticky="W")
+        connection_count_entry = ttk.Entry(control_frame, textvariable=self.connection_count_input, width=10)
+        connection_count_entry.grid(row=3, column=1, sticky="EW")
+        connection_count_entry.bind("<KeyRelease>", self.on_input_change)
 
         # Apply/Cancel Buttons
         action_buttons_frame = ttk.Frame(control_frame)
-        action_buttons_frame.grid(row=3, column=0, columnspan=2, pady=10)
+        action_buttons_frame.grid(row=4, column=0, columnspan=2, pady=10)
         apply_button = ttk.Button(action_buttons_frame, text="Apply Changes", command=self.apply_changes)
         apply_button.grid(row=0, column=0, padx=5)
         cancel_button = ttk.Button(action_buttons_frame, text="Cancel Changes", command=self.cancel_changes)
         cancel_button.grid(row=0, column=1, padx=5)
 
         # Play and Pause Buttons
-        ttk.Label(control_frame, text="Simulation Control:").grid(row=4, column=0, sticky="W")
+        ttk.Label(control_frame, text="Simulation Control:").grid(row=5, column=0, sticky="W")
         control_buttons_frame = ttk.Frame(control_frame)
-        control_buttons_frame.grid(row=4, column=1, sticky="EW")
+        control_buttons_frame.grid(row=5, column=1, sticky="EW")
         play_button = ttk.Button(control_buttons_frame, text="Play", command=self.start_simulation)
         play_button.grid(row=0, column=0, padx=5)
         pause_button = ttk.Button(control_buttons_frame, text="Pause", command=self.pause_simulation)
@@ -102,7 +114,7 @@ class NetworkControlApp:
 
         # Quit Button
         quit_button = ttk.Button(control_frame, text="Quit", command=self.quit_application)
-        quit_button.grid(row=5, column=0, columnspan=2, pady=10)
+        quit_button.grid(row=6, column=0, columnspan=2, pady=10)
 
         # Network Visualization
         display_frame = ttk.Frame(main_frame)
@@ -111,7 +123,7 @@ class NetworkControlApp:
         display_frame.rowconfigure(0, weight=1)
 
         # Matplotlib Canvas for Visualization
-        self.canvas = FigureCanvasTkAgg(self.visualizer.visualizer.fig, master=display_frame)
+        self.canvas = FigureCanvasTkAgg(self.visualizer.fig, master=display_frame)
         self.canvas.get_tk_widget().grid(row=0, column=0, sticky="NSEW")
         self.canvas.draw()
 
@@ -124,8 +136,8 @@ class NetworkControlApp:
 
                 # Display network at intervals
                 if step % self.display_interval.get() == 0:
-                    self.network.apply_forces(min(50, self.display_interval.get()))
-                    self.visualizer.show(step)
+                    self.network.apply_forces(min(10, self.display_interval.get()))
+                    self.update_visualization(step)
                     self.canvas.draw()
 
                 time.sleep(0.001)  # Small delay to avoid busy looping
@@ -133,50 +145,65 @@ class NetworkControlApp:
             else:
                 time.sleep(0.1)  # Sleep briefly when paused
 
+    def update_visualization(self, step):
+        """Update the visualization with current network state."""
+        self.visualizer.update_plot(
+            positions=self.network.physics.positions,
+            activities=self.network.activities,
+            adjacency_matrix=self.network.adjacency_matrix,
+            title=f"Step: {step}, Epsilon: {self.network.epsilon:.3f}",
+            draw_lines=True
+        )
+
     def on_input_change(self, event):
         """Highlight text fields when their values differ from current settings."""
         self.changes_pending = False
-        if float(self.epsilon_input.get()) != self.epsilon.get():
-            event.widget.config(background="lightyellow")
-            self.changes_pending = True
-        else:
-            event.widget.config(background="white")
 
-        if int(self.display_interval_input.get()) != self.display_interval.get():
-            event.widget.config(background="lightyellow")
-            self.changes_pending = True
-        else:
-            event.widget.config(background="white")
+        # Compare current inputs with simulation parameters
+        inputs = {
+            "epsilon": (self.epsilon_input, float(self.epsilon.get())),
+            "display_interval": (self.display_interval_input, int(self.display_interval.get())),
+            "node_count": (self.node_count_input, self.num_nodes),
+            "connection_count": (self.connection_count_input, self.initial_connections),
+        }
+
+        for key, (input_var, current_value) in inputs.items():
+            input_widget = event.widget
+            try:
+                if float(input_var.get()) != current_value:
+                    input_widget.config(background="lightyellow")
+                    self.changes_pending = True
+                else:
+                    input_widget.config(background="white")
+            except ValueError:
+                # If the input is invalid (e.g., empty or non-numeric), keep it highlighted
+                input_widget.config(background="lightyellow")
+                self.changes_pending = True
 
     def apply_changes(self):
-        """Apply changes to epsilon and display interval."""
         self.epsilon.set(float(self.epsilon_input.get()))
         self.display_interval.set(int(self.display_interval_input.get()))
-        print(f"Applied changes: Epsilon={self.epsilon.get()}, Display Interval={self.display_interval.get()}")
+
+        # Update node and connection counts
+        new_node_count = int(self.node_count_input.get())
+        new_connection_count = int(self.connection_count_input.get())
+        if new_node_count != self.num_nodes:
+            self.network.update_node_count(new_node_count)
+            self.num_nodes = new_node_count
+        if new_connection_count != self.initial_connections:
+            self.network.update_connection_count(new_connection_count)
+            self.initial_connections = new_connection_count
+
+        print(f"Applied changes: Epsilon={self.epsilon.get()}, Display Interval={self.display_interval.get()}, "
+              f"Nodes={self.num_nodes}, Connections={self.initial_connections}")
 
     def cancel_changes(self):
         """Reset inputs to current settings."""
         self.epsilon_input.set(str(self.epsilon.get()))
         self.display_interval_input.set(str(self.display_interval.get()))
+        self.node_count_input.set(str(self.num_nodes))
+        self.connection_count_input.set(str(self.initial_connections))
         print("Canceled changes.")
-
-    def add_nodes(self):
-        """Add nodes to the network."""
-        add_count = simpledialog.askinteger("Add Nodes", "How many nodes to add?", minvalue=1, parent=self.root)
-        if add_count:
-            self.network.add_nodes(add_count)
-            self.num_nodes += add_count
-            self.visualizer.update_network(self.network)
-            print(f"Added {add_count} nodes. Total nodes: {self.num_nodes}")
-
-    def remove_nodes(self):
-        """Remove nodes from the network."""
-        remove_count = simpledialog.askinteger("Remove Nodes", "How many nodes to remove?", minvalue=1, maxvalue=self.num_nodes - 1, parent=self.root)
-        if remove_count:
-            self.network.remove_nodes(remove_count)
-            self.num_nodes -= remove_count
-            self.visualizer.update_network(self.network)
-            print(f"Removed {remove_count} nodes. Total nodes: {self.num_nodes}")
 
     def start_simulation(self):
         self.running.set()
