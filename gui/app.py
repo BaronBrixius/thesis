@@ -2,7 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 from threading import Thread, Event
 from network_simulation.network import NodeNetwork
-from network_simulation.visualization import Visualization, ColorBy
+from gui.visualization import NetworkVisualizer
+from gui.widgets import MetricsDisplay
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import networkx as nx
@@ -12,7 +13,7 @@ import time
 matplotlib.use("TkAgg")
 
 class NetworkControlApp:
-    def __init__(self, root, num_nodes=200, initial_connections=1990, alpha=1.7):
+    def __init__(self, root, num_nodes=200, initial_connections=2000, alpha=1.7):
         self.root = root
         self.root.title("Network Control Panel")
         self.root.protocol("WM_DELETE_WINDOW", self.quit_application)
@@ -27,9 +28,8 @@ class NetworkControlApp:
         # Shared variables
         self.epsilon = tk.DoubleVar(value=0.4)
         self.display_interval = tk.IntVar(value=100)
-        self.metrics_interval = tk.IntVar(value=100)  # New variable for metrics update interval
+        self.metrics_interval = tk.IntVar(value=100)
         self.running = Event()
-        self.stop_event = Event()
 
         # Input fields to track changes
         self.epsilon_input = tk.StringVar(value=str(self.epsilon.get()))
@@ -39,23 +39,17 @@ class NetworkControlApp:
         self.connection_count_input = tk.StringVar(value=str(self.initial_connections))
         self.changes_pending = False
 
-        # Network
+        # Network and visualization setup
         self.network = NodeNetwork(
             num_nodes=self.num_nodes,
             num_connections=self.initial_connections,
             alpha=self.alpha,
             epsilon=self.epsilon.get()
         )
+        self.visualizer = NetworkVisualizer(self.network)
 
-        # Visualization setup
-        self.visualizer = Visualization(
-            positions=self.network.positions,
-            activities=self.network.activities,
-            adjacency_matrix=self.network.adjacency_matrix,
-            color_by=ColorBy.ACTIVITY,
-            draw_lines=True,
-            show=False
-        )
+        # Metrics display widget
+        self.metrics_display = None
 
         # Create UI
         self.create_widgets()
@@ -97,13 +91,6 @@ class NetworkControlApp:
         metrics_interval_entry.grid(row=2, column=1, sticky="EW")
         metrics_interval_entry.bind("<KeyRelease>", self.on_input_change)
 
-        # Metrics Display
-        metrics_frame = ttk.LabelFrame(control_frame, text="Metrics", padding="10")
-        metrics_frame.grid(row=8, column=0, columnspan=2, sticky="EW", pady=10)
-
-        self.metrics_display = tk.Text(metrics_frame, height=10, width=35, wrap="word", state="disabled", bg="lightgray")
-        self.metrics_display.grid(row=0, column=0, sticky="NSEW")
-
         # Node Count Control
         ttk.Label(control_frame, text="Node Count:").grid(row=3, column=0, sticky="W")
         node_count_entry = ttk.Entry(control_frame, textvariable=self.node_count_input, width=10)
@@ -137,6 +124,10 @@ class NetworkControlApp:
         quit_button = ttk.Button(control_frame, text="Quit", command=self.quit_application)
         quit_button.grid(row=7, column=0, columnspan=2, pady=10)
 
+        # Metrics Display
+        self.metrics_display = MetricsDisplay(control_frame)
+        self.metrics_display.grid(row=8, column=0, columnspan=2, sticky="EW", pady=10)
+
         # Network Visualization
         display_frame = ttk.Frame(main_frame)
         display_frame.grid(row=0, column=1, sticky="NSEW")
@@ -144,7 +135,7 @@ class NetworkControlApp:
         display_frame.rowconfigure(0, weight=1)
 
         # Matplotlib Canvas for Visualization
-        self.canvas = FigureCanvasTkAgg(self.visualizer.fig, master=display_frame)
+        self.canvas = FigureCanvasTkAgg(self.visualizer.visualizer.fig, master=display_frame)
         self.canvas.get_tk_widget().grid(row=0, column=0, sticky="NSEW")
         self.canvas.draw()
 
@@ -168,13 +159,7 @@ class NetworkControlApp:
     def update_visualization(self):
         """Update the visualization with current network state."""
         self.network.apply_forces(min(50, self.display_interval.get()))
-        self.visualizer.update_plot(
-            positions=self.network.positions,
-            activities=self.network.activities,
-            adjacency_matrix=self.network.adjacency_matrix,
-            title=None,
-            draw_lines=True
-        )
+        self.visualizer.update(self.network)
         self.canvas.draw()
 
     def update_metrics(self):
@@ -196,11 +181,7 @@ class NetworkControlApp:
             f"Cluster Count: {np.max(cluster_assignments) + 1}\n"
         )
 
-        # Display metrics in the text widget
-        self.metrics_display.config(state="normal")
-        self.metrics_display.delete("1.0", tk.END)
-        self.metrics_display.insert(tk.END, metrics_text)
-        self.metrics_display.config(state="disabled")
+        self.metrics_display.update_metrics(metrics_text)
 
     def on_input_change(self, event):
         """Highlight text fields when their values differ from current settings."""
@@ -210,6 +191,7 @@ class NetworkControlApp:
         inputs = {
             "epsilon": (self.epsilon_input, float(self.epsilon.get())),
             "display_interval": (self.display_interval_input, int(self.display_interval.get())),
+            "metrics_interval": (self.metrics_interval_input, int(self.metrics_interval.get())),
             "node_count": (self.node_count_input, self.num_nodes),
             "connection_count": (self.connection_count_input, self.initial_connections),
         }
@@ -229,7 +211,7 @@ class NetworkControlApp:
 
     def apply_changes(self):
         new_epsilon = float(self.epsilon_input.get())
-        if new_epsilon != self.epsilon:
+        if new_epsilon != self.epsilon.get():
             self.epsilon.set(new_epsilon)
 
         new_node_count = int(self.node_count_input.get())
@@ -272,6 +254,7 @@ class NetworkControlApp:
         self.simulation_thread.join(timeout=1)  # Ensure the simulation thread exits
         self.root.quit()  # Quit the Tkinter main loop
         self.root.destroy()  # Destroy the root window
+
 
 # Main Application
 if __name__ == "__main__":
