@@ -6,6 +6,6 @@
 *.xlsx
 *.zip
 __pycache__/*
-network_simulation/__pycache__/*
+*/__pycache__/*
 analysis/*
 output/*

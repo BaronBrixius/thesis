@@ -5,6 +5,8 @@ from network_simulation.visualization import ColorBy
 import cProfile
 import pstats
 import os
+import tkinter as tk
+from gui.app import NetworkControlApp
 
 # Network parameters
 NUM_NODES = 200
@@ -21,19 +23,24 @@ OUTPUT_DIR = "foo"
 RANDOM_SEED = 42
 
 if __name__ == "__main__":
-    profiler = None #cProfile.Profile()
+    profiler = cProfile.Profile()
     if profiler: profiler.enable()
+
+    root = tk.Tk()
+    app = NetworkControlApp(root)
+    root.mainloop()
 
     # Run the simulation
     # sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir=OUTPUT_DIR, random_seed=RANDOM_SEED)
     # sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=False)
 
-    folder_name = f"littleone"
-    for num_connections in range(1650, 1685):  # [1200, 1700, 2400, 3000, 3500, 3950, 4150, 4450, 4600, 4850]:  # Adjust connection density
-        scenario_dir = os.path.join(folder_name, f"edges_{num_connections}")
-        sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=7)
-        sim.run(num_steps=1_000_000, display_interval=100_000, metrics_interval=1_000, show=False)
-    Output.aggregate_metrics(os.path.join("output", folder_name), starting_step=700_000)
+    # folder_name = f"littleone_seed_7"
+    # for num_connections in range(1660, 1675):
+    #     scenario_dir = os.path.join(folder_name, f"edges_{num_connections}")
+    #     sim = Simulation(num_nodes=200, num_connections=num_connections, output_dir=scenario_dir, random_seed=7)
+    #     # sim.run(num_steps=1_000_000, display_interval=200_000, metrics_interval=10_000, show=False)
+    #     sim.output.post_run_output()
+    # Output.aggregate_metrics(os.path.join("output", folder_name), starting_step=500_000)
 
     # folder_name = f"density_data_2_seed_7"
     # for num_connections in range(4300, 4601, 300):  # [1200, 1700, 2400, 3000, 3500, 3950, 4150, 4450, 4600, 4850]:  # Adjust connection density
@@ -68,7 +75,7 @@ if __name__ == "__main__":
     if profiler: profiler.disable()
 
     # Print profiler stats to sort by cumulative time
-    if profiler: pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(20)
+    if profiler: pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(40)
 
     print_times()
     

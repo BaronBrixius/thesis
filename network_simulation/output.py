@@ -185,7 +185,7 @@ class Output:
         self.logger.info(f"Saved line graph for metrics {metrics} to {metrics_graph_path}")
 
     @staticmethod
-    def aggregate_metrics(root_dir, starting_step = 1_500_000, snapshot_output_filepath=None, run_level_output_filepath=None):
+    def aggregate_metrics(root_dir, starting_step = 500_000, snapshot_output_filepath=None, run_level_output_filepath=None):
         """
         Aggregates metrics from all metrics_summary_nodes_{num_nodes}_edges_{num_edges}.csv files
         in subfolders of the specified root directory into a single CSV file.

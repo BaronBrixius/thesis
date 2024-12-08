@@ -44,7 +44,7 @@ class Simulation:
 
         self.output.logger.info(f"Run over: {time.time() - start}")
         
-        # if metrics_interval:
-            # self.output.post_run_output()
+        if metrics_interval:
+            self.output.post_run_output()
 
         self.output.logger.info(f"End time: {time.time() - start}")

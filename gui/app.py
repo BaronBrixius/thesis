@@ -12,7 +12,7 @@ import time
 matplotlib.use("TkAgg")
 
 class NetworkControlApp:
-    def __init__(self, root, num_nodes, initial_connections, alpha=1.7):
+    def __init__(self, root, num_nodes=200, initial_connections=1990, alpha=1.7):
         self.root = root
         self.root.title("Network Control Panel")
         self.root.protocol("WM_DELETE_WINDOW", self.quit_application)
