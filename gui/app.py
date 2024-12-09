@@ -108,14 +108,3 @@ class NetworkControlApp:
         self.simulation_thread.join(timeout=1)  # Ensure the simulation thread exits
         self.root.quit()  # Quit the Tkinter main loop
         self.root.destroy()  # Destroy the root window
-
-
-# Main Application
-if __name__ == "__main__":
-    num_nodes = 200
-    initial_connections = int(0.1 * (num_nodes * (num_nodes - 1) / 2))
-    alpha = 1.7
-
-    root = tk.Tk()
-    app = NetworkControlApp(root, num_nodes, initial_connections, alpha=alpha)
-    root.mainloop()

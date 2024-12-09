@@ -9,66 +9,62 @@ class ControlPanel:
         self.app = app
         self.apply_changes_callback = apply_changes_callback
 
+        # Widgets
+        self.frame = ttk.Frame(root, padding="10")
+        self.frame.grid(row=0, column=0, sticky="NS")
+        self.frame.columnconfigure(0, weight=1)
+
+        # Control variables
         self.epsilon = epsilon
         self.display_interval = display_interval
         self.metrics_interval = metrics_interval
+        self.num_nodes = num_nodes
+        self.num_connections = num_connections
 
-        self.num_nodes = tk.StringVar(value=str(num_nodes))
-        self.num_connections = tk.StringVar(value=str(num_connections))
-
+        # Create control widgets
         self.create_widgets()
 
     def create_widgets(self):
-        frame = ttk.Frame(self.root, padding="10")
-        frame.grid(row=0, column=0, sticky="NS")
-        frame.columnconfigure(0, weight=1)
+        # Widget definitions
+        widget_configs = [
+            {"label": "Epsilon:", "var": self.epsilon},
+            {"label": "Display Interval:", "var": self.display_interval},
+            {"label": "Metrics Interval:", "var": self.metrics_interval},
+            {"label": "Node Count:", "var": self.num_nodes},
+            {"label": "Connection Count:", "var": self.num_connections},
+        ]
 
-        # Epsilon
-        ttk.Label(frame, text="Epsilon:").grid(row=0, column=0, sticky="W")
-        epsilon_entry = ttk.Entry(frame, textvariable=self.epsilon, width=10)
-        epsilon_entry.grid(row=0, column=1, sticky="EW")
-
-        # Display Interval
-        ttk.Label(frame, text="Display Interval:").grid(row=1, column=0, sticky="W")
-        interval_entry = ttk.Entry(frame, textvariable=self.display_interval, width=10)
-        interval_entry.grid(row=1, column=1, sticky="EW")
-
-        # Metrics Interval
-        ttk.Label(frame, text="Metrics Interval:").grid(row=2, column=0, sticky="W")
-        metrics_entry = ttk.Entry(frame, textvariable=self.metrics_interval, width=10)
-        metrics_entry.grid(row=2, column=1, sticky="EW")
-
-        # Node Count
-        ttk.Label(frame, text="Node Count:").grid(row=3, column=0, sticky="W")
-        node_entry = ttk.Entry(frame, textvariable=self.num_nodes, width=10)
-        node_entry.grid(row=3, column=1, sticky="EW")
-
-        # Connection Count
-        ttk.Label(frame, text="Connection Count:").grid(row=4, column=0, sticky="W")
-        connection_entry = ttk.Entry(frame, textvariable=self.num_connections, width=10)
-        connection_entry.grid(row=4, column=1, sticky="EW")
+        for row, config in enumerate(widget_configs):
+            self.create_labeled_entry(self.frame, config["label"], config["var"], row)
 
         # Apply Button
-        apply_button = ttk.Button(frame, text="Apply Changes", command=self.apply_changes)
-        apply_button.grid(row=5, column=0, columnspan=2)
+        apply_button = ttk.Button(self.frame, text="Apply Changes", command=self.apply_changes)
+        apply_button.grid(row=len(widget_configs), column=0, columnspan=2, pady=5)
 
         # Metrics Display
-        self.metrics_text = tk.Text(frame, height=10, width=30, wrap="word", state="disabled", bg="lightgray")
+        self.metrics_text = tk.Text(self.frame, height=10, width=30, wrap="word", state="disabled", bg="lightgray")
         self.metrics_text.grid(row=6, column=0, columnspan=2, sticky="EW")
 
-        # Play/Pause Buttons
-        ttk.Label(frame, text="Simulation Control:").grid(row=7, column=0, sticky="W")
-        control_buttons_frame = ttk.Frame(frame)
-        control_buttons_frame.grid(row=7, column=1, sticky="EW")
-        play_button = ttk.Button(control_buttons_frame, text="Play", command=self.app.start_simulation)
-        play_button.grid(row=0, column=0, padx=5)
-        pause_button = ttk.Button(control_buttons_frame, text="Pause", command=self.app.pause_simulation)
-        pause_button.grid(row=0, column=1, padx=5)
+        # PlayPause Button
+        self.simulation_button = ttk.Button(self.frame, text="Play", command=self.toggle_simulation)
+        self.simulation_button.grid(row=len(widget_configs) + 2, column=0, columnspan=2, pady=5)
+
+    def create_labeled_entry(self, parent, label_text, variable, row):
+        ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky="W")
+        ttk.Entry(parent, textvariable=variable, width=10).grid(row=row, column=1, sticky="EW")
 
     def apply_changes(self):
         num_nodes = int(self.num_nodes.get())
         num_connections = int(self.num_connections.get())
         self.apply_changes_callback(num_nodes, num_connections)
+
+    def toggle_simulation(self):
+        if self.app.running.is_set():
+            self.app.pause_simulation()
+            self.simulation_button.config(text="Play")
+        else:
+            self.app.start_simulation()
+            self.simulation_button.config(text="Pause")
 
     def update_metrics(self, network, step):
         clustering_coeff = network.metrics.calculate_clustering_coefficient(nx.from_numpy_array(network.adjacency_matrix))
