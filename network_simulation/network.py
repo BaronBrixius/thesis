@@ -32,6 +32,45 @@ class NodeNetwork:
         self.stabilization_threshold = stabilization_threshold
         self.stabilized = False # Relatable
 
+    def update_network_structure(self, new_node_count, new_connection_count):
+        """
+        Update the structure of the network by changing the number of nodes and connections.
+        """
+        # Handle node updates
+        if new_node_count > self.num_nodes:
+            # Add new nodes
+            diff = new_node_count - self.num_nodes
+            self.activities = np.append(self.activities, np.random.rand(diff))
+            self.adjacency_matrix = np.pad(self.adjacency_matrix, ((0, diff), (0, diff)), mode='constant')
+
+            # Add positions for new nodes along the edges
+            new_positions = np.random.rand(diff * 3, 2)  # Generate more candidates than needed
+            distances = np.linalg.norm(new_positions - 0.5, axis=1)  # Calculate distances from center
+            valid_positions = new_positions[distances >= 0.35]  # Filter invalid positions
+            self.positions = np.vstack([self.positions, valid_positions[:diff]])  # Add required positions
+
+        elif new_node_count < self.num_nodes:
+            # Remove nodes
+            diff = self.num_nodes - new_node_count
+            self.activities = self.activities[:new_node_count]
+            self.adjacency_matrix = self.adjacency_matrix[:new_node_count, :new_node_count]
+            self.positions = self.positions[:new_node_count]
+
+        self.num_nodes = new_node_count
+        self.num_connections = np.sum(self.adjacency_matrix) // 2
+
+        # Recalculate maximum possible edges based on updated nodes
+        max_possible_edges = new_node_count * (new_node_count - 1) // 2
+        new_connection_count = min(new_connection_count, max_possible_edges)
+
+        # Adjust connections
+        if new_connection_count > self.num_connections:
+            self.add_random_connections(new_connection_count - self.num_connections)
+        elif new_connection_count < self.num_connections:
+            self.remove_random_connections(self.num_connections - new_connection_count)
+
+        self.num_connections = new_connection_count
+
     def add_random_connections(self, num_connections):
         """Add random connections to the network."""
         possible_edges = np.triu_indices(self.num_nodes, k=1)
@@ -49,38 +88,6 @@ class NodeNetwork:
         for index in edge_indices:
             i, j = existing_edges[index]
             self.adjacency_matrix[i, j] = self.adjacency_matrix[j, i] = 0
-
-    def update_node_count(self, new_node_count):
-        """Update the number of nodes in the network."""
-        if new_node_count > self.num_nodes:
-            # Add new nodes
-            diff = new_node_count - self.num_nodes
-            self.activities = np.append(self.activities, np.random.rand(diff))
-            self.adjacency_matrix = np.pad(self.adjacency_matrix, ((0, diff), (0, diff)), mode='constant')
-
-            # Add positions for new nodes along the edges
-            new_positions = np.random.rand(diff * 3, 2)  # Generate more candidates than needed to minimize rejection
-            distances = np.linalg.norm(new_positions - 0.5, axis=1)  # Calculate distances from center
-            valid_positions = new_positions[distances >= 0.35]  # Filter out invalid positions
-            self.positions = np.vstack([self.positions, valid_positions[:diff]])  # Add only required positions
-        elif new_node_count < self.num_nodes:
-            # Remove nodes
-            diff = self.num_nodes - new_node_count
-            self.activities = self.activities[:new_node_count]
-            self.adjacency_matrix = self.adjacency_matrix[:new_node_count, :new_node_count]
-            self.positions = self.positions[:new_node_count]
-
-        self.num_nodes = new_node_count
-
-    def update_connection_count(self, new_connection_count):
-        """Update the number of connections in the network."""
-        current_connections = np.sum(self.adjacency_matrix) // 2
-        if new_connection_count > current_connections:
-            # Add connections
-            self.add_random_connections(new_connection_count - current_connections)
-        elif new_connection_count < current_connections:
-            # Remove connections
-            self.remove_random_connections(current_connections - new_connection_count)
 
     def add_connection(self, a, b):
         self.adjacency_matrix[a, b] = self.adjacency_matrix[b, a] = True

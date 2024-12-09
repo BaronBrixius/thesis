@@ -17,7 +17,7 @@ class Physics:
         elif network_area < target_coverage - tolerance:
             self.normal_distance *= (1 + adjustment_rate)  # Increase normal_distance to expand the network
 
-    def apply_forces(self, adjacency_matrix, positions, effective_iterations=1, central_force_strength=0.0005):
+    def apply_forces(self, adjacency_matrix, positions, effective_iterations=1, central_force_strength=0.001):
         self.adjust_normal_distance(positions)
 
         for _ in range(effective_iterations):
@@ -44,11 +44,10 @@ class Physics:
             positions += forces * 0.0035  # Adjust the multiplier for movement speed
 
         positions = self.pull_all_nodes_towards_center(positions, central_force_strength)
-        np.clip(positions, 0, [1.0, 1.0])
-        return positions
+        return np.clip(positions, 0, [1.0, 1.0])
 
     def pull_all_nodes_towards_center(self, positions, central_force_strength):
         center = np.array([0.5, 0.5])
         diffs = center - positions
-        positions += diffs * (central_force_strength / self.normal_distance)
+        positions += (diffs * (central_force_strength / self.normal_distance)) ** 2     # squaring makes the force stronger when farther and *very* strong when outside of 1.0
         return positions

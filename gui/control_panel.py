@@ -2,74 +2,74 @@ import tkinter as tk
 from tkinter import ttk
 import networkx as nx
 import numpy as np
+from network_simulation.network import NodeNetwork
 
 class ControlPanel:
-    def __init__(self, root, app, epsilon, display_interval, metrics_interval, num_nodes, num_connections, apply_changes_callback):
-        self.root = root
-        self.app = app
+    def __init__(self, root, network:NodeNetwork, apply_changes_callback, toggle_simulation_callback):
         self.apply_changes_callback = apply_changes_callback
+        self.toggle_simulation_callback = toggle_simulation_callback
 
-        # Widgets
+        # Variables for inputs
+        self.num_nodes_var = tk.StringVar(value=str(network.num_nodes))
+        self.num_connections_var = tk.StringVar(value=str(network.num_connections))
+        self.epsilon_var = tk.StringVar(value=str(network.epsilon))
+        self.display_interval_var = tk.StringVar(value="100")
+        self.metrics_interval_var = tk.StringVar(value="100")
+
+        # Create widgets
         self.frame = ttk.Frame(root, padding="10")
         self.frame.grid(row=0, column=0, sticky="NS")
-        self.frame.columnconfigure(0, weight=1)
-
-        # Control variables
-        self.epsilon = epsilon
-        self.display_interval = display_interval
-        self.metrics_interval = metrics_interval
-        self.num_nodes = num_nodes
-        self.num_connections = num_connections
-
-        # Create control widgets
         self.create_widgets()
 
     def create_widgets(self):
         # Widget definitions
         widget_configs = [
-            {"label": "Epsilon:", "var": self.epsilon},
-            {"label": "Display Interval:", "var": self.display_interval},
-            {"label": "Metrics Interval:", "var": self.metrics_interval},
-            {"label": "Node Count:", "var": self.num_nodes},
-            {"label": "Connection Count:", "var": self.num_connections},
+            {"label": "Node Count:", "var": self.num_nodes_var},
+            {"label": "Connection Count:", "var": self.num_connections_var},
+            {"label": "Epsilon:", "var": self.epsilon_var},
+            {"label": "Display Interval:", "var": self.display_interval_var},
+            {"label": "Metrics Interval:", "var": self.metrics_interval_var},
         ]
 
         for row, config in enumerate(widget_configs):
             self.create_labeled_entry(self.frame, config["label"], config["var"], row)
 
-        # Apply Button
-        apply_button = ttk.Button(self.frame, text="Apply Changes", command=self.apply_changes)
-        apply_button.grid(row=len(widget_configs), column=0, columnspan=2, pady=5)
+        # Apply button
+        ttk.Button(self.frame, text="Apply Changes", command=self.apply_changes).grid(row=len(widget_configs), column=0, columnspan=2, pady=5)
 
         # Metrics Display
         self.metrics_text = tk.Text(self.frame, height=10, width=30, wrap="word", state="disabled", bg="lightgray")
-        self.metrics_text.grid(row=6, column=0, columnspan=2, sticky="EW")
+        self.metrics_text.grid(row=len(widget_configs) + 1, column=0, columnspan=2, sticky="EW")
 
-        # PlayPause Button
-        self.simulation_button = ttk.Button(self.frame, text="Play", command=self.toggle_simulation)
-        self.simulation_button.grid(row=len(widget_configs) + 2, column=0, columnspan=2, pady=5)
+        # Play/Pause button
+        ttk.Button(self.frame, text="Play/Pause", command=self.toggle_simulation_callback).grid(row=len(widget_configs) + 2, column=0, columnspan=2, pady=5)
 
     def create_labeled_entry(self, parent, label_text, variable, row):
         ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky="W")
         ttk.Entry(parent, textvariable=variable, width=10).grid(row=row, column=1, sticky="EW")
 
     def apply_changes(self):
-        num_nodes = int(self.num_nodes.get())
-        num_connections = int(self.num_connections.get())
-        self.apply_changes_callback(num_nodes, num_connections)
+        """Extract values and pass them to the callback."""
+        num_nodes = int(self.num_nodes_var.get())
+        num_connections = int(self.num_connections_var.get())
+        epsilon = float(self.epsilon_var.get())
+        display_interval = int(self.display_interval_var.get())
+        metrics_interval = int(self.metrics_interval_var.get())
+        self.apply_changes_callback(num_nodes, num_connections, epsilon, display_interval, metrics_interval)
 
     def toggle_simulation(self):
-        if self.app.running.is_set():
-            self.app.pause_simulation()
-            self.simulation_button.config(text="Play")
-        else:
-            self.app.start_simulation()
+        if self.simulation_button.cget("text") == "Play":
             self.simulation_button.config(text="Pause")
+            self.toggle_simulation_callback(start=True)
+        else:
+            self.simulation_button.config(text="Play")
+            self.toggle_simulation_callback(start=False)
 
     def update_metrics(self, network, step):
+        """Update the metrics display."""
         clustering_coeff = network.metrics.calculate_clustering_coefficient(nx.from_numpy_array(network.adjacency_matrix))
         rewiring_chance = network.metrics.calculate_rewiring_chance(network.adjacency_matrix, network.activities)
-        rewiring_rate = network.successful_rewirings / self.metrics_interval.get()
+        rewiring_rate = network.successful_rewirings / int(self.metrics_interval_var.get())
         cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix)
 
         metrics_text = (
