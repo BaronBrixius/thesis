@@ -5,7 +5,6 @@ from network_simulation.visualization import ColorBy
 import cProfile
 import pstats
 import os
-import tkinter as tk
 from gui.app import NetworkControlApp
 
 # Network parameters
@@ -26,9 +25,7 @@ if __name__ == "__main__":
     profiler = None #cProfile.Profile()
     if profiler: profiler.enable()
 
-    root = tk.Tk()
-    app = NetworkControlApp(root)
-    root.mainloop()
+    app = NetworkControlApp()
 
     # Run the simulation
     # sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir=OUTPUT_DIR, random_seed=RANDOM_SEED)

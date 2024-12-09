@@ -9,12 +9,20 @@ class ControlPanel:
         self.apply_changes_callback = apply_changes_callback
         self.toggle_simulation_callback = toggle_simulation_callback
 
-        # Variables for inputs
-        self.num_nodes_var = tk.StringVar(value=str(network.num_nodes))
-        self.num_connections_var = tk.StringVar(value=str(network.num_connections))
-        self.epsilon_var = tk.StringVar(value=str(network.epsilon))
-        self.display_interval_var = tk.StringVar(value="100")
-        self.metrics_interval_var = tk.StringVar(value="100")
+        # Configuration for variables and their labels
+        self.configs = {
+            "num_nodes": {"label": "Node Count:", "default": network.num_nodes, "type": int},
+            "num_connections": {"label": "Connection Count:", "default": network.num_connections, "type": int},
+            "epsilon": {"label": "Epsilon:", "default": network.epsilon, "type": float},
+            "display_interval": {"label": "Display Interval:", "default": 1000, "type": int},
+            "metrics_interval": {"label": "Metrics Interval:", "default": 1000, "type": int},
+        }
+
+        # Initialize variables dynamically
+        self.variables = {
+            key: tk.StringVar(value=str(config["default"]))
+            for key, config in self.configs.items()
+        }
 
         # Create widgets
         self.frame = ttk.Frame(root, padding="10")
@@ -22,62 +30,54 @@ class ControlPanel:
         self.create_widgets()
 
     def create_widgets(self):
-        # Widget definitions
-        widget_configs = [
-            {"label": "Node Count:", "var": self.num_nodes_var},
-            {"label": "Connection Count:", "var": self.num_connections_var},
-            {"label": "Epsilon:", "var": self.epsilon_var},
-            {"label": "Display Interval:", "var": self.display_interval_var},
-            {"label": "Metrics Interval:", "var": self.metrics_interval_var},
-        ]
-
-        for row, config in enumerate(widget_configs):
-            self.create_labeled_entry(self.frame, config["label"], config["var"], row)
+        for row, (key, config) in enumerate(self.configs.items()):
+            self.create_labeled_entry(self.frame, config["label"], self.variables[key], row)
 
         # Apply button
-        ttk.Button(self.frame, text="Apply Changes", command=self.apply_changes).grid(row=len(widget_configs), column=0, columnspan=2, pady=5)
+        ttk.Button(self.frame, text="Apply", command=self.apply_changes).grid(row=len(self.configs), column=0, columnspan=2, pady=5)
 
         # Metrics Display
         self.metrics_text = tk.Text(self.frame, height=10, width=30, wrap="word", state="disabled", bg="lightgray")
-        self.metrics_text.grid(row=len(widget_configs) + 1, column=0, columnspan=2, sticky="EW")
+        self.metrics_text.grid(row=len(self.configs) + 1, column=0, columnspan=2, sticky="EW")
 
         # Play/Pause button
-        ttk.Button(self.frame, text="Play/Pause", command=self.toggle_simulation_callback).grid(row=len(widget_configs) + 2, column=0, columnspan=2, pady=5)
+        ttk.Button(self.frame, text="Play/Pause", command=self.toggle_simulation_callback).grid(row=len(self.configs) + 2, column=0, columnspan=2, pady=5)
 
     def create_labeled_entry(self, parent, label_text, variable, row):
         ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky="W")
         ttk.Entry(parent, textvariable=variable, width=10).grid(row=row, column=1, sticky="EW")
 
     def apply_changes(self):
-        """Extract values and pass them to the callback."""
-        num_nodes = int(self.num_nodes_var.get())
-        num_connections = int(self.num_connections_var.get())
-        epsilon = float(self.epsilon_var.get())
-        display_interval = int(self.display_interval_var.get())
-        metrics_interval = int(self.metrics_interval_var.get())
-        self.apply_changes_callback(num_nodes, num_connections, epsilon, display_interval, metrics_interval)
+        """Extract values dynamically and pass them to the callback."""
+        try:
+            # Iterate over configs and variables in parallel
+            values = {
+                key: self._parse_value(config["type"], self.variables[key].get())
+                for key, config in self.configs.items()
+            }
+            self.apply_changes_callback(**values)
+        except ValueError as e:
+            print("Invalid input detected:", e)
 
-    def toggle_simulation(self):
-        if self.simulation_button.cget("text") == "Play":
-            self.simulation_button.config(text="Pause")
-            self.toggle_simulation_callback(start=True)
-        else:
-            self.simulation_button.config(text="Play")
-            self.toggle_simulation_callback(start=False)
+    def _parse_value(self, var_type, value):
+        return var_type(value)
 
     def update_metrics(self, network, step):
         """Update the metrics display."""
         clustering_coeff = network.metrics.calculate_clustering_coefficient(nx.from_numpy_array(network.adjacency_matrix))
         rewiring_chance = network.metrics.calculate_rewiring_chance(network.adjacency_matrix, network.activities)
-        rewiring_rate = network.successful_rewirings / int(self.metrics_interval_var.get())
-        cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix)
+        rewiring_rate = network.successful_rewirings / int(self.variables["metrics_interval"].get())
+        cluster_assignments = nx.algorithms.community.louvain_communities(nx.from_numpy_array(network.adjacency_matrix))
+        cluster_sizes = [len(cluster) for cluster in cluster_assignments]
+        num_clusters = len(cluster_sizes)
 
         metrics_text = (
             f"Step: {step}\n"
             f"Clustering Coefficient: {clustering_coeff:.3f}\n"
             f"Rewiring Chance: {rewiring_chance:.3f}\n"
             f"Rewiring Rate: {rewiring_rate:.3f}\n"
-            f"Cluster Count: {np.max(cluster_assignments) + 1}\n"
+            f"Cluster Count: {num_clusters}\n"
+            f"Cluster Sizes: {cluster_sizes}\n"
         )
 
         self.metrics_text.config(state="normal")

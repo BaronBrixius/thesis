@@ -8,8 +8,8 @@ import numpy as np
 import time
 
 class NetworkControlApp:
-    def __init__(self, root, num_nodes=200, initial_connections=2000, alpha=1.7):
-        self.root = root
+    def __init__(self, num_nodes=200, initial_connections=2000, alpha=1.7):
+        self.root = tk.Tk()
         self.root.title("Network Control Panel")
         self.root.protocol("WM_DELETE_WINDOW", self.quit_application)   # Closing the window triggers the quit_application handler
 
@@ -20,18 +20,20 @@ class NetworkControlApp:
         self.step = 0
 
         # Shared variables for simulation intervals
-        self.display_interval = 100  # Default value for display updates
-        self.metrics_interval = 100  # Default value for metrics updates
+        self.display_interval = 1000
+        self.metrics_interval = 1000
         self.running = Event()
 
         # Initialize Network and GUI
         self.network = NodeNetwork(num_nodes=self.num_nodes, num_connections=self.initial_connections, alpha=self.alpha)
-        self.control_panel = ControlPanel(root, network=self.network, apply_changes_callback=self.apply_changes, toggle_simulation_callback=self.toggle_simulation)
-        self.visualization_panel = VisualizationPanel(root, self.network)
+        self.control_panel = ControlPanel(self.root, network=self.network, apply_changes_callback=self.apply_changes, toggle_simulation_callback=self.toggle_simulation)
+        self.visualization_panel = VisualizationPanel(self.root, self.network)
 
         # Start simulation thread
         self.simulation_thread = Thread(target=self.run_simulation, daemon=True)
         self.simulation_thread.start()
+
+        self.root.mainloop()
 
     def toggle_simulation(self):
         """Play/pause the simulation."""
@@ -62,14 +64,30 @@ class NetworkControlApp:
         self.network.apply_forces(min(50, self.display_interval))
         self.visualization_panel.update(self.network, self.step)
 
-    def apply_changes(self, num_nodes, num_connections, epsilon, display_interval, metrics_interval):
-        self.network.epsilon = epsilon
-        self.display_interval = display_interval
-        self.metrics_interval = metrics_interval
+    def apply_changes(self, **kwargs):
+        """
+        Apply changes to the network and simulation settings.
+        """
+        was_running = self.running.is_set()
+        if self.running.is_set():
+            self.running.clear()
 
+        # Extract values from kwargs
+        num_nodes = kwargs.get("num_nodes")
+        num_connections = kwargs.get("num_connections")
+
+        # Update network parameters
+        self.network.epsilon = kwargs.get("epsilon")
+        self.display_interval = kwargs.get("display_interval")
+        self.metrics_interval = kwargs.get("metrics_interval")
+
+        # Update network structure if node or connection count changes
         if num_nodes != self.network.num_nodes or num_connections != self.network.num_connections:
             self.network.update_network_structure(num_nodes, num_connections)
             self.update_visualization()
+
+        if was_running:
+            self.running.set()
 
     def quit_application(self):
         """Terminate the simulation and close the application."""

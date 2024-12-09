@@ -49,5 +49,5 @@ class Physics:
     def pull_all_nodes_towards_center(self, positions, central_force_strength):
         center = np.array([0.5, 0.5])
         diffs = center - positions
-        positions += (diffs * (central_force_strength / self.normal_distance)) ** 2     # squaring makes the force stronger when farther and *very* strong when outside of 1.0
+        positions += diffs * (central_force_strength / self.normal_distance)
         return positions
