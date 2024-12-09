@@ -7,7 +7,7 @@ from scipy.sparse.csgraph import shortest_path
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, stabilization_threshold=None, random_seed=None):
         np.random.seed(random_seed)
-        
+
         self.num_nodes = num_nodes
         self.num_connections = num_connections
         self.alpha = alpha
