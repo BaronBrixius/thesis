@@ -1,7 +1,5 @@
 import tkinter as tk
 from tkinter import ttk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from network_simulation.visualization import Visualization, ColorBy
 import networkx as nx
 import numpy as np
 
@@ -67,10 +65,6 @@ class ControlPanel:
         pause_button = ttk.Button(control_buttons_frame, text="Pause", command=self.app.pause_simulation)
         pause_button.grid(row=0, column=1, padx=5)
 
-        # Quit Button
-        quit_button = ttk.Button(frame, text="Quit", command=self.app.quit_application)
-        quit_button.grid(row=8, column=0, columnspan=2, pady=10)
-
     def apply_changes(self):
         num_nodes = int(self.num_nodes.get())
         num_connections = int(self.num_connections.get())
@@ -94,41 +88,3 @@ class ControlPanel:
         self.metrics_text.delete("1.0", tk.END)
         self.metrics_text.insert(tk.END, metrics_text)
         self.metrics_text.config(state="disabled")
-
-
-class VisualizationPanel:
-    def __init__(self, root, network):
-        self.root = root
-        self.network = network
-        self.visualizer = Visualization(
-            positions=network.positions,
-            activities=network.activities,
-            adjacency_matrix=network.adjacency_matrix,
-            color_by=ColorBy.ACTIVITY,
-            draw_lines=True,
-            show=False
-        )
-        self.create_canvas()
-
-    def create_canvas(self):
-        frame = ttk.Frame(self.root)
-        frame.grid(row=0, column=1, sticky="NSEW")
-        frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(0, weight=1)
-
-        self.canvas = FigureCanvasTkAgg(self.visualizer.fig, master=frame)
-        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="NSEW")
-        self.canvas.draw()
-
-    def update(self, network, step):
-        self.visualizer.update_plot(
-            positions=network.positions,
-            activities=network.activities,
-            adjacency_matrix=network.adjacency_matrix,
-            title=f"Step: {step}",
-            draw_lines=True
-        )
-        self.canvas.draw()
-
-    def update_network(self, network):
-        self.network = network

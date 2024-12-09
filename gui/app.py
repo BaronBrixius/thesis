@@ -1,22 +1,17 @@
 import tkinter as tk
-from tkinter import ttk
 from threading import Thread, Event
 from network_simulation.network import NodeNetwork
-from gui.visualization import NetworkVisualizer
-from gui.widgets import ControlPanel, VisualizationPanel
-import matplotlib
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from gui.visualization_panel import VisualizationPanel
+from gui.control_panel import ControlPanel
 import networkx as nx
 import numpy as np
 import time
-
-matplotlib.use("TkAgg")
 
 class NetworkControlApp:
     def __init__(self, root, num_nodes=200, initial_connections=2000, alpha=1.7):
         self.root = root
         self.root.title("Network Control Panel")
-        self.root.protocol("WM_DELETE_WINDOW", self.quit_application)
+        self.root.protocol("WM_DELETE_WINDOW", self.quit_application)   # Closing the window triggers the quit_application handler
         self.clustering_coeffs = []  # To track clustering coefficients for calculating stddev
 
         # Simulation parameters
