@@ -23,7 +23,7 @@ OUTPUT_DIR = "foo"
 RANDOM_SEED = 42
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
+    profiler = None #cProfile.Profile()
     if profiler: profiler.enable()
 
     root = tk.Tk()
