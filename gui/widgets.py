@@ -58,6 +58,19 @@ class ControlPanel:
         self.metrics_text = tk.Text(frame, height=10, width=30, wrap="word", state="disabled", bg="lightgray")
         self.metrics_text.grid(row=6, column=0, columnspan=2, sticky="EW")
 
+        # Play/Pause Buttons
+        ttk.Label(frame, text="Simulation Control:").grid(row=7, column=0, sticky="W")
+        control_buttons_frame = ttk.Frame(frame)
+        control_buttons_frame.grid(row=7, column=1, sticky="EW")
+        play_button = ttk.Button(control_buttons_frame, text="Play", command=self.app.start_simulation)
+        play_button.grid(row=0, column=0, padx=5)
+        pause_button = ttk.Button(control_buttons_frame, text="Pause", command=self.app.pause_simulation)
+        pause_button.grid(row=0, column=1, padx=5)
+
+        # Quit Button
+        quit_button = ttk.Button(frame, text="Quit", command=self.app.quit_application)
+        quit_button.grid(row=8, column=0, columnspan=2, pady=10)
+
     def apply_changes(self):
         num_nodes = int(self.num_nodes.get())
         num_connections = int(self.num_connections.get())
@@ -67,12 +80,14 @@ class ControlPanel:
         clustering_coeff = network.metrics.calculate_clustering_coefficient(nx.from_numpy_array(network.adjacency_matrix))
         rewiring_chance = network.metrics.calculate_rewiring_chance(network.adjacency_matrix, network.activities)
         rewiring_rate = network.successful_rewirings / self.metrics_interval.get()
+        cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix)
 
         metrics_text = (
             f"Step: {step}\n"
             f"Clustering Coefficient: {clustering_coeff:.3f}\n"
             f"Rewiring Chance: {rewiring_chance:.3f}\n"
             f"Rewiring Rate: {rewiring_rate:.3f}\n"
+            f"Cluster Count: {np.max(cluster_assignments) + 1}\n"
         )
 
         self.metrics_text.config(state="normal")

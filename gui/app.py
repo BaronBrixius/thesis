@@ -50,7 +50,7 @@ class NetworkControlApp:
                     self.update_visualization()
 
                 if self.step % self.metrics_interval.get() == 0:
-                    self.update_metrics()
+                    self.control_panel.update_metrics(self.network, self.step)
 
                 time.sleep(0.00000001)  # Small delay to avoid busy looping
                 self.step += 1
@@ -60,29 +60,7 @@ class NetworkControlApp:
     def update_visualization(self):
         """Update the visualization with current network state."""
         self.network.apply_forces(min(50, self.display_interval.get()))
-        self.visualizer.update(self.network)
-        self.canvas.draw()
-
-    def update_metrics(self):
-        """Update and display metrics in the metrics panel."""
-        clustering_coeff = self.network.metrics.calculate_clustering_coefficient(nx.from_numpy_array(self.network.adjacency_matrix))
-        self.clustering_coeffs.append(clustering_coeff)
-        cc_stddev = np.std(self.clustering_coeffs) if self.clustering_coeffs else 0
-        rewiring_chance = self.network.metrics.calculate_rewiring_chance(self.network.adjacency_matrix, self.network.activities)
-        rewiring_rate = self.network.successful_rewirings / self.metrics_interval.get()
-        self.network.successful_rewirings = 0
-        cluster_assignments = self.network.metrics.detect_communities(self.network.adjacency_matrix)
-
-        metrics_text = (
-            f"Step: {self.step}\n"
-            f"Clustering Coefficient: {clustering_coeff:.3f}\n"
-            f"CC StdDev: {cc_stddev:.5f}\n"
-            f"Rewiring Chance: {rewiring_chance:.3f}\n"
-            f"Rewiring Rate: {rewiring_rate:.3f}\n"
-            f"Cluster Count: {np.max(cluster_assignments) + 1}\n"
-        )
-
-        self.metrics_display.update_metrics(metrics_text)
+        self.visualization_panel.update(self.network, self.step)
 
     def on_input_change(self, event):
         """Highlight text fields when their values differ from current settings."""
@@ -122,6 +100,12 @@ class NetworkControlApp:
         self.metrics_interval_input.set(str(self.metrics_interval.get()))
         self.node_count_input.set(str(self.num_nodes))
         self.connection_count_input.set(str(self.initial_connections))
+
+    def start_simulation(self):
+        self.running.set()
+
+    def pause_simulation(self):
+        self.running.clear()
 
     def quit_application(self):
         """Terminate the simulation and close the application."""
