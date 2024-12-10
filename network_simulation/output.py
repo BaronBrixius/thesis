@@ -67,7 +67,34 @@ class Output:
         self.output_line_graph(metrics=["Clustering Coefficient", "Average Path Length"], title=f"CC and APL, {self.num_nodes} Nodes, {self.num_connections} Connections", ylabel="Value")
         self.logger.info("Generated CC and APL graph.")
 
-    def get_sorted_snapshots(self):
+    def output_metrics_from_snapshots(self):
+        previous_adjacency_matrix = None
+        previous_cluster_assignments = None
+
+        with open(self.metrics_file_path, mode="w", newline="") as csv_file:
+            # Define the CSV writer
+            writer = None
+
+            for step, snapshot_file in self._get_sorted_snapshots():
+                self.logger.info(f"Analyzing snapshot: {snapshot_file}")
+                snapshot_data = self._load_snapshot(snapshot_file)
+
+                # Calculate Metrics
+                metrics = self._compute_metrics(step, snapshot_data, previous_adjacency_matrix, previous_cluster_assignments)
+
+                # Update temporal states
+                previous_adjacency_matrix = snapshot_data["adjacency_matrix"]
+                previous_cluster_assignments = metrics["Cluster Membership"]
+
+                # Lazy initialization of the writer, so all the fields are known when it's created
+                if writer is None:
+                    writer = csv.DictWriter(csv_file, fieldnames=metrics.keys())
+                    writer.writeheader()
+                writer.writerow(metrics)
+
+        self.logger.info(f"Summary metrics saved to {self.metrics_file_path}")
+
+    def _get_sorted_snapshots(self):
         # Retrieve snapshots sorted by step number.
         snapshot_files = [file for file in os.listdir(self.snapshots_dir) if file.endswith(".h5")]
         sorted_snapshots = sorted(
@@ -77,61 +104,36 @@ class Output:
         )
         return sorted_snapshots
 
-    def output_metrics_from_snapshots(self):
-        previous_adjacency_matrix = None
-        previous_cluster_assignments = None
+    def _load_snapshot(self, snapshot_file):
+        with h5py.File(os.path.join(self.snapshots_dir, snapshot_file), "r") as h5file:
+            return {
+                "activities": h5file["activities"][:],
+                "adjacency_matrix": h5file["adjacency_matrix"][:],
+                "successful_rewirings": h5file["successful_rewirings"][()]
+            }
 
-        with open(self.metrics_file_path, mode="w", newline="") as csv_file:
-            # Define the CSV writer
-            writer = None
+    def _compute_metrics(self, step, snapshot_data, previous_adjacency_matrix, previous_cluster_assignments):
+        adjacency_matrix_nx = nx.from_numpy_array(snapshot_data["adjacency_matrix"])
+        cluster_assignments = self.calculator.detect_communities(adjacency_matrix_nx)
+        return {
+            "Step": step,
+            "Clustering Coefficient": self.calculator.calculate_clustering_coefficient(adjacency_matrix_nx),
+            "Average Path Length" : self.calculator.calculate_average_path_length(adjacency_matrix_nx),
+            # "Assortativity" : self.calculator.calculate_assortativity(adjacency_matrix_nx),
+            # "Betweenness Centrality" : self.calculator.calculate_betweenness_centrality(adjacency_matrix_nx)
+            # "Modularity" : self.calculator.calculate_modularity(adjacency_matrix_nx),
 
-            for step, snapshot_file in self.get_sorted_snapshots():
-                self.logger.info(f"Analyzing snapshot: {snapshot_file}")
+            ### Rewiring Metrics ###
+            "Rewirings (interval)" : snapshot_data["successful_rewirings"],
+            "Rewiring Chance" : self.calculator.calculate_rewiring_chance(snapshot_data["adjacency_matrix"], snapshot_data["activities"]),
+            "Edge Persistence" : self.calculator.calculate_edge_persistence(snapshot_data["adjacency_matrix"], previous_adjacency_matrix),
 
-                # Load snapshot data
-                snapshot_path = os.path.join(self.snapshots_dir, snapshot_file)
-                with h5py.File(snapshot_path, "r") as h5file:
-                    activities = h5file["activities"][:]
-                    adjacency_matrix = h5file["adjacency_matrix"][:]
-                    successful_rewirings = h5file["successful_rewirings"][()]
-
-                # Initialize metrics dictionary
-                metrics = {"Step": step}
-
-                # Convert adjacency matrix to NetworkX graph
-                adjacency_matrix_nx = nx.from_numpy_array(adjacency_matrix)
-
-                ### Network Connectivity and Structure Metrics ###
-                metrics["Clustering Coefficient"] = self.calculator.calculate_clustering_coefficient(adjacency_matrix_nx)
-                metrics["Average Path Length"] = self.calculator.calculate_average_path_length(adjacency_matrix_nx)
-                metrics["Assortativity"] = self.calculator.calculate_assortativity(adjacency_matrix_nx)
-                # metrics["Betweenness Centrality"] = self.calculator.calculate_betweenness_centrality(adjacency_matrix_nx)
-                metrics["Modularity"] = self.calculator.calculate_modularity(adjacency_matrix_nx)
-
-                ### Rewiring Metrics ###
-                metrics["Rewirings (interval)"] = successful_rewirings
-                metrics["Rewiring Chance"] = self.calculator.calculate_rewiring_chance(adjacency_matrix, activities)
-
-                metrics["Edge Persistence"] = self.calculator.calculate_edge_persistence(adjacency_matrix, previous_adjacency_matrix)
-
-                ### Temporal Community and Cluster Metrics ###
-                cluster_assignments = self.calculator.detect_communities(adjacency_matrix_nx)
-                metrics["Cluster Membership"] = cluster_assignments
-                metrics["Cluster Count"] = np.max(cluster_assignments) + 1
-                metrics["Cluster Membership Stability"] = self.calculator.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments)
-                metrics["Cluster Size Variance"] = self.calculator.calculate_cluster_size_variance(cluster_assignments)
-
-                # Update temporal states
-                previous_adjacency_matrix = adjacency_matrix
-                previous_cluster_assignments = cluster_assignments
-
-                # Lazy initialization of the writer, so all the fields are known when it's created
-                if writer is None:
-                    writer = csv.DictWriter(csv_file, fieldnames=metrics.keys())
-                    writer.writeheader()
-                writer.writerow(metrics)
-
-        self.logger.info(f"Summary metrics saved to {self.metrics_file_path}")
+            ### Cluster Metrics ###
+            "Cluster Membership" : cluster_assignments,
+            "Cluster Count" : np.max(cluster_assignments) + 1,
+            "Cluster Membership Stability" : self.calculator.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments),
+            "Cluster Size Variance" : self.calculator.calculate_cluster_size_variance(cluster_assignments),
+        }
 
     def output_line_graph(self, metrics, xlim=None, ylim=None, title=None, xlabel="Step Number", ylabel="Value"):
         """
