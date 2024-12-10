@@ -1,6 +1,6 @@
 from collections import deque
 import numpy as np
-from network_simulation.metrics import Metrics
+from network_simulation.calculator import Calculator
 from network_simulation.physics import Physics
 from scipy.sparse.csgraph import shortest_path
 
@@ -23,7 +23,7 @@ class NodeNetwork:
         # Add initial connections
         self.add_random_connections(num_connections)
 
-        self.metrics = Metrics()
+        self.metrics = Calculator()
         self.breakup_count = 0
         self.successful_rewirings = 0
 

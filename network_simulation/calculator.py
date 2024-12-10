@@ -3,7 +3,7 @@ import numpy as np
 from scipy.signal import periodogram
 from sklearn.metrics.cluster import adjusted_rand_score
 
-class Metrics:
+class Calculator:
     def __init__(self):
         pass
 

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import h5py
 import matplotlib.pyplot as plt
-from network_simulation.metrics import Metrics
+from network_simulation.calculator import Calculator
 
 class Output:
     def __init__(self, base_dir, num_nodes=None, num_connections=None):
@@ -26,7 +26,7 @@ class Output:
         self.num_connections = num_connections
         self.metrics_file_path = os.path.join(self.base_dir, f"summary_metrics_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
 
-        self.metrics = Metrics()
+        self.metrics = Calculator()
 
         # Set up logging
         logging.basicConfig(

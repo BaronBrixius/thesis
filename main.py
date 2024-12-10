@@ -7,29 +7,17 @@ import pstats
 import os
 from gui.app import NetworkControlApp
 
-# Network parameters
-NUM_NODES = 200
-NUM_CONNECTIONS = int(0.1 * (NUM_NODES * (NUM_NODES - 1) / 2)) # 10% density * total possible connections n*(n-1)/2
-
-# Simulation parameters
-NUM_STEPS = 2_000_000
-METRICS_INTERVAL = 10_000
-DISPLAY_INTERVAL = 100_000
-STABILIZATION_THRESHOLD = 0
-OUTPUT_DIR = "foo"
-
-# Misc
-RANDOM_SEED = 42
-
 if __name__ == "__main__":
-    profiler = None #cProfile.Profile()
+    profiler = cProfile.Profile()
     if profiler: profiler.enable()
 
-    app = NetworkControlApp()
+    # app = NetworkControlApp() # run in GUI
 
     # Run the simulation
-    # sim = Simulation(num_nodes=NUM_NODES, num_connections=NUM_CONNECTIONS, output_dir=OUTPUT_DIR, random_seed=RANDOM_SEED)
-    # sim.run(num_steps=NUM_STEPS, display_interval=DISPLAY_INTERVAL, metrics_interval=METRICS_INTERVAL, show=False)
+    num_nodes = 200
+    num_connections = int(0.1 * (num_nodes * (num_nodes - 1) / 2)) # 10% density * total possible connections n*(n-1)/2
+    sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir="fofo", random_seed=42)
+    sim.run(num_steps=50_000, display_interval=1_000, metrics_interval=1_000, show=False)
 
     # folder_name = f"littleone_seed_7"
     # for num_connections in range(1660, 1675):
@@ -63,11 +51,6 @@ if __name__ == "__main__":
     #     scenario_dir = os.path.join("600_nodes_test_data", f"seed_{i}")
     #     sim = Simulation(num_nodes=600, num_connections=num_connections_600, output_dir=scenario_dir, random_seed=i)
     #     sim.run(num_steps=10_000_000, display_interval=1000000, metrics_interval=1000000, show=False, color_by=ColorBy.CONNECTIONS)
-
-    # 10_000_000 steps 1000 interval
-    # scenario_dir = os.path.join("600_nodes_test_data", f"1000_interval")
-    # sim = SimulationManager(num_nodes=600, num_connections=num_connections_600, output_dir=scenario_dir, random_seed=42)
-    # sim.run(num_steps=10_000_000, display_interval=1000000, metrics_interval=1000, show=False, color_by=ColorBy.CONNECTIONS)
 
     if profiler: profiler.disable()
 
