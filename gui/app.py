@@ -77,6 +77,7 @@ class NetworkControlApp:
         num_connections = kwargs.get("num_connections")
 
         # Update network parameters
+        self.network.alpha = kwargs.get("alpha")
         self.network.epsilon = kwargs.get("epsilon")
         self.display_interval = kwargs.get("display_interval")
         self.metrics_interval = kwargs.get("metrics_interval")

@@ -13,6 +13,7 @@ class ControlPanel:
         self.configs = {
             "num_nodes": {"label": "Node Count:", "default": network.num_nodes, "type": int},
             "num_connections": {"label": "Connection Count:", "default": network.num_connections, "type": int},
+            "alpha": {"label": "Alpha:", "default": network.alpha, "type": float},
             "epsilon": {"label": "Epsilon:", "default": network.epsilon, "type": float},
             "display_interval": {"label": "Display Interval:", "default": 1000, "type": int},
             "metrics_interval": {"label": "Metrics Interval:", "default": 1000, "type": int},
