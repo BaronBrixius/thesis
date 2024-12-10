@@ -16,7 +16,7 @@ if __name__ == "__main__":
     # Run the simulation
     num_nodes = 200
     num_connections = int(0.1 * (num_nodes * (num_nodes - 1) / 2)) # 10% density * total possible connections n*(n-1)/2
-    sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir="fofo", random_seed=42)
+    sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir="foo", random_seed=42)
     sim.run(num_steps=50_000, display_interval=1_000, metrics_interval=1_000, show=False)
 
     # folder_name = f"littleone_seed_7"

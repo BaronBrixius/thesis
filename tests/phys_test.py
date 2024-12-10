@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
-from NodeNetwork import NodeNetwork, NetworkPlot
+from network_simulation.network import NodeNetwork
+from network_simulation.visualization import Visualization
 import matplotlib.pyplot as plt
 
 # Constants for screen dimensions
@@ -50,7 +51,7 @@ class TestNodeNetworkPhysics(unittest.TestCase):
         return network
 
     def helper_display_and_iterate_network(self, network, title, steps=400, draw_lines=True):
-        plot = NetworkPlot(network.physics.positions, network.activities, network.adjacency_matrix, draw_lines=draw_lines)
+        plot = Visualization(network.positions, network.activities, network.adjacency_matrix, draw_lines=draw_lines)
         plot.ax.set_xlabel(f"{title}")
 
         # Callback to set a flag when the plot window is closed
@@ -64,7 +65,7 @@ class TestNodeNetworkPhysics(unittest.TestCase):
             if plot_closed:
                 break  # Exit the loop if the plot is closed
             network.apply_forces()
-            plot.update_plot(network.physics.positions, network.activities, network.adjacency_matrix, title=f"Generation {step}", draw_lines=draw_lines)
+            plot.update_plot(network.positions, network.activities, network.adjacency_matrix, title=f"Generation {step}", draw_lines=draw_lines)
             plt.pause(0.000001)
 
         plot.ax.set_title(f"{title} - Final State")

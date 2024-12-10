@@ -1,89 +1,55 @@
 import unittest
 import numpy as np
-from NodeNetwork import NodeNetwork
+import networkx as nx
+from network_simulation.calculator import Calculator
 
+class TestCalculator(unittest.TestCase):
+    def setUp(self):
+        """Set up reusable test data."""
+        self.calculator = Calculator()
 
-class TestNetworkMetrics(unittest.TestCase):
-    
-    def helper_metrics(self, num_nodes, connections, expected_cpl, expected_cc, alpha=1.7, epsilon=0.4, random_seed=None):
-        # Setup network and calculate metrics
-        network = NodeNetwork(num_nodes, 0, alpha, epsilon, random_seed)
-        for i, j in connections:
-            network.add_connection(i, j)
-        calculated_cpl, calculated_cc = network.calculate_stats()
+        # Create a small adjacency matrix for testing
+        self.adjacency_matrix = np.array([
+            [0, 1, 0, 0],
+            [1, 0, 1, 1],
+            [0, 1, 0, 1],
+            [0, 1, 1, 0]
+        ])
+        self.activities = np.array([0.2, 0.5, 0.8, 0.1])
 
-        self.assertAlmostEqual(calculated_cpl, expected_cpl, delta=0.01, msg="CPL does not match expected value")
-        self.assertAlmostEqual(calculated_cc, expected_cc, delta=0.01, msg="CC does not match expected value")
+    def test_calculate_rewiring_chance(self):
+        """Test the rewiring chance calculation."""
+        chance = self.calculator.calculate_rewiring_chance(self.adjacency_matrix, self.activities)
+        self.assertAlmostEqual(chance, 0.5)
 
-    def test_simple_two_nodes(self):
-        self.helper_metrics(num_nodes=2, connections=[(0, 1)], expected_cpl=1.0, expected_cc=0.0)
+    def test_calculate_edge_persistence(self):
+        """Test edge persistence calculation."""
+        previous_matrix = np.array([
+            [0, 1, 0, 1],
+            [1, 0, 0, 1],
+            [0, 0, 0, 1],
+            [1, 1, 1, 0]
+        ])
+        persistence = self.calculator.calculate_edge_persistence(self.adjacency_matrix, previous_matrix)
+        self.assertAlmostEqual(persistence, 0.75)
 
-    def test_simple_three_nodes(self):
-        self.helper_metrics(num_nodes=3, connections=[(0, 1), (1, 2)], expected_cpl=1.33, expected_cc=0.0)    
+    def test_detect_communities(self):
+        """Test community detection."""
+        cluster_assignments = self.calculator.detect_communities(nx.from_numpy_array(self.adjacency_matrix))
+        self.assertEqual(len(set(cluster_assignments)), 2)  # Two communities expected in the test graph
 
-    def test_star_network(self):
-        self.helper_metrics(num_nodes=5, connections=[(0, 1), (0, 2), (0, 3), (0, 4)], expected_cpl=1.6, expected_cc=0.0)
+    def test_calculate_cluster_membership_stability(self):
+        """Test cluster membership stability."""
+        previous_assignments = np.array([0, 1, 1, 0, 1])
+        current_assignments = np.array([0, 1, 0, 1, 1])
+        stability = self.calculator.calculate_cluster_membership_stability(current_assignments, previous_assignments)
+        self.assertAlmostEqual(stability, -0.25)
 
-    def test_fully_connected(self):
-        self.helper_metrics(num_nodes=4, connections=[(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)], expected_cpl=1.0, expected_cc=1.0)
-
-    def test_ring_network(self):
-        self.helper_metrics(num_nodes=4, connections=[(0, 1), (1, 2), (2, 3), (3, 0)], expected_cpl=1.3333, expected_cc=0.0)
-
-    # Tests for `update_activity`
-    def helper_update_activity(self, initial_activities, expected_activities, connections, alpha=1.7, epsilon=0.4):
-        # Setup network
-        num_nodes = len(initial_activities)
-        network = NodeNetwork(num_nodes, 0, alpha, epsilon)
-        network.activities = np.array(initial_activities)
-        for i, j in connections:
-            network.add_connection(i, j)
-        
-        # Perform activity update
-        network.update_activity()
-
-        # Check each activity value matches the expected value within a tolerance
-        for i, expected in enumerate(expected_activities):
-            self.assertAlmostEqual(network.activities[i], expected, delta=0.01, msg=f"Activity at node {i} does not match expected value")
-
-    def test_activity_no_connections(self):
-        # No connections, each node should update independently
-        initial_activities = [0.5, -0.5]
-        expected_activities = [1 - 1.7 * (0.5)**2, 1 - 1.7 * (-0.5)**2]  # Using only the logistic map
-        self.helper_update_activity(initial_activities, expected_activities, connections=[])
-
-    def test_activity_with_connections(self):
-        # Nodes connected to each other, expect mutual influence
-        initial_activities = [0.5, 0.8]
-        connections = [(0, 1)]
-        
-        # Calculate expected activities manually
-        alpha, epsilon = 1.7, 0.4
-        own_activities = [1 - alpha * (a**2) for a in initial_activities]
-        expected_activities = [
-            (1 - epsilon) * own_activities[0] + epsilon * initial_activities[1],  # Node 0 influenced by Node 1
-            (1 - epsilon) * own_activities[1] + epsilon * initial_activities[0]  # Node 1 influenced by Node 0
-        ]
-        
-        self.helper_update_activity(initial_activities, expected_activities, connections)
-
-    def test_activity_mixed_connections(self):
-        # Mixed scenario: One node connected, one isolated
-        initial_activities = [0.3, -0.7, 0.5]
-        connections = [(0, 2)]
-        
-        # Expected values for each node
-        alpha, epsilon = 1.7, 0.4
-        own_activities = [1 - alpha * (a**2) for a in initial_activities]
-        neighbor_activity = initial_activities[2]  # Node 0's neighbor has activity 0.5
-        expected_activities = [
-            (1 - epsilon) * own_activities[0] + epsilon * neighbor_activity,  # Node 0 influenced by Node 2
-            own_activities[1],  # Node 1 is isolated
-            (1 - epsilon) * own_activities[2] + epsilon * initial_activities[0]  # Node 2 influenced by Node 0
-        ]
-
-        self.helper_update_activity(initial_activities, expected_activities, connections)
-
+    def test_calculate_cluster_size_variance(self):
+        """Test cluster size variance."""
+        cluster_assignments = np.array([0, 1, 1, 0])
+        variance = self.calculator.calculate_cluster_size_variance(cluster_assignments)
+        self.assertAlmostEqual(variance, 0.0)  # Two equal-sized clusters
 
 if __name__ == "__main__":
     unittest.main()

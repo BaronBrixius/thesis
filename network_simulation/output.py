@@ -26,19 +26,21 @@ class Output:
         self.num_connections = num_connections
         self.metrics_file_path = os.path.join(self.base_dir, f"summary_metrics_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
 
-        self.metrics = Calculator()
+        self.calculator = Calculator()
+        self.logger = self._initialize_logger()
 
-        # Set up logging
+    @staticmethod
+    def _initialize_logger():
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s.%(msecs)03d - %(levelname)s - %(message)s",
             datefmt="%H:%M:%S"
         )
-        self.logger = logging.getLogger(__name__)
+        return logging.getLogger(__name__)
 
     ### Runtime Snapshot Methods ###
 
-    def output_state_snapshot(self, step, activities, adjacency_matrix, successful_rewirings):
+    def save_snapshot(self, step, activities, adjacency_matrix, successful_rewirings):
         # Save activities and adjacency matrix for a given step
         snapshot_file = os.path.join(self.snapshots_dir, f"snapshot_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.h5")
         with h5py.File(snapshot_file, "w") as h5file:
@@ -47,7 +49,7 @@ class Output:
             h5file.create_dataset("successful_rewirings", data=successful_rewirings)    # TODO I think this can be calculated post-run at some point, but need permission
         self.logger.info(f"Saved snapshot for step {step} to {snapshot_file}")
 
-    def output_network_image(self, visualization, step):
+    def save_network_image(self, visualization, step):
         image_path = os.path.join(self.network_images_dir, f"network_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.jpg")
         visualization.fig.savefig(image_path)
         self.logger.info(f"Saved network visualization for step {step} to {image_path}")
@@ -100,38 +102,24 @@ class Output:
                 adjacency_matrix_nx = nx.from_numpy_array(adjacency_matrix)
 
                 ### Network Connectivity and Structure Metrics ###
-                metrics["Clustering Coefficient"] = self.metrics.calculate_clustering_coefficient(adjacency_matrix_nx)
-                metrics["Average Path Length"] = self.metrics.calculate_average_path_length(adjacency_matrix_nx)
-                # metrics["Assortativity"] = self.metrics.calculate_assortativity(adjacency_matrix_nx)
-                # metrics["Betweenness Centrality"] = self.metrics.calculate_betweenness_centrality(adjacency_matrix_nx)
-                # metrics["Modularity"] = self.metrics.calculate_modularity(adjacency_matrix_nx)
+                metrics["Clustering Coefficient"] = self.calculator.calculate_clustering_coefficient(adjacency_matrix_nx)
+                metrics["Average Path Length"] = self.calculator.calculate_average_path_length(adjacency_matrix_nx)
+                metrics["Assortativity"] = self.calculator.calculate_assortativity(adjacency_matrix_nx)
+                # metrics["Betweenness Centrality"] = self.calculator.calculate_betweenness_centrality(adjacency_matrix_nx)
+                metrics["Modularity"] = self.calculator.calculate_modularity(adjacency_matrix_nx)
 
                 ### Rewiring Metrics ###
                 metrics["Rewirings (interval)"] = successful_rewirings
-                metrics["Rewiring Chance"] = self.metrics.calculate_rewiring_chance(adjacency_matrix, activities)
+                metrics["Rewiring Chance"] = self.calculator.calculate_rewiring_chance(adjacency_matrix, activities)
 
-                ### Edge Stability Metrics ###
-                metrics["Edge Persistence"] = self.metrics.calculate_edge_persistence(adjacency_matrix, previous_adjacency_matrix)
-                # metrics["Edge Turnover Rate"] = self.metrics.calculate_edge_turnover_rate(adjacency_matrix, previous_adjacency_matrix)
-                # metrics["Edge Recurrence"] = self.metrics.calculate_edge_recurrence(adjacency_matrix, previous_adjacency_matrix)
+                metrics["Edge Persistence"] = self.calculator.calculate_edge_persistence(adjacency_matrix, previous_adjacency_matrix)
 
                 ### Temporal Community and Cluster Metrics ###
-                cluster_assignments = self.metrics.detect_communities(adjacency_matrix)
+                cluster_assignments = self.calculator.detect_communities(adjacency_matrix_nx)
                 metrics["Cluster Membership"] = cluster_assignments
                 metrics["Cluster Count"] = np.max(cluster_assignments) + 1
-                metrics["Cluster Membership Stability"] = self.metrics.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments)
-                metrics["Cluster Size Variance"] = self.metrics.calculate_cluster_size_variance(cluster_assignments)
-                # metrics["Cluster Formation Rate"] = self.metrics.calculate_cluster_formation_rate(cluster_assignments, previous_cluster_assignments)
-                # metrics["Cluster Lifespan"] = self.metrics.calculate_cluster_lifespan(cluster_assignments, step)
-
-                ### Activity-Driven Metrics ###
-                # metrics["Activity Spread"] = self.metrics.calculate_activity_spread(adjacency_matrix, activities)
-                # metrics["Activity Similarity Distribution"] = self.metrics.calculate_activity_similarity_distribution(adjacency_matrix, activities)
-
-                ### Global Network Metrics ###
-                # clique_metrics = self.metrics.calculate_cliques(adjacency_matrix_nx)
-                # metrics["Max Clique Size"] = clique_metrics["Max Clique Size"]
-                # metrics["Clique Distribution"] = clique_metrics["Clique Distribution"]
+                metrics["Cluster Membership Stability"] = self.calculator.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments)
+                metrics["Cluster Size Variance"] = self.calculator.calculate_cluster_size_variance(cluster_assignments)
 
                 # Update temporal states
                 previous_adjacency_matrix = adjacency_matrix
