@@ -4,6 +4,7 @@ import os
 import networkx as nx
 import numpy as np
 import pandas as pd
+from pandas import DataFrame
 import h5py
 import matplotlib.pyplot as plt
 from network_simulation.calculator import Calculator
@@ -190,72 +191,20 @@ class Output:
         snapshot_data = []
         run_level_data = []
 
-        for subfolder in os.listdir(root_dir):
-            subfolder_path = os.path.join(root_dir, subfolder)
-            if not os.path.isdir(subfolder_path):
-                continue
+        for subfolder_path in Output._get_subfolders(root_dir):
+            for file_path in Output._get_metric_files(subfolder_path):
+                num_nodes, num_edges = Output._extract_node_edge_info(file_path)
+                df = pd.read_csv(file_path)
 
-            for file in os.listdir(subfolder_path):
-                if file.startswith("summary_metrics_nodes_") and file.endswith(".csv"):
-                    # Extract num_nodes and num_edges from the file name
-                    try:
-                        parts = file.split("_")
-                        num_nodes = int(parts[3])
-                        num_edges = int(parts[5].split(".")[0])
-                    except (IndexError, ValueError):
-                        continue
+                df["Nodes"] = num_nodes
+                df["Edges"] = num_edges
 
-                    # Read the metrics file and add num_nodes and num_edges columns
-                    file_path = os.path.join(subfolder_path, file)
-                    df = pd.read_csv(file_path)
-                    if "Cluster Count" not in df.columns:
-                        continue
-                    df["Nodes"] = num_nodes
-                    df["Edges"] = num_edges
+                # Append snapshot line, with "Nodes" and "Edges" as the leftmost columns
+                snapshot_data.append(df[["Nodes", "Edges"] + [col for col in df.columns if col not in ["Nodes", "Edges"]]])
 
-                    # Ensure "Nodes" and "Edges" are the leftmost columns
-                    columns_order = ["Nodes", "Edges"] + [col for col in df.columns if col not in ["Nodes", "Edges"]]
-                    df = df[columns_order]
-                    snapshot_data.append(df)
-
-                    # Filter out rows where step is less than starting_step
-                    df = df[df["Step"] >= starting_step]
-
-                    run_metrics = {
-                        "Nodes": num_nodes,
-                        "Edges": num_edges,
-                        "Mean CC": df["Clustering Coefficient"].mean(),
-                        "StdDev CC": df["Clustering Coefficient"].std(),
-                        "Max CC": df["Clustering Coefficient"].max(),
-                        "Min CC": df["Clustering Coefficient"].min(),
-                        "Cluster Count Mean": df["Cluster Count"].mean(),
-                        "Cluster Count Min": df["Cluster Count"].min(),
-                        "Cluster Count Max": df["Cluster Count"].max(),
-                        "Cluster Count StdDev": df["Cluster Count"].std(),
-                        "Amplitude CC": df["Clustering Coefficient"].max() - df["Clustering Coefficient"].min(),
-                        "Mean Rewiring Chance": df["Rewiring Chance"].mean(),
-                        "StdDev Rewiring Chance": df["Rewiring Chance"].std(),
-                        "Mean Edge Persistence": df["Edge Persistence"].mean(),
-                        "StdDev Edge Persistence": df["Edge Persistence"].std(),
-                        "Mean Rewirings (interval)": df["Rewirings (interval)"].mean(),
-                        "StdDev Rewirings (interval)": df["Rewirings (interval)"].std(),
-                        "Mean Edge Persistence": df["Edge Persistence"].mean(),
-                        "StdDev Edge Persistence": df["Edge Persistence"].std(),
-                    }
-
-                    # Fourier analysis on Clustering Coefficient (CC)
-                    try:
-                        from scipy.signal import periodogram
-                        cc_values = df["Clustering Coefficient"].to_numpy()
-                        frequencies, power = periodogram(cc_values)
-                        run_metrics["Dominant Frequency"] = frequencies[np.argmax(power)]
-                        run_metrics["Spectral Power"] = np.sum(power)
-                    except Exception:
-                        run_metrics["Dominant Frequency"] = None
-                        run_metrics["Spectral Power"] = None
-
-                    # Append run-level metrics to the list
-                    run_level_data.append(run_metrics)
+                # Append run-level metrics
+                run_metrics = Output._compute_run_level_metrics(df=df, starting_step=starting_step, num_nodes=num_nodes, num_edges=num_edges)
+                run_level_data.append(run_metrics)
 
         # Combine snapshot-level data and save to CSV
         if snapshot_data:
@@ -269,3 +218,64 @@ class Output:
             run_level_df.to_csv(run_level_output_filepath, index=False)
             print("Run-level data output")
 
+    @staticmethod
+    def _get_subfolders(root_dir):
+        return [os.path.join(root_dir, subfolder) for subfolder in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, subfolder))]
+
+    @staticmethod
+    def _get_metric_files(subfolder_path):
+        """Retrieve all metric files in a subfolder."""
+        return [
+            os.path.join(subfolder_path, file) for file in os.listdir(subfolder_path)
+            if file.startswith("summary_metrics_") and file.endswith(".csv")
+        ]
+
+    @staticmethod
+    def _extract_node_edge_info(file_path):
+        """Extract num_nodes and num_edges from the file name."""
+        try:
+            parts = os.path.basename(file_path).split("_")
+            num_nodes = int(parts[3])
+            num_edges = int(parts[5].split(".")[0])
+            return num_nodes, num_edges
+        except (IndexError, ValueError) as e:
+            raise ValueError(f"Failed to extract node/edge info from {file_path}: {e}")
+
+    @staticmethod
+    def _compute_run_level_metrics(df:DataFrame, starting_step, num_nodes, num_edges):
+        """Compute aggregated run-level metrics."""
+        # Filter out rows where step is less than starting_step
+        df = df[df["Step"] >= starting_step]
+
+        run_metrics = {
+            "Nodes": num_nodes,
+            "Edges": num_edges,
+            "Mean CC": df["Clustering Coefficient"].mean(),
+            "StdDev CC": df["Clustering Coefficient"].std(),
+            "Max CC": df["Clustering Coefficient"].max(),
+            "Min CC": df["Clustering Coefficient"].min(),
+            "Cluster Count Mean": df["Cluster Count"].mean(),
+            "Cluster Count Min": df["Cluster Count"].min(),
+            "Cluster Count Max": df["Cluster Count"].max(),
+            "Cluster Count StdDev": df["Cluster Count"].std(),
+            "Amplitude CC": df["Clustering Coefficient"].max() - df["Clustering Coefficient"].min(),
+            "Mean Rewiring Chance": df["Rewiring Chance"].mean(),
+            "StdDev Rewiring Chance": df["Rewiring Chance"].std(),
+            "Mean Edge Persistence": df["Edge Persistence"].mean(),
+            "StdDev Edge Persistence": df["Edge Persistence"].std(),
+            "Mean Rewirings (interval)": df["Rewirings (interval)"].mean(),
+            "StdDev Rewirings (interval)": df["Rewirings (interval)"].std(),
+        }
+
+        # Fourier analysis on Clustering Coefficient (CC)
+        try:
+            from scipy.signal import periodogram
+            cc_values = df["Clustering Coefficient"].to_numpy()
+            frequencies, power = periodogram(cc_values)
+            run_metrics["Dominant Frequency"] = frequencies[np.argmax(power)]
+            run_metrics["Spectral Power"] = np.sum(power)
+        except Exception:
+            run_metrics["Dominant Frequency"] = None
+            run_metrics["Spectral Power"] = None
+
+        return run_metrics
