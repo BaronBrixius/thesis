@@ -1,7 +1,6 @@
 from network_simulation.network import NodeNetwork
 from network_simulation.output import Output
 from network_simulation.visualization import Visualization, ColorBy
-import numpy as np
 import time
 
 class Simulation:
@@ -18,33 +17,42 @@ class Simulation:
 
         # Main Loop
         for step in range(num_steps):
-            if self.network.stabilized == True:
+            if self.network.stabilized:
                 self.output.logger(f"Stabilized after {step} iterations.")
                 break
 
-            if metrics_interval and step % metrics_interval == 0:
-                self.output.save_snapshot(step, self.network.activities, self.network.adjacency_matrix, self.network.successful_rewirings)
-                self.network.successful_rewirings = 0   #FIXME this is a bad, hacky way to do this!
+            self._step(step, display_interval, metrics_interval)
 
-            if display_interval and step % display_interval == 0:
-                self.network.apply_forces(min(100, display_interval))
-                self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
-                self.output.save_network_image(self.plot, step)
-
-            self.network.update_network()
-
-        # Final metrics and outputs after the main loop ends
-        if display_interval:
-            self.network.apply_forces(min(150, display_interval))
-            self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {num_steps}")
-            self.output.save_network_image(self.plot, num_steps)
-
-        if metrics_interval:
-            self.output.save_snapshot(num_steps, self.network.activities, self.network.adjacency_matrix, self.network.successful_rewirings)
-
-        self.output.logger.info(f"Run over: {time.time() - start}")
-        
-        if metrics_interval:
-            self.output.post_run_output()
+        self._finalize_simulation(num_steps, display_interval, metrics_interval)
 
         self.output.logger.info(f"End time: {time.time() - start}")
+
+    def _step(self, step, display_interval, metrics_interval):
+        """Processes a single simulation step."""
+        if metrics_interval and step % metrics_interval == 0:
+            self._save_snapshot(step)
+
+        if display_interval and step % display_interval == 0:
+            self._update_visualization(step, display_interval)
+
+        self.network.update_network()
+
+    def _save_snapshot(self, step):
+        self.output.save_snapshot(step, self.network.activities, self.network.adjacency_matrix, self.network.successful_rewirings)
+        self.network.successful_rewirings = 0   # reset successful rewiring count when saving snapshot
+
+    def _update_visualization(self, step, display_interval):
+        """Apply forces and update the visualization."""
+        self.network.apply_forces(min(50, display_interval))
+        self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix,
+                              title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
+        self.output.save_network_image(self.plot, step)
+
+    def _finalize_simulation(self, num_steps, display_interval, metrics_interval):
+        """Handles final outputs after the simulation loop ends."""
+        if display_interval:
+            self._update_visualization(num_steps, display_interval)
+
+        if metrics_interval:
+            self._save_snapshot(num_steps)
+            self.output.post_run_output()
