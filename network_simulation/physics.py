@@ -17,10 +17,11 @@ class Physics:
         elif network_area < target_coverage - tolerance:
             self.normal_distance *= (1 + adjustment_rate)  # Increase normal_distance to expand the network
 
-    def apply_forces(self, adjacency_matrix, positions, effective_iterations=1, central_force_strength=0.001):
+    def apply_forces(self, adjacency_matrix, positions, max_iterations=1, force_strength=0.0035):
         self.adjust_normal_distance(positions)
+        speed = force_strength / (0.99 ** (max_iterations - 1))
 
-        for _ in range(effective_iterations):
+        for _ in range(max_iterations):
             diffs = positions[:, np.newaxis, :] - positions[np.newaxis, :, :]
             distances = np.sqrt(np.einsum('ijk,ijk->ij', diffs, diffs))
             normalized_directions = np.divide(diffs, distances[:, :, np.newaxis] + 1e-10)
@@ -41,13 +42,18 @@ class Physics:
             forces = np.einsum('ijk,ij->ik', normalized_directions, close_force - far_force + repulsion_force)
 
             # Update positions based on forces
-            positions += forces * 0.0035  # Adjust the multiplier for movement speed
+            adjustment = forces * speed
+            positions += adjustment
+            speed *= 0.99
 
-        positions = self.pull_all_nodes_towards_center(positions, central_force_strength)
+            if np.mean(np.abs(adjustment)) < 0.001:  # close enough
+                break
+
+        positions = self.pull_all_nodes_towards_center(positions, force_strength)
         return np.clip(positions, 0, [1.0, 1.0])
 
-    def pull_all_nodes_towards_center(self, positions, central_force_strength):
+    def pull_all_nodes_towards_center(self, positions, force_strength):
         center = np.array([0.5, 0.5])
         diffs = center - positions
-        positions += diffs * (central_force_strength / self.normal_distance)
+        positions += diffs * (force_strength / self.normal_distance)
         return positions
