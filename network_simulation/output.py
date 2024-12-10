@@ -9,25 +9,27 @@ import matplotlib.pyplot as plt
 from network_simulation.calculator import Calculator
 
 class Output:
-    def __init__(self, base_dir, num_nodes=None, num_connections=None):
-        self.base_dir = os.path.join("output", base_dir)
-        os.makedirs(self.base_dir, exist_ok=True)
-
-        self.snapshots_dir = os.path.join(self.base_dir, "state_snapshots")
-        os.makedirs(self.snapshots_dir, exist_ok=True)
-
-        self.network_images_dir = os.path.join(self.base_dir, "images")
-        os.makedirs(self.network_images_dir, exist_ok=True)
-
-        self.plots_dir = os.path.join(self.base_dir, "plots")
-        os.makedirs(self.plots_dir, exist_ok=True)
-
+    def __init__(self, project_dir, num_nodes=None, num_connections=None):
         self.num_nodes = num_nodes
         self.num_connections = num_connections
-        self.metrics_file_path = os.path.join(self.base_dir, f"summary_metrics_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
+
+        output_dir = os.path.join("output", project_dir)
+        self.directories = {
+            "base": output_dir,
+            "snapshots": os.path.join(output_dir, "state_snapshots"),
+            "images": os.path.join(output_dir, "images"),
+            "plots": os.path.join(output_dir, "plots"),
+        }
+        self._initialize_directories()
+
+        self.metrics_file_path = os.path.join(self.directories["base"], f"summary_metrics_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
 
         self.calculator = Calculator()
         self.logger = self._initialize_logger()
+
+    def _initialize_directories(self):
+        for _, path in self.directories.items():
+            os.makedirs(path, exist_ok=True)
 
     @staticmethod
     def _initialize_logger():
@@ -38,11 +40,11 @@ class Output:
         )
         return logging.getLogger(__name__)
 
-    ### Runtime Snapshot Methods ###
+    ### Runtime Snapshot/Image Methods ###
 
     def save_snapshot(self, step, activities, adjacency_matrix, successful_rewirings):
         # Save activities and adjacency matrix for a given step
-        snapshot_file = os.path.join(self.snapshots_dir, f"snapshot_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.h5")
+        snapshot_file = os.path.join(self.directories["snapshots"], f"snapshot_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.h5")
         with h5py.File(snapshot_file, "w") as h5file:
             h5file.create_dataset("activities", data=activities)
             h5file.create_dataset("adjacency_matrix", data=adjacency_matrix)
@@ -50,14 +52,14 @@ class Output:
         self.logger.info(f"Saved snapshot for step {step} to {snapshot_file}")
 
     def save_network_image(self, visualization, step):
-        image_path = os.path.join(self.network_images_dir, f"network_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.jpg")
+        image_path = os.path.join(self.directories["images"], f"network_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.jpg")
         visualization.fig.savefig(image_path)
         self.logger.info(f"Saved network visualization for step {step} to {image_path}")
 
     ### Post-Run Metrics Calculation ###
 
     def post_run_output(self):
-        if not os.path.exists(self.snapshots_dir):
+        if not os.path.exists(self.directories["snapshots"]):
             print("No snapshots available for post-run outputs.")
             return
 
@@ -96,7 +98,7 @@ class Output:
 
     def _get_sorted_snapshots(self):
         # Retrieve snapshots sorted by step number.
-        snapshot_files = [file for file in os.listdir(self.snapshots_dir) if file.endswith(".h5")]
+        snapshot_files = [file for file in os.listdir(self.directories["snapshots"]) if file.endswith(".h5")]
         sorted_snapshots = sorted(
             [(int(file.split("_")[file.split("_").index("step") + 1].split(".")[0]), file)
              for file in snapshot_files],
@@ -105,7 +107,7 @@ class Output:
         return sorted_snapshots
 
     def _load_snapshot(self, snapshot_file):
-        with h5py.File(os.path.join(self.snapshots_dir, snapshot_file), "r") as h5file:
+        with h5py.File(os.path.join(self.directories["snapshots"], snapshot_file), "r") as h5file:
             return {
                 "activities": h5file["activities"][:],
                 "adjacency_matrix": h5file["adjacency_matrix"][:],
@@ -169,7 +171,7 @@ class Output:
         plt.grid(True, linestyle="--", alpha=0.7)
 
         # Save the graph
-        metrics_graph_path = os.path.join(self.plots_dir, f"{'_'.join(metrics)}_nodes_{self.num_nodes}_edges_{self.num_connections}.jpg")
+        metrics_graph_path = os.path.join(self.directories["plots"], f"{'_'.join(metrics)}_nodes_{self.num_nodes}_edges_{self.num_connections}.jpg")
         plt.savefig(metrics_graph_path)
         plt.close()
         self.logger.info(f"Saved line graph for metrics {metrics} to {metrics_graph_path}")
