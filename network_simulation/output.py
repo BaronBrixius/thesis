@@ -35,7 +35,7 @@ class Output:
     @staticmethod
     def _initialize_logger():
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging.WARNING,
             format="%(asctime)s.%(msecs)03d - %(levelname)s - %(message)s",
             datefmt="%H:%M:%S"
         )
@@ -178,55 +178,120 @@ class Output:
         self.logger.info(f"Saved line graph for metrics {metrics} to {metrics_graph_path}")
 
     @staticmethod
-    def aggregate_metrics(root_dir, starting_step = 500_000, snapshot_output_filepath=None, run_level_output_filepath=None):
+    def aggregate_metrics(root_dir, starting_step=500_000, snapshot_output_filepath=None, run_level_output_filepath=None, replace=False):
         """
         Aggregates metrics from all metrics_summary_nodes_{num_nodes}_edges_{num_edges}.csv files
         in subfolders of the specified root directory into a single CSV file.
+        Handles new folder structure with `seed_X` subfolders containing `edges_X` sub-subfolders.
         """
         if snapshot_output_filepath is None:
             snapshot_output_filepath = os.path.join(root_dir, "aggregated_snapshot_metrics.csv")
         if run_level_output_filepath is None:
             run_level_output_filepath = os.path.join(root_dir, "run_level_metrics.csv")
 
-        snapshot_data = []
-        run_level_data = []
+        # Process each seed folder
+        for seed_folder in Output._get_subfolders(root_dir):
+            seed_snapshot_output = os.path.join(seed_folder, "aggregated_snapshot_metrics.csv")
+            seed_run_level_output = os.path.join(seed_folder, "run_level_metrics.csv")
 
-        for subfolder_path in Output._get_subfolders(root_dir):
-            for file_path in Output._get_metric_files(subfolder_path):
+            # Skip processing if output files already exist and `replace` is False
+            if not replace and os.path.exists(seed_snapshot_output) and os.path.exists(seed_run_level_output):
+                continue
+
+            # Process all edges within the seed folder
+            Output._process_seed_folder(
+                seed_folder, starting_step, seed_snapshot_output, seed_run_level_output
+            )
+
+        # Aggregate at the top level
+        Output._aggregate_top_level(root_dir, snapshot_output_filepath, run_level_output_filepath)
+
+    @staticmethod
+    def _process_seed_folder(seed_folder, starting_step, snapshot_output_path, run_level_output_path):
+        """
+        Process metrics within a single seed folder.
+        """
+        seed_snapshot_data = []
+        seed_run_level_data = []
+
+        seed = int(seed_folder.split("_")[1].split(".")[0])
+
+        for edges_folder in Output._get_subfolders(seed_folder):
+            for file_path in Output._get_metric_files(edges_folder):
                 num_nodes, num_edges = Output._extract_node_edge_info(file_path)
                 df = pd.read_csv(file_path)
 
                 df["Nodes"] = num_nodes
                 df["Edges"] = num_edges
+                df["Seed"] = seed
 
-                # Append snapshot line, with "Nodes" and "Edges" as the leftmost columns
-                snapshot_data.append(df[["Nodes", "Edges"] + [col for col in df.columns if col not in ["Nodes", "Edges"]]])
+                # Append snapshot data
+                seed_snapshot_data.append(df[["Nodes", "Edges", "Seed"] + [col for col in df.columns if col not in ["Nodes", "Edges", "Seed"]]])
 
                 # Append run-level metrics
-                run_metrics = Output._compute_run_level_metrics(df=df, starting_step=starting_step, num_nodes=num_nodes, num_edges=num_edges)
-                run_level_data.append(run_metrics)
+                run_metrics = Output._compute_run_level_metrics(df=df, starting_step=starting_step, num_nodes=num_nodes, num_edges=num_edges, seed=seed)
+                seed_run_level_data.append(run_metrics)
 
-        # Combine snapshot-level data and save to CSV
+        # Save seed-level outputs
+        if seed_snapshot_data:
+            snapshot_df = pd.concat(seed_snapshot_data, ignore_index=True)
+            snapshot_df.to_csv(snapshot_output_path, index=False)
+            print(f"Snapshot data aggregated for {seed_folder}")
+
+        if seed_run_level_data:
+            run_level_df = pd.DataFrame(seed_run_level_data)
+            run_level_df.to_csv(run_level_output_path, index=False)
+            print(f"Run-level data output for {seed_folder}")
+
+    @staticmethod
+    def _aggregate_top_level(root_dir, snapshot_output_path, run_level_output_path):
+        """
+        Aggregates all seed-level results into top-level files.
+        Reads seed-level aggregated files dynamically.
+        """
+        snapshot_data = []
+        run_level_data = []
+
+        for seed_folder in Output._get_subfolders(root_dir):
+            seed_snapshot_output = os.path.join(seed_folder, "aggregated_snapshot_metrics.csv")
+            seed_run_level_output = os.path.join(seed_folder, "run_level_metrics.csv")
+
+            # Read seed-level aggregated files
+            if os.path.exists(seed_snapshot_output):
+                snapshot_data.append(pd.read_csv(seed_snapshot_output))
+            if os.path.exists(seed_run_level_output):
+                run_level_data.append(pd.read_csv(seed_run_level_output))
+
+        # Combine and save top-level results
         if snapshot_data:
             snapshot_df = pd.concat(snapshot_data, ignore_index=True)
-            snapshot_df.to_csv(snapshot_output_filepath, index=False)
-            print("Snapshot data aggregated")
+            snapshot_df.to_csv(snapshot_output_path, index=False)
+            print("Snapshot data aggregated at the top level")
 
-        # Combine run-level metrics and save to CSV
         if run_level_data:
-            run_level_df = pd.DataFrame(run_level_data)
-            run_level_df.to_csv(run_level_output_filepath, index=False)
-            print("Run-level data output")
+            run_level_df = pd.concat(run_level_data, ignore_index=True)
+            run_level_df.to_csv(run_level_output_path, index=False)
+            print("Run-level data output at the top level")
 
     @staticmethod
     def _get_subfolders(root_dir):
-        return [os.path.join(root_dir, subfolder) for subfolder in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, subfolder))]
+        """
+        Retrieve subfolders within a directory.
+        """
+        return [
+            os.path.join(root_dir, subfolder)
+            for subfolder in os.listdir(root_dir)
+            if os.path.isdir(os.path.join(root_dir, subfolder))
+        ]
 
     @staticmethod
     def _get_metric_files(subfolder_path):
-        """Retrieve all metric files in a subfolder."""
+        """
+        Retrieve all metric files in a subfolder.
+        """
         return [
-            os.path.join(subfolder_path, file) for file in os.listdir(subfolder_path)
+            os.path.join(subfolder_path, file)
+            for file in os.listdir(subfolder_path)
             if file.startswith("summary_metrics_") and file.endswith(".csv")
         ]
 
@@ -242,7 +307,7 @@ class Output:
             raise ValueError(f"Failed to extract node/edge info from {file_path}: {e}")
 
     @staticmethod
-    def _compute_run_level_metrics(df:DataFrame, starting_step, num_nodes, num_edges):
+    def _compute_run_level_metrics(df:DataFrame, starting_step, num_nodes, num_edges, seed):
         """Compute aggregated run-level metrics."""
         # Filter out rows where step is less than starting_step
         df = df[df["Step"] >= starting_step]
@@ -250,6 +315,7 @@ class Output:
         run_metrics = {
             "Nodes": num_nodes,
             "Edges": num_edges,
+            "Seed": seed,
             "Mean CC": df["Clustering Coefficient"].mean(),
             "StdDev CC": df["Clustering Coefficient"].std(),
             "Max CC": df["Clustering Coefficient"].max(),

@@ -1,7 +1,6 @@
 from network_simulation.network import NodeNetwork
 from network_simulation.output import Output
 from network_simulation.visualization import Visualization, ColorBy
-import time
 
 class Simulation:
     def __init__(self, num_nodes, num_connections, output_dir=None, alpha=1.7, epsilon=0.4, random_seed=None):
@@ -12,7 +11,6 @@ class Simulation:
         if display_interval:
             self.plot = Visualization(self.network.positions, self.network.activities, self.network.adjacency_matrix, show=show, color_by=color_by)
 
-        start = time.time()
         self.output.logger.info(f"Starting with Nodes: {self.network.num_nodes}, Connections: {self.network.num_connections}, Steps: {num_steps}")
 
         # Main Loop
@@ -24,8 +22,6 @@ class Simulation:
             self._step(step, display_interval, metrics_interval)
 
         self._finalize_simulation(num_steps, display_interval, metrics_interval)
-
-        self.output.logger.info(f"End time: {time.time() - start}")
 
     def _step(self, step, display_interval, metrics_interval):
         """Processes a single simulation step."""
