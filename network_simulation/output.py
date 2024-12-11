@@ -221,12 +221,12 @@ class Output:
                 num_nodes, num_edges = Output._extract_node_edge_info(file_path)
                 df = pd.read_csv(file_path)
 
+                df["Seed"] = seed
                 df["Nodes"] = num_nodes
                 df["Edges"] = num_edges
-                df["Seed"] = seed
 
                 # Append snapshot data
-                seed_snapshot_data.append(df[["Nodes", "Edges", "Seed"] + [col for col in df.columns if col not in ["Nodes", "Edges", "Seed"]]])
+                seed_snapshot_data.append(df[["Seed", "Nodes", "Edges"] + [col for col in df.columns if col not in ["Seed", "Nodes", "Edges"]]])
 
                 # Append run-level metrics
                 run_metrics = Output._compute_run_level_metrics(df=df, starting_step=starting_step, num_nodes=num_nodes, num_edges=num_edges, seed=seed)
@@ -265,11 +265,19 @@ class Output:
         # Combine and save top-level results
         if snapshot_data:
             snapshot_df = pd.concat(snapshot_data, ignore_index=True)
+
+            snapshot_df = snapshot_df.astype({"Seed": "int", "Nodes": "int", "Edges": "int", "Step": "int"})
+            snapshot_df.sort_values(by=["Seed", "Nodes", "Edges", "Step"], inplace=True)
+
             snapshot_df.to_csv(snapshot_output_path, index=False)
             print("Snapshot data aggregated at the top level")
 
         if run_level_data:
             run_level_df = pd.concat(run_level_data, ignore_index=True)
+
+            run_level_df = run_level_df.astype({"Seed": "int", "Nodes": "int", "Edges": "int"})
+            run_level_df.sort_values(by=["Seed", "Nodes", "Edges"], inplace=True)
+
             run_level_df.to_csv(run_level_output_path, index=False)
             print("Run-level data output at the top level")
 
@@ -313,13 +321,17 @@ class Output:
         df = df[df["Step"] >= starting_step]
 
         run_metrics = {
+            "Seed": seed,
             "Nodes": num_nodes,
             "Edges": num_edges,
-            "Seed": seed,
             "Mean CC": df["Clustering Coefficient"].mean(),
             "StdDev CC": df["Clustering Coefficient"].std(),
             "Max CC": df["Clustering Coefficient"].max(),
             "Min CC": df["Clustering Coefficient"].min(),
+            "Mean APL": df["Average Path Length"].mean(),
+            "StdDev APL": df["Average Path Length"].std(),
+            "Max APL": df["Average Path Length"].max(),
+            "Min APL": df["Average Path Length"].min(),
             "Cluster Count Mean": df["Cluster Count"].mean(),
             "Cluster Count Min": df["Cluster Count"].min(),
             "Cluster Count Max": df["Cluster Count"].max(),
