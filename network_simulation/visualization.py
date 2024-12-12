@@ -39,6 +39,8 @@ class Visualization:
         self.ax.set_xlim(-0.05, 1.05)
         self.ax.set_ylim(-0.05, 1.05)
         self.ax.set_aspect('equal')
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
 
         # Initialize scatter plot for nodes
         self.scatter = self.ax.scatter(
