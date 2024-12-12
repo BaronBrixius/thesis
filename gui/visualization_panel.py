@@ -34,7 +34,7 @@ class VisualizationPanel:
             positions=network.positions,
             activities=network.activities,
             adjacency_matrix=network.adjacency_matrix,
-            title=f"Step: {step}",
+            title=f"Nodes: {network.num_nodes}, Connections: {network.num_connections}, Step: {step}",
             draw_lines=True
         )
         self.canvas.draw()
