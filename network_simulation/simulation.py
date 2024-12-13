@@ -9,7 +9,7 @@ class Simulation:
 
     def run(self, num_steps, display_interval=1000, metrics_interval=1000, show=True, color_by:ColorBy=ColorBy.ACTIVITY):
         if display_interval:
-            self.plot = Visualization(self.network.positions, self.network.activities, self.network.adjacency_matrix, show=show, color_by=color_by)
+            self.visualization = Visualization(self.network.positions, self.network.activities, self.network.adjacency_matrix, show=show, color_by=color_by)
 
         self.output.logger.info(f"Starting with Nodes: {self.network.num_nodes}, Connections: {self.network.num_connections}, Steps: {num_steps}")
 
@@ -40,14 +40,15 @@ class Simulation:
     def _update_visualization(self, step, display_interval):
         """Apply forces and update the visualization."""
         self.network.apply_forces(min(50, display_interval))
-        self.plot.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix,
+        self.visualization.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix,
                               title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
-        self.output.save_network_image(self.plot, step)
+        self.output.save_network_image(self.visualization, step)
 
     def _finalize_simulation(self, num_steps, display_interval, metrics_interval):
         """Handles final outputs after the simulation loop ends."""
         if display_interval:
             self._update_visualization(num_steps, display_interval)
+            self.visualization.close()
 
         if metrics_interval:
             self._save_snapshot(num_steps)
