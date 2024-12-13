@@ -4,7 +4,7 @@ class Physics:
     def __init__(self, normal_distance):
         self.normal_distance = normal_distance
 
-    def adjust_normal_distance(self, positions, target_coverage=0.9, tolerance=0.05, adjustment_rate=0.015):
+    def adjust_normal_distance(self, positions, target_coverage=0.8, tolerance=0.05, adjustment_rate=0.015):
         lower_bounds = np.percentile(positions, 1, axis=0)
         upper_bounds = np.percentile(positions, 99, axis=0)
         width, height = upper_bounds - lower_bounds
