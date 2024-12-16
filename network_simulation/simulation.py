@@ -26,16 +26,13 @@ class Simulation:
     def _step(self, step, display_interval, metrics_interval):
         """Processes a single simulation step."""
         if metrics_interval and step % metrics_interval == 0:
-            self._save_snapshot(step)
+            self.output.write_metrics_line(step, self.network.adjacency_matrix, self.network.activities, self.network.successful_rewirings)
+            self.network.successful_rewirings = 0   # reset successful rewiring count at interval
 
         if display_interval and step % display_interval == 0:
             self._update_visualization(step, display_interval)
 
         self.network.update_network()
-
-    def _save_snapshot(self, step):
-        self.output.save_snapshot(step, self.network.activities, self.network.adjacency_matrix, self.network.successful_rewirings)
-        self.network.successful_rewirings = 0   # reset successful rewiring count when saving snapshot
 
     def _update_visualization(self, step, display_interval):
         """Apply forces and update the visualization."""
@@ -51,5 +48,6 @@ class Simulation:
             self.visualization.close()
 
         if metrics_interval:
-            self._save_snapshot(num_steps)
+            self.output.write_metrics_line(num_steps, self.network.adjacency_matrix, self.network.activities, self.network.successful_rewirings)
+            self.network.successful_rewirings = 0   # reset successful rewiring count at interval
             self.output.post_run_output()

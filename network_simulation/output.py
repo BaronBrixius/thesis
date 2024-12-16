@@ -17,13 +17,18 @@ class Output:
         output_dir = os.path.join("output", project_dir)
         self.directories = {
             "base": output_dir,
-            "snapshots": os.path.join(output_dir, "state_snapshots"),
+            # "snapshots": os.path.join(output_dir, "state_snapshots"),
             "images": os.path.join(output_dir, "images"),
             "plots": os.path.join(output_dir, "plots"),
         }
         self._initialize_directories()
 
         self.metrics_file_path = os.path.join(self.directories["base"], f"summary_metrics_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
+        self.metrics_file = open(self.metrics_file_path, mode="w", newline="")
+        self.csv_writer = None
+
+        self.previous_adjacency_matrix = None
+        self.previous_cluster_assignments = None
 
         self.calculator = Calculator()
         self.logger = self._initialize_logger()
@@ -41,10 +46,9 @@ class Output:
         )
         return logging.getLogger(__name__)
 
-    ### Runtime Snapshot/Image Methods ###
+    ### Snapshot Methods ###
 
     def save_snapshot(self, step, activities, adjacency_matrix, successful_rewirings):
-        # Save activities and adjacency matrix for a given step
         snapshot_file = os.path.join(self.directories["snapshots"], f"snapshot_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.h5")
         with h5py.File(snapshot_file, "w") as h5file:
             h5file.create_dataset("activities", data=activities)
@@ -52,62 +56,7 @@ class Output:
             h5file.create_dataset("successful_rewirings", data=successful_rewirings)    # TODO I think this can be calculated post-run at some point, but need permission
         self.logger.info(f"Saved snapshot for step {step} to {snapshot_file}")
 
-    def save_network_image(self, visualization, step):
-        image_path = os.path.join(self.directories["images"], f"network_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.jpg")
-        visualization.fig.savefig(image_path)
-        self.logger.info(f"Saved network visualization for step {step} to {image_path}")
-
-    ### Post-Run Metrics Calculation ###
-
-    def post_run_output(self):
-        if not os.path.exists(self.directories["snapshots"]):
-            print("No snapshots available for post-run outputs.")
-            return
-
-        self.output_metrics_from_snapshots()
-        self.logger.info("Generated summary metrics.")
-
-        self.output_line_graph(metrics=["Clustering Coefficient", "Average Path Length"], title=f"CC and APL, {self.num_nodes} Nodes, {self.num_connections} Connections", ylabel="Value")
-        self.logger.info("Generated CC and APL graph.")
-
-    def output_metrics_from_snapshots(self):
-        previous_adjacency_matrix = None
-        previous_cluster_assignments = None
-
-        with open(self.metrics_file_path, mode="w", newline="") as csv_file:
-            # Define the CSV writer
-            writer = None
-
-            for step, snapshot_file in self._get_sorted_snapshots():
-                self.logger.info(f"Analyzing snapshot: {snapshot_file}")
-                snapshot_data = self._load_snapshot(snapshot_file)
-
-                # Calculate Metrics
-                metrics = self._compute_metrics(step, snapshot_data, previous_adjacency_matrix, previous_cluster_assignments)
-
-                # Update temporal states
-                previous_adjacency_matrix = snapshot_data["adjacency_matrix"]
-                previous_cluster_assignments = metrics["Cluster Membership"]
-
-                # Lazy initialization of the writer, so all the fields are known when it's created
-                if writer is None:
-                    writer = csv.DictWriter(csv_file, fieldnames=metrics.keys())
-                    writer.writeheader()
-                writer.writerow(metrics)
-
-        self.logger.info(f"Summary metrics saved to {self.metrics_file_path}")
-
-    def _get_sorted_snapshots(self):
-        # Retrieve snapshots sorted by step number.
-        snapshot_files = [file for file in os.listdir(self.directories["snapshots"]) if file.endswith(".h5")]
-        sorted_snapshots = sorted(
-            [(int(file.split("_")[file.split("_").index("step") + 1].split(".")[0]), file)
-             for file in snapshot_files],
-            key=lambda x: x[0]  # Sort by step number
-        )
-        return sorted_snapshots
-
-    def _load_snapshot(self, snapshot_file):
+    def load_snapshot(self, snapshot_file):
         with h5py.File(os.path.join(self.directories["snapshots"], snapshot_file), "r") as h5file:
             return {
                 "activities": h5file["activities"][:],
@@ -115,10 +64,28 @@ class Output:
                 "successful_rewirings": h5file["successful_rewirings"][()]
             }
 
-    def _compute_metrics(self, step, snapshot_data, previous_adjacency_matrix, previous_cluster_assignments):
-        adjacency_matrix_nx = nx.from_numpy_array(snapshot_data["adjacency_matrix"])
+    def save_network_image(self, visualization, step):
+        image_path = os.path.join(self.directories["images"], f"network_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.jpg")
+        visualization.fig.savefig(image_path)
+        self.logger.info(f"Saved network visualization for step {step} to {image_path}")
+
+    # Runtime Metrics Writing
+    def write_metrics_line(self, step, adjacency_matrix, activities, successful_rewirings):
+        metrics = self._compute_metrics(step, adjacency_matrix, activities, successful_rewirings, self.previous_adjacency_matrix, self.previous_cluster_assignments)
+
+        if self.csv_writer is None:
+            self.csv_writer = csv.DictWriter(self.metrics_file, fieldnames=metrics.keys())
+            self.csv_writer.writeheader()
+
+        self.csv_writer.writerow(metrics)
+    
+    def _compute_metrics(self, step, adjacency_matrix, activities, successful_rewirings, previous_adjacency_matrix=None, previous_cluster_assignments=None):
+        # Shared Computations
+        adjacency_matrix_nx = nx.from_numpy_array(adjacency_matrix)
         cluster_assignments = self.calculator.detect_communities(adjacency_matrix_nx)
-        return {
+
+        # Compute
+        metrics = {
             "Step": step,
             "Clustering Coefficient": self.calculator.calculate_clustering_coefficient(adjacency_matrix_nx),
             "Average Path Length" : self.calculator.calculate_average_path_length(adjacency_matrix_nx),
@@ -127,9 +94,9 @@ class Output:
             # "Modularity" : self.calculator.calculate_modularity(adjacency_matrix_nx),
 
             ### Rewiring Metrics ###
-            "Rewirings (interval)" : snapshot_data["successful_rewirings"],
-            "Rewiring Chance" : self.calculator.calculate_rewiring_chance(snapshot_data["adjacency_matrix"], snapshot_data["activities"]),
-            "Edge Persistence" : self.calculator.calculate_edge_persistence(snapshot_data["adjacency_matrix"], previous_adjacency_matrix),
+            "Rewirings (interval)" : successful_rewirings,
+            "Rewiring Chance" : self.calculator.calculate_rewiring_chance(adjacency_matrix, activities),
+            "Edge Persistence" : self.calculator.calculate_edge_persistence(adjacency_matrix, previous_adjacency_matrix),
 
             ### Cluster Metrics ###
             "Cluster Membership" : cluster_assignments,
@@ -137,6 +104,18 @@ class Output:
             "Cluster Membership Stability" : self.calculator.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments),
             "Cluster Size Variance" : self.calculator.calculate_cluster_size_variance(cluster_assignments),
         }
+
+        # Update old states for temporal metrics
+        self.previous_adjacency_matrix = adjacency_matrix.copy()
+        self.previous_cluster_assignments = cluster_assignments.copy()
+
+        return metrics
+
+    ### Post-Run Metrics Calculation ###
+
+    def post_run_output(self):
+        self.output_line_graph(metrics=["Clustering Coefficient", "Average Path Length"], title=f"CC and APL, {self.num_nodes} Nodes, {self.num_connections} Connections", ylabel="Value")
+        self.logger.info("Generated CC and APL graph.")
 
     def output_line_graph(self, metrics, xlim=None, ylim=None, title=None, xlabel="Step Number", ylabel="Value"):
         """
