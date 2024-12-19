@@ -1,4 +1,5 @@
 from network_simulation.output import Output
+from network_simulation.analyzer import PostRunAnalyzer
 from network_simulation.utils import print_times
 from network_simulation.visualization import ColorBy
 import cProfile
@@ -54,22 +55,21 @@ if __name__ == "__main__":
     if profiler: profiler.enable()
 
     ## Run in GUI
-    app = NetworkControlApp()
-
+    # app = NetworkControlApp()
 
     ## Quick Run
     # run_simulation_in_process(num_nodes=200, num_connections=2_000, output_dir="foo",  num_steps=500_000, display_interval=100_000, metrics_interval=1_000, random_seed=42)
 
     ## Experiment Run
-    # experiment_folder = "D:\OneDrive - Vrije Universiteit Amsterdam\Y3-Thesis\code\output\density3"
-    # run_experiment(experiment_folder,
-    #                seed_range=range(5),
-    #                connections_range=range(250, 19901, 250),
-    #                num_steps=5_000_000,
-    #                display_interval=100_000,
-    #                metrics_interval=1_000,
-    #                num_nodes=200)
-    # Output.aggregate_metrics(os.path.join("output", experiment_folder), starting_step=4_000_000, replace=True)
+    experiment_folder = "D:\OneDrive - Vrije Universiteit Amsterdam\Y3-Thesis\code\output\\foo"
+    run_experiment(experiment_folder,
+                   seed_range=range(2),
+                   connections_range=range(1250, 1571, 250),
+                   num_steps=5_00_000,
+                   display_interval=100_000,
+                   metrics_interval=10_000,
+                   num_nodes=200)
+    PostRunAnalyzer(experiment_folder).aggregate_metrics(os.path.join("output", experiment_folder), starting_step=4_00_000, replace=True)
 
     if profiler: profiler.disable()
 

@@ -56,4 +56,3 @@ class Simulation:
         if metrics_interval:
             self.output.write_metrics_line(num_steps, self.network.adjacency_matrix, self.network.activities, self.network.successful_rewirings)
             self.network.successful_rewirings = 0   # reset successful rewiring count at interval
-            self.output.post_run_output()
