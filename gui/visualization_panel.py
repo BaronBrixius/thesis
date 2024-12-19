@@ -2,6 +2,8 @@ from tkinter import ttk
 from network_simulation.visualization import Visualization, ColorBy
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib
+import networkx as nx
+import numpy as np
 
 matplotlib.use("TkAgg")
 
@@ -13,7 +15,8 @@ class VisualizationPanel:
             positions=network.positions,
             activities=network.activities,
             adjacency_matrix=network.adjacency_matrix,
-            color_by=ColorBy.ACTIVITY,
+            cluster_assignments=self.detect_communities(nx.from_numpy_array(network.adjacency_matrix)),
+            color_by=ColorBy.CLUSTER,
             draw_lines=True,
             show=False
         )
@@ -34,6 +37,7 @@ class VisualizationPanel:
             positions=network.positions,
             activities=network.activities,
             adjacency_matrix=network.adjacency_matrix,
+            cluster_assignments=self.detect_communities(nx.from_numpy_array(network.adjacency_matrix)),
             title=f"Nodes: {network.num_nodes}, Connections: {network.num_connections}, Step: {step}",
             draw_lines=True
         )
@@ -41,3 +45,14 @@ class VisualizationPanel:
 
     def update_network(self, network):
         self.network = network
+
+    def detect_communities(self, graph):    #FIXME This really cannot be here haha, I'm just too tired right now
+        """
+        Louvain Method For Community Detection: Assigns nodes to communities for modularity and cluster stability calculations.
+        """
+        communities = nx.algorithms.community.louvain_communities(graph)
+        cluster_assignments = np.zeros(len(graph.nodes), dtype=int)
+
+        for cluster_id, community in enumerate(communities):
+            cluster_assignments[list(community)] = cluster_id
+        return cluster_assignments
