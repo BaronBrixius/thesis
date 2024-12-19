@@ -1,39 +1,50 @@
 from enum import Enum
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
+from matplotlib.colors import ListedColormap
 import numpy as np
 
 class ColorBy(Enum):
-    ACTIVITY = "activity"
-    CONNECTIONS = "connections"
+    ACTIVITY = "cividis"
+    CONNECTIONS = "inferno"
 
 class Visualization:
-    COLOR_MAPS = {
-        ColorBy.ACTIVITY: 'cividis',
-        ColorBy.CONNECTIONS: 'inferno'
-    }
-
     def __init__(self, positions, activities, adjacency_matrix, draw_lines=True, show=True, color_by:ColorBy=ColorBy.ACTIVITY):
-        self.color_by = color_by  # 'activity' or 'connections'
+        self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
+
+        # Initialize marked nodes (hardcoding for now)
+        self.marked = np.zeros(len(positions), dtype=bool)
+        # self.marked[:3] = True  # Hardcode first three nodes as marked
+        self.custom_colormap = self.create_custom_colormap(self.color_by.value)
+
         self.initialize_plot(positions, activities, adjacency_matrix, draw_lines=draw_lines)
         if show:
             plt.ion()
             plt.show()
 
+    def create_custom_colormap(self, base_colormap_name):
+        base_colormap = plt.get_cmap(base_colormap_name)
+        new_colors = base_colormap(np.linspace(0, 1, 256))
+        # Set the value for -1 to red
+        new_colors[0] = np.array([1, 0, 0, 1])  # Red in RGBA
+        return ListedColormap(new_colors)
+
     def compute_lines(self, positions, adjacency_matrix):
         rows, cols = np.where(np.triu(adjacency_matrix, 1))
         connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
-        return connections
+        return connections, rows, cols
 
     def compute_node_colors(self, adjacency_matrix, activities):
         if self.color_by == ColorBy.CONNECTIONS:
-            node_degrees = np.sum(adjacency_matrix, axis=1)
-            return node_degrees
+            colors = np.sum(adjacency_matrix, axis=1)
         elif self.color_by == ColorBy.ACTIVITY:
-            return activities
+            colors = np.copy(activities)
         else:
             raise ValueError(f"Unsupported color_by value: {self.color_by}")
+        colors[self.marked] = -1  # Set marked nodes to -1 to map to red in the custom colormap
+        return colors
+
 
     def initialize_plot(self, positions, activities, adjacency_matrix, draw_lines=True):
         self.ax.set_xlim(-0.05, 1.05)
@@ -47,16 +58,17 @@ class Visualization:
             positions[:, 0],
             positions[:, 1],
             c=self.compute_node_colors(adjacency_matrix, activities),
-            cmap=self.COLOR_MAPS[self.color_by],
+            cmap=self.custom_colormap,
             s=10,
             zorder=2
         )
 
         # Initialize lines (connections)
         if draw_lines:
-            lines = self.compute_lines(positions, adjacency_matrix)
+            lines, rows, cols = self.compute_lines(positions, adjacency_matrix)
             if len(lines) > 0:
-                self.line_collection = LineCollection(lines, colors='gray', linewidths=0.5, alpha=0.6, zorder=1)
+                edge_colors = ['red' if self.marked[row] or self.marked[col] else 'gray' for row, col in zip(rows, cols)]
+                self.line_collection = LineCollection(lines, colors=edge_colors, linewidths=0.5, alpha=0.6, zorder=1)
                 self.ax.add_collection(self.line_collection)
 
     def update_plot(self, positions, activities, adjacency_matrix, title, draw_lines=True):
@@ -73,7 +85,10 @@ class Visualization:
 
         # Update connection lines
         if draw_lines:
-            self.line_collection.set_segments(self.compute_lines(positions, adjacency_matrix))
+            lines, rows, cols = self.compute_lines(positions, adjacency_matrix)
+            edge_colors = ['red' if self.marked[row] or self.marked[col] else 'gray' for row, col in zip(rows, cols)]
+            self.line_collection.set_segments(lines)
+            self.line_collection.set_color(edge_colors)
 
         # Redraw the canvas
         self.fig.canvas.draw_idle()
