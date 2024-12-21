@@ -38,11 +38,12 @@ class ControlPanel:
         ttk.Button(self.frame, text="Apply", command=self.apply_changes).grid(row=len(self.configs), column=0, columnspan=2, pady=5)
 
         # Metrics Display
-        self.metrics_text = tk.Text(self.frame, height=10, width=30, wrap="word", state="disabled", bg="lightgray")
+        self.metrics_text = tk.Text(self.frame, height=40, width=30, wrap="word", state="disabled", bg="lightgray")
         self.metrics_text.grid(row=len(self.configs) + 1, column=0, columnspan=2, sticky="EW")
 
         # Play/Pause button
-        ttk.Button(self.frame, text="Play/Pause", command=self.toggle_simulation_callback).grid(row=len(self.configs) + 2, column=0, columnspan=2, pady=5)
+        self.playpause_button = ttk.Button(self.frame, text="Play", command=self.toggle_simulation_callback)
+        self.playpause_button.grid(row=len(self.configs) + 2, column=0, columnspan=2, pady=5)
 
     def create_labeled_entry(self, parent, label_text, variable, row):
         ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky="W")

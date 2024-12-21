@@ -16,7 +16,10 @@ class Visualization:
 
         # Initialize marked nodes (hardcoding for now)
         self.marked = np.zeros(len(positions), dtype=bool)
-        self.marked[:3] = True  # Hardcode first three nodes as marked
+        # self.marked[:3] = True  # Hardcode first three nodes as marked
+        # for i in [192, 193, 69, 70, 75, 140, 12, 88, 26, 92, 93, 158, 31, 30, 161, 34, 168, 106, 46, 113, 49, 180, 123, 61]:
+            # self.marked[i] = True
+
         self.custom_colormap = self.create_custom_colormap(self.color_by.value)
 
         self.initialize_plot(positions, activities, adjacency_matrix, cluster_assignments, draw_lines=draw_lines)

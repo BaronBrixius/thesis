@@ -39,8 +39,10 @@ class NetworkControlApp:
         """Play/pause the simulation."""
         if self.running.is_set():
             self.running.clear()
+            self.control_panel.playpause_button.config(text="Play")
         else:
             self.running.set()
+            self.control_panel.playpause_button.config(text="Pause")
 
     def run_simulation(self):
         while True:
