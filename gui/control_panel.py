@@ -102,13 +102,13 @@ class ControlPanel:
         # Calculate metrics
         cluster_sizes = [len(cluster) for cluster in cluster_assignments]
         num_clusters = len(cluster_sizes)
-        intra_cluster_densities = [
-            network.metrics.calculate_intra_cluster_density(network.adjacency_matrix, cluster)
-            for cluster in cluster_assignments
-        ]
-        activity_variance = [
-            np.var(network.activities[list(cluster)]) for cluster in cluster_assignments
-        ]
+        intra_cluster_densities = [network.metrics.calculate_intra_cluster_density(network.adjacency_matrix, cluster) for cluster in cluster_assignments]
+        activity_variance = [np.var(network.activities[list(cluster)]) for cluster in cluster_assignments]
+
+        # Calculate cluster colors
+        color_names = ["Red", "Blue", "Green", "Purple", "Orange", "Yellow", "Brown", "Pink", "Grey"]
+        color_indices = np.linspace(0, len(color_names) - 1, num_clusters, dtype=int)
+        colors = [color_names[i] for i in color_indices]
 
         metrics_text = (
             f"Step: {step}\n"
@@ -118,9 +118,9 @@ class ControlPanel:
             f"Cluster Count: {num_clusters}\n"
         )
 
-        for i, (size, density, variance) in enumerate(zip(cluster_sizes, intra_cluster_densities, activity_variance)):
+        for i, (size, density, variance, color) in enumerate(zip(cluster_sizes, intra_cluster_densities, activity_variance, colors)):
             metrics_text += (
-                f"Cluster {i}:\n"
+                f"Cluster {i}: ({color})\n"
                 f"  Size: {size}\n"
                 f"  Density: {density:.3f}\n"
                 f"  Activity Variance: {variance:.3f}\n"
@@ -130,7 +130,7 @@ class ControlPanel:
 
         self.metrics_text.config(state="normal")
         self.metrics_text.delete("1.0", tk.END)
-        self.metrics_text.insert(tk.END, metrics_text)
+        self.metrics_text.insert("1.0", metrics_text)
         self.metrics_text.config(state="disabled")
 
         self.previous_cluster_assignments = cluster_assignments
