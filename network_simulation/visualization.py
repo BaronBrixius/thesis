@@ -44,10 +44,17 @@ class Visualization:
         elif self.color_by == ColorBy.ACTIVITY:
             colors = np.copy(activities)
         elif self.color_by == ColorBy.CLUSTER:
-            colors = cluster_assignments / np.max(cluster_assignments) * 1.75 - 0.75  # Normalize cluster assignments to [-1, ~1]
+            if cluster_assignments: #FIXME this is old
+                num_nodes = len(adjacency_matrix)
+                cluster_ids = np.full(num_nodes, -1, dtype=int)  # Default to -1 for unassigned nodes
+                for cluster_id, cluster in enumerate(cluster_assignments):
+                    for node in cluster:
+                        cluster_ids[node] = cluster_id
+                colors = cluster_ids / np.max(cluster_ids) * 1.75 - 0.75    # Normalize cluster IDs to [-0.75,] for coloring
+            else:
+                colors = np.zeros(len(adjacency_matrix))  # Default to zero if no assignments are available
         else:
             raise ValueError(f"Unsupported color_by value: {self.color_by}")
-
 
         colors[self.marked] = -1  # Set marked nodes to -1 to map to red in the custom colormap
         # print(colors)

@@ -11,12 +11,13 @@ class VisualizationPanel:
     def __init__(self, root, network):
         self.root = root
         self.network = network
+        self.cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix, None)
         self.visualizer = Visualization(
             positions=network.positions,
             activities=network.activities,
             adjacency_matrix=network.adjacency_matrix,
-            cluster_assignments=self.network.metrics.detect_communities(nx.from_numpy_array(network.adjacency_matrix)),
-            color_by=ColorBy.ACTIVITY,
+            cluster_assignments=self.cluster_assignments,
+            color_by=ColorBy.CLUSTER,
             draw_lines=True,
             show=False
         )
@@ -33,15 +34,17 @@ class VisualizationPanel:
         self.canvas.draw()
 
     def update(self, network, step):
+        new_cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix, self.cluster_assignments)
         self.visualizer.update_plot(
             positions=network.positions,
             activities=network.activities,
             adjacency_matrix=network.adjacency_matrix,
-            cluster_assignments=self.network.metrics.detect_communities(nx.from_numpy_array(network.adjacency_matrix)),
+            cluster_assignments=new_cluster_assignments,
             title=f"Nodes: {network.num_nodes}, Connections: {network.num_connections}, Step: {step}",
             draw_lines=True
         )
         self.canvas.draw()
+        self.cluster_assignments = new_cluster_assignments
 
     def update_network(self, network):
         self.network = network

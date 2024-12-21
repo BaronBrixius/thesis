@@ -3,6 +3,7 @@ import numpy as np
 from scipy.signal import periodogram
 from sklearn.metrics.cluster import adjusted_rand_score
 from network_simulation.utils import start_timing, stop_timing
+from cdlib import algorithms
 
 class Calculator:
     def __init__(self):
@@ -86,16 +87,25 @@ class Calculator:
         overlap = np.sum((current_adjacency > 0) & (previous_adjacency > 0))
         return overlap / num_connections if num_connections > 0 else 0
 
-    def detect_communities(self, graph):
-        """
-        Louvain Method For Community Detection: Assigns nodes to communities for modularity and cluster stability calculations.
-        """
-        communities = nx.algorithms.community.louvain_communities(graph)
-        cluster_assignments = np.zeros(len(graph.nodes), dtype=int)
+    def detect_communities(self, adjacency_matrix, previous_assignments=None):
+        if previous_assignments is not None:
+            num_nodes = len(adjacency_matrix)
+            initial_membership = [-1] * num_nodes
+            for cluster_id, cluster in enumerate(previous_assignments):
+                for node in cluster:
+                    if node < num_nodes:  # Ensure node index is valid
+                        initial_membership[node] = cluster_id
+        else:
+            initial_membership = None
 
-        for cluster_id, community in enumerate(communities):
-            cluster_assignments[list(community)] = cluster_id
-        return cluster_assignments
+        # Run Leiden algorithm
+        clustering_result = algorithms.leiden(
+            nx.from_numpy_array(adjacency_matrix),
+            initial_membership=initial_membership
+        )
+
+        return clustering_result.communities
+
 
     def calculate_cluster_membership_stability(self, current_assignments, previous_assignments):
         """
@@ -109,6 +119,12 @@ class Calculator:
         """Cluster Size Variance: Variability in cluster sizes."""
         _, counts = np.unique(cluster_assignments, return_counts=True)
         return np.var(counts)
+
+    def calculate_intra_cluster_density(self, adjacency_matrix, cluster):
+        cluster_nodes = list(cluster)
+        subgraph = adjacency_matrix[np.ix_(cluster_nodes, cluster_nodes)]
+        num_possible_edges = len(cluster_nodes) * (len(cluster_nodes) - 1) / 2
+        return subgraph.sum() / (2 * num_possible_edges)
 
     # Fourier Analysis
     def calculate_amplitude_of_oscillations(self, values):

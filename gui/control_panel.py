@@ -5,9 +5,9 @@ import numpy as np
 from network_simulation.network import NodeNetwork
 
 class ControlPanel:
-    def __init__(self, root, network:NodeNetwork, apply_changes_callback, toggle_simulation_callback):
+    def __init__(self, root, network:NodeNetwork, apply_changes_callback, toggle_simulation_callback, physics_callback):
         self.apply_changes_callback = apply_changes_callback
-        self.toggle_simulation_callback = toggle_simulation_callback
+        self.previous_cluster_assignments = None
 
         # Configuration for variables and their labels
         self.configs = {
@@ -28,9 +28,9 @@ class ControlPanel:
         # Create widgets
         self.frame = ttk.Frame(root, padding="10")
         self.frame.grid(row=0, column=0, sticky="NS")
-        self.create_widgets()
+        self.create_widgets(toggle_simulation_callback, physics_callback)
 
-    def create_widgets(self):
+    def create_widgets(self, toggle_simulation_callback, physics_callback):
         for row, (key, config) in enumerate(self.configs.items()):
             self.create_labeled_entry(self.frame, config["label"], self.variables[key], row)
 
@@ -38,12 +38,21 @@ class ControlPanel:
         ttk.Button(self.frame, text="Apply", command=self.apply_changes).grid(row=len(self.configs), column=0, columnspan=2, pady=5)
 
         # Metrics Display
-        self.metrics_text = tk.Text(self.frame, height=40, width=30, wrap="word", state="disabled", bg="lightgray")
-        self.metrics_text.grid(row=len(self.configs) + 1, column=0, columnspan=2, sticky="EW")
+        metrics_frame = ttk.Frame(self.frame)
+        metrics_frame.grid(row=len(self.configs) + 1, column=0, columnspan=2, sticky="EW")
+        self.metrics_text = tk.Text(metrics_frame, height=40, width=30, wrap="word", state="disabled", bg="lightgray")
+        self.metrics_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.metrics_text.insert("1.0", " ")
+        scrollbar = ttk.Scrollbar(metrics_frame, orient=tk.VERTICAL, command=self.metrics_text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.metrics_text.config(yscrollcommand=scrollbar.set)
 
         # Play/Pause button
-        self.playpause_button = ttk.Button(self.frame, text="Play", command=self.toggle_simulation_callback)
-        self.playpause_button.grid(row=len(self.configs) + 2, column=0, columnspan=2, pady=5)
+        self.playpause_button = ttk.Button(self.frame, text="Play", command=toggle_simulation_callback)
+        self.playpause_button.grid(row=len(self.configs) + 2, column=0, columnspan=1, pady=5)
+
+        # Physics button
+        ttk.Button(self.frame, text="Physics", command=physics_callback).grid(row=len(self.configs) + 2, column=1, columnspan=1, pady=5)
 
     def create_labeled_entry(self, parent, label_text, variable, row):
         ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky="W")
@@ -64,14 +73,25 @@ class ControlPanel:
     def _parse_value(self, var_type, value):
         return var_type(value)
 
-    def update_metrics(self, network, step):
-        """Update the metrics display."""
-        clustering_coeff = network.metrics.calculate_clustering_coefficient(nx.from_numpy_array(network.adjacency_matrix))
+    def update_metrics(self, network:NodeNetwork, step):
+        graph = nx.from_numpy_array(network.adjacency_matrix)
+        clustering_coeff = network.metrics.calculate_clustering_coefficient(graph)
         rewiring_chance = network.metrics.calculate_rewiring_chance(network.adjacency_matrix, network.activities)
         rewiring_rate = network.successful_rewirings / int(self.variables["metrics_interval"].get())
-        cluster_assignments = nx.algorithms.community.louvain_communities(nx.from_numpy_array(network.adjacency_matrix))
+
+        # Detect communities with optional previous assignments
+        cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix)
+
+        # Calculate metrics
         cluster_sizes = [len(cluster) for cluster in cluster_assignments]
         num_clusters = len(cluster_sizes)
+        intra_cluster_densities = [
+            network.metrics.calculate_intra_cluster_density(network.adjacency_matrix, cluster)
+            for cluster in cluster_assignments
+        ]
+        activity_variance = [
+            np.var(network.activities[list(cluster)]) for cluster in cluster_assignments
+        ]
 
         metrics_text = (
             f"Step: {step}\n"
@@ -79,10 +99,21 @@ class ControlPanel:
             f"Rewiring Chance: {rewiring_chance:.3f}\n"
             f"Rewiring Rate: {rewiring_rate:.3f}\n"
             f"Cluster Count: {num_clusters}\n"
-            f"Cluster Sizes: {cluster_sizes}\n"
         )
+
+        for i, (size, density, variance) in enumerate(zip(cluster_sizes, intra_cluster_densities, activity_variance)):
+            metrics_text += (
+                f"Cluster {i}:\n"
+                f"  Size: {size}\n"
+                f"  Density: {density:.3f}\n"
+                f"  Activity Variance: {variance:.3f}\n"
+            )
+
+        metrics_text += f"Cluster Assignments: {cluster_assignments}\n"
 
         self.metrics_text.config(state="normal")
         self.metrics_text.delete("1.0", tk.END)
         self.metrics_text.insert(tk.END, metrics_text)
         self.metrics_text.config(state="disabled")
+
+        self.previous_cluster_assignments = cluster_assignments

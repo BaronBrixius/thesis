@@ -25,8 +25,8 @@ class NetworkControlApp:
         self.running = Event()
 
         # Initialize Network and GUI
-        self.network = NodeNetwork(num_nodes=self.num_nodes, num_connections=self.initial_connections, alpha=self.alpha)
-        self.control_panel = ControlPanel(self.root, network=self.network, apply_changes_callback=self.apply_changes, toggle_simulation_callback=self.toggle_simulation)
+        self.network = NodeNetwork(num_nodes=self.num_nodes, num_connections=self.initial_connections, alpha=self.alpha, random_seed=42)
+        self.control_panel = ControlPanel(self.root, network=self.network, apply_changes_callback=self.apply_changes, toggle_simulation_callback=self.toggle_simulation, physics_callback=self.update_visualization)
         self.visualization_panel = VisualizationPanel(self.root, self.network)
 
         # Start simulation thread
