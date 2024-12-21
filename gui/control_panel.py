@@ -8,6 +8,7 @@ class ControlPanel:
     def __init__(self, root, network:NodeNetwork, apply_changes_callback, toggle_simulation_callback, physics_callback):
         self.apply_changes_callback = apply_changes_callback
         self.previous_cluster_assignments = None
+        self.physics_callback = physics_callback
 
         # Configuration for variables and their labels
         self.configs = {
@@ -51,8 +52,24 @@ class ControlPanel:
         self.playpause_button = ttk.Button(self.frame, text="Play", command=toggle_simulation_callback)
         self.playpause_button.grid(row=len(self.configs) + 2, column=0, columnspan=1, pady=5)
 
-        # Physics button
-        ttk.Button(self.frame, text="Physics", command=physics_callback).grid(row=len(self.configs) + 2, column=1, columnspan=1, pady=5)
+        # Physics button with hold functionality
+        self.physics_button = ttk.Button(self.frame, text="Physics")
+        self.physics_button.grid(row=len(self.configs) + 2, column=1, columnspan=1, pady=5)
+        self.physics_button.bind("<ButtonPress>", self.start_physics)
+        self.physics_button.bind("<ButtonRelease>", self.stop_physics)
+        self.physics_running = False
+
+    def start_physics(self, event):
+        self.physics_running = True
+        self.run_physics()
+
+    def stop_physics(self, event):
+        self.physics_running = False
+
+    def run_physics(self):
+        if self.physics_running:
+            self.physics_callback()
+            self.frame.after(50, self.run_physics)
 
     def create_labeled_entry(self, parent, label_text, variable, row):
         ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky="W")
