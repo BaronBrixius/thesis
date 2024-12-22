@@ -113,7 +113,19 @@ class Calculator:
         """
         if previous_assignments is None:
             return None
-        return adjusted_rand_score(previous_assignments, current_assignments)
+
+        # Flatten cluster assignments for comparison
+        def flatten_assignments(assignments):
+            flat = {}
+            for cluster_id, cluster in enumerate(assignments):
+                for node in cluster:
+                    flat[node] = cluster_id
+            return [flat[node] for node in sorted(flat.keys())]
+
+        current_flat = flatten_assignments(current_assignments)
+        previous_flat = flatten_assignments(previous_assignments)
+
+        return adjusted_rand_score(previous_flat, current_flat)
 
     def calculate_cluster_size_variance(self, cluster_assignments):
         """Cluster Size Variance: Variability in cluster sizes."""

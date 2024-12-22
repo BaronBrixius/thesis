@@ -13,7 +13,7 @@ class Simulation:
             self.visualization = Visualization(positions=self.network.positions,
                                                activities=self.network.activities,
                                                adjacency_matrix=self.network.adjacency_matrix,
-                                               cluster_assignments=self.output.calculator.detect_communities(nx.from_numpy_array(self.network.adjacency_matrix)),
+                                               cluster_assignments=self.output.calculator.detect_communities(self.network.adjacency_matrix),
                                                show=show,
                                                color_by=color_by)
 
@@ -43,7 +43,7 @@ class Simulation:
     def _update_visualization(self, step, display_interval):
         """Apply forces and update the visualization."""
         self.network.apply_forces(min(50, display_interval))
-        self.visualization.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, cluster_assignments=self.output.calculator.detect_communities(nx.from_numpy_array(self.network.adjacency_matrix)),
+        self.visualization.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, cluster_assignments=self.output.calculator.detect_communities(self.network.adjacency_matrix, self.output.previous_cluster_assignments),  # FIXME this is p hacky too
                               title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
         self.output.save_network_image(self.visualization, step)
 

@@ -80,7 +80,7 @@ class Output:
     def _compute_metrics(self, step, adjacency_matrix, activities, successful_rewirings, previous_adjacency_matrix=None, previous_cluster_assignments=None):
         # Shared Computations
         adjacency_matrix_nx = nx.from_numpy_array(adjacency_matrix)
-        cluster_assignments = self.calculator.detect_communities(adjacency_matrix_nx)
+        cluster_assignments = self.calculator.detect_communities(adjacency_matrix, previous_cluster_assignments)
 
         # Compute
         metrics = {
@@ -98,14 +98,14 @@ class Output:
 
             ### Cluster Metrics ###
             "Cluster Membership" : cluster_assignments,
-            "Cluster Count" : np.max(cluster_assignments) + 1,
+            "Cluster Count" : len(cluster_assignments),
             "Cluster Membership Stability" : self.calculator.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments),
-            "Cluster Size Variance" : self.calculator.calculate_cluster_size_variance(cluster_assignments),
+            "Cluster Size Variance" : self.calculator.calculate_cluster_size_variance([len(cluster) for cluster in cluster_assignments]),
         }
 
         # Update old states for temporal metrics
-        self.previous_adjacency_matrix = adjacency_matrix.copy()
-        self.previous_cluster_assignments = cluster_assignments.copy()
+        self.previous_adjacency_matrix = adjacency_matrix
+        self.previous_cluster_assignments = cluster_assignments
 
         return metrics
 

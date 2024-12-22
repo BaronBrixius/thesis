@@ -23,8 +23,9 @@ def run_experiment(experiment_folder, seed_range, connections_range, num_steps, 
         futures = []
         for num_connections in connections_range:
             for seed in seed_range:
-                scenario_dir = os.path.join(experiment_folder, f"seed_{seed}", f"edges_{num_connections}")
+                scenario_dir = os.path.join(experiment_folder, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
                 if os.path.exists(scenario_dir):
+                    print(f"skipping {scenario_dir}")
                     continue
                 futures.append(
                     executor.submit(
@@ -41,11 +42,8 @@ def run_experiment(experiment_folder, seed_range, connections_range, num_steps, 
 
         # Monitor progress and handle exceptions
         for future in futures:
-            try:
-                result = future.result()
-                print(result, "at time", time.time() - start)
-            except Exception as e:
-                print(f"Simulation failed: {e}")
+            result = future.result()
+            print(result, "at time", time.time() - start)
 
     total_time = time.time() - start
     print(f"End time: {total_time} s = {total_time / 3600} h")
@@ -56,21 +54,21 @@ if __name__ == "__main__":
     if profiler: profiler.enable()
 
     ## Run in GUI
-    app = NetworkControlApp()
+    # app = NetworkControlApp()
 
     ## Quick Run
     # run_simulation_in_process(num_nodes=200, num_connections=2_000, output_dir="foo",  num_steps=500_000, display_interval=100_000, metrics_interval=1_000, random_seed=42)
 
     ## Experiment Run
-    # experiment_folder = "D:\OneDrive - Vrije Universiteit Amsterdam\Y3-Thesis\code\output\\foo"
-    # run_experiment(experiment_folder,
-    #                seed_range=range(2),
-    #                connections_range=range(1250, 1571, 250),
-    #                num_steps=200_000,
-    #                display_interval=100_000,
-    #                metrics_interval=10_000,
-    #                num_nodes=200)
-    # PostRunAnalyzer(experiment_folder).aggregate_metrics(os.path.join("output", experiment_folder), starting_step=150_000)
+    experiment_folder = "D:\OneDrive - Vrije Universiteit Amsterdam\Y3-Thesis\code\output\\density3"
+    run_experiment(experiment_folder,
+                   seed_range=range(1),
+                   connections_range=range(1000, 44851, 1000),
+                   num_steps=5_000_000,
+                   display_interval=250_000,
+                   metrics_interval=1_000,
+                   num_nodes=300)
+    PostRunAnalyzer(experiment_folder).aggregate_metrics(os.path.join("output", experiment_folder), starting_step=4_000_000)
 
     if profiler: profiler.disable()
 
