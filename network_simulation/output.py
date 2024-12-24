@@ -7,7 +7,7 @@ import pandas as pd
 from pandas import DataFrame
 import h5py
 import matplotlib.pyplot as plt
-from network_simulation.calculator import Metrics
+from network_simulation.metrics import Metrics
 
 class Output:
     def __init__(self, project_dir, num_nodes=None, num_connections=None):

@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import networkx as nx
-from network_simulation.calculator import Metrics
+from network_simulation.metrics import Metrics
 
 class TestCalculator(unittest.TestCase):
     def setUp(self):

@@ -1,5 +1,5 @@
 import numpy as np
-from network_simulation.calculator import Metrics
+from network_simulation.metrics import Metrics
 from network_simulation.physics import Physics
 
 class NodeNetwork:
