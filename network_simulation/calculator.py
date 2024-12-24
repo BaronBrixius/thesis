@@ -7,7 +7,20 @@ from cdlib import algorithms
 
 class Metrics:
     def __init__(self):
-        pass
+        self.breakup_count = 0
+        self.successful_rewirings = 0
+        self.current_cluster_assignments = None
+        self.assignment_step = None                     # Step at which the cluster assignments were last calculated
+
+    # Runtime Tracking
+    def increment_breakup_count(self):
+        self.breakup_count += 1
+
+    def increment_successful_rewirings(self):
+        self.successful_rewirings += 1
+
+    def reset_rewirings_count(self):
+        self.successful_rewirings = 0
 
     ## Individual Metric Calculation Methods ##
     
@@ -87,25 +100,25 @@ class Metrics:
         overlap = np.sum((current_adjacency > 0) & (previous_adjacency > 0))
         return overlap / num_connections if num_connections > 0 else 0
 
-    def detect_communities(self, adjacency_matrix, previous_assignments=None):
-        if previous_assignments is not None:
+    def detect_communities(self, adjacency_matrix, step=None):
+        if self.assignment_step == step:
+            return self.current_cluster_assignments
+
+        # Reformat current assignments so they can be used for the next calculation, if available
+        initial_membership = None
+        if self.current_cluster_assignments is not None:
             num_nodes = len(adjacency_matrix)
             initial_membership = [-1] * num_nodes
-            for cluster_id, cluster in enumerate(previous_assignments):
+            for cluster_id, cluster in enumerate(self.current_cluster_assignments):
                 for node in cluster:
-                    if node < num_nodes:  # Ensure node index is valid
+                    if node < num_nodes:
                         initial_membership[node] = cluster_id
-        else:
-            initial_membership = None
 
-        # Run Leiden algorithm
-        clustering_result = algorithms.leiden(
-            nx.from_numpy_array(adjacency_matrix),
-            initial_membership=initial_membership
-        )
+        new_cluster_assignments = algorithms.leiden(nx.from_numpy_array(adjacency_matrix), initial_membership=initial_membership)
 
-        return clustering_result.communities
-
+        self.current_cluster_assignments = new_cluster_assignments.communities
+        self.assignment_step = step
+        return self.current_cluster_assignments
 
     def calculate_cluster_membership_stability(self, current_assignments, previous_assignments):
         """

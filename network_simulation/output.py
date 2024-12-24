@@ -80,7 +80,7 @@ class Output:
     def _compute_metrics(self, step, adjacency_matrix, activities, successful_rewirings, previous_adjacency_matrix=None, previous_cluster_assignments=None):
         # Shared Computations
         adjacency_matrix_nx = nx.from_numpy_array(adjacency_matrix)
-        cluster_assignments = self.calculator.detect_communities(adjacency_matrix, previous_cluster_assignments)
+        cluster_assignments = self.calculator.detect_communities(adjacency_matrix, step)
 
         # Compute
         metrics = {

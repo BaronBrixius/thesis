@@ -10,7 +10,7 @@ class ColorBy(Enum):
     CONNECTIONS = "inferno"
 
 class Visualization:
-    def __init__(self, positions, activities, adjacency_matrix, cluster_assignments, draw_lines=True, show=True, color_by:ColorBy=ColorBy.ACTIVITY):
+    def __init__(self, positions, activities, adjacency_matrix, cluster_assignments, draw_lines=True, show=False, color_by:ColorBy=ColorBy.ACTIVITY):
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
 

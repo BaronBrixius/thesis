@@ -97,7 +97,7 @@ class ControlPanel:
         rewiring_rate = network.successful_rewirings / int(self.variables["metrics_interval"].get())
 
         # Detect communities with optional previous assignments
-        cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix)
+        cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix, step)
 
         # Calculate metrics
         cluster_sizes = [len(cluster) for cluster in cluster_assignments]

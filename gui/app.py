@@ -64,7 +64,7 @@ class NetworkControlApp:
     def update_visualization(self):
         """Update the visualization with current network state."""
         self.network.apply_forces(min(50, self.display_interval))
-        self.visualization_panel.update(self.network, self.step)
+        self.visualization_panel.update(self.step)
 
     def apply_changes(self, **kwargs):
         """

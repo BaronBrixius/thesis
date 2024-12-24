@@ -1,4 +1,5 @@
 from tkinter import ttk
+from network_simulation.network import NodeNetwork
 from network_simulation.visualization import Visualization, ColorBy
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib
@@ -8,15 +9,14 @@ import numpy as np
 matplotlib.use("TkAgg")
 
 class VisualizationPanel:
-    def __init__(self, root, network):
+    def __init__(self, root, network:NodeNetwork):
         self.root = root
         self.network = network
-        self.cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix, None)
         self.visualizer = Visualization(
             positions=network.positions,
             activities=network.activities,
             adjacency_matrix=network.adjacency_matrix,
-            cluster_assignments=self.cluster_assignments,
+            cluster_assignments=network.metrics.detect_communities(network.adjacency_matrix, step=0),
             color_by=ColorBy.CLUSTER,
             draw_lines=True,
             show=False
@@ -33,18 +33,13 @@ class VisualizationPanel:
         self.canvas.get_tk_widget().grid(row=0, column=0, sticky="NSEW")
         self.canvas.draw()
 
-    def update(self, network, step):
-        new_cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix, self.cluster_assignments)
+    def update(self, step):
         self.visualizer.update_plot(
-            positions=network.positions,
-            activities=network.activities,
-            adjacency_matrix=network.adjacency_matrix,
-            cluster_assignments=new_cluster_assignments,
-            title=f"Nodes: {network.num_nodes}, Connections: {network.num_connections}, Step: {step}",
+            positions=self.network.positions,
+            activities=self.network.activities,
+            adjacency_matrix=self.network.adjacency_matrix,
+            cluster_assignments=self.network.metrics.detect_communities(self.network.adjacency_matrix, step),
+            title=f"Nodes: {self.network.num_nodes}, Connections: {self.network.num_connections}, Step: {step}",
             draw_lines=True
         )
         self.canvas.draw()
-        self.cluster_assignments = new_cluster_assignments
-
-    def update_network(self, network):
-        self.network = network
