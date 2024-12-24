@@ -7,7 +7,7 @@ import pandas as pd
 from pandas import DataFrame
 import h5py
 import matplotlib.pyplot as plt
-from network_simulation.calculator import Calculator
+from network_simulation.calculator import Metrics
 
 class PostRunAnalyzer:
     def __init__(self, project_dir):

@@ -7,7 +7,7 @@ import pandas as pd
 from pandas import DataFrame
 import h5py
 import matplotlib.pyplot as plt
-from network_simulation.calculator import Calculator
+from network_simulation.calculator import Metrics
 
 class Output:
     def __init__(self, project_dir, num_nodes=None, num_connections=None):
@@ -28,7 +28,7 @@ class Output:
         self.previous_adjacency_matrix = None
         self.previous_cluster_assignments = None
 
-        self.calculator = Calculator()
+        self.calculator = Metrics()
         self.logger = self._initialize_logger()
 
     def _initialize_directories(self):

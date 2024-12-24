@@ -5,7 +5,7 @@ from sklearn.metrics.cluster import adjusted_rand_score
 from network_simulation.utils import start_timing, stop_timing
 from cdlib import algorithms
 
-class Calculator:
+class Metrics:
     def __init__(self):
         pass
 

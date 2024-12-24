@@ -1,5 +1,5 @@
 import numpy as np
-from network_simulation.calculator import Calculator
+from network_simulation.calculator import Metrics
 from network_simulation.physics import Physics
 
 class NodeNetwork:
@@ -19,7 +19,7 @@ class NodeNetwork:
 
         # Initialize subclasses
         self.physics = Physics(normal_distance=(0.5 * np.sqrt(self.num_connections + self.num_nodes) / self.num_nodes))
-        self.metrics = Calculator()
+        self.metrics = Metrics()
         self.breakup_count = 0
         self.successful_rewirings = 0
 
