@@ -87,6 +87,7 @@ class NetworkControlApp:
         # Update network structure if node or connection count changes
         if num_nodes != self.network.num_nodes or num_connections != self.network.num_connections:
             self.network.update_network_structure(num_nodes, num_connections)
+            self.visualization_panel.cluster_assignments = None                         #FIXME bandaid while we haven't centralized the cluster counting yet
             self.update_visualization()
 
         if was_running:

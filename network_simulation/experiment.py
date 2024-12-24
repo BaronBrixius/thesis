@@ -1,7 +1,9 @@
 from concurrent.futures import ProcessPoolExecutor
 import itertools
+from network_simulation.visualization import  ColorBy
 import os
 import pandas as pd
+import shutil
 import threading
 import time
 
@@ -19,26 +21,28 @@ class Experiment:
                 print("Termination signal received. Stopping experiment...")
                 break
 
-    def is_scenario_completed(self, scenario_dir, num_steps):
+    def is_scenario_completed(self, scenario_dir, expected_num_rows):
         """Check if the scenario is completed based on existing metrics."""
         metrics_path = os.path.join(scenario_dir, "summary_metrics.csv")
         if os.path.exists(metrics_path):
             try:
                 metrics_df = pd.read_csv(metrics_path)
-                if len(metrics_df) >= num_steps:    # if the metrics file is long enough
+                if len(metrics_df) >= expected_num_rows:    # if the metrics file is long enough
                     print(f"Skipping completed scenario: {scenario_dir}")
                     return True
+                else:
+                    shutil.rmtree(scenario_dir)
             except Exception as e:
                 print(f"Error reading metrics file for {scenario_dir}: {e}")
         return False
 
-    def run_simulation(self, num_nodes, num_connections, output_dir, num_steps, display_interval, metrics_interval, random_seed):
+    def run_simulation(self, num_nodes, num_connections, output_dir, num_steps, display_interval, metrics_interval, random_seed, color_by=ColorBy.ACTIVITY):
         if self.termination_flag:
              return f"Simulation {random_seed, num_nodes, num_connections} terminated by user."
         from network_simulation.simulation import Simulation  # Import inside to ensure clean process
         sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=output_dir, random_seed=random_seed)
         print(f"Simulation starting for {num_connections} connections with seed {random_seed}")
-        sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval, show=False)
+        sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval, show=False, color_by=color_by)
         return f"Simulation completed for {num_connections} connections with seed {random_seed}"
 
     def run_experiment(self, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval):
@@ -51,7 +55,7 @@ class Experiment:
             futures = []
             for num_nodes, num_connections, seed in itertools.product(nodes_range, connections_range, seed_range):
                 scenario_dir = os.path.join(self.experiment_folder, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
-                if self.is_scenario_completed(scenario_dir, num_steps):
+                if self.is_scenario_completed(scenario_dir, num_steps / metrics_interval):
                     continue
 
                 futures.append(

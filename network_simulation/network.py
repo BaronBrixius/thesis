@@ -1,56 +1,45 @@
-from collections import deque
 import numpy as np
 from network_simulation.calculator import Calculator
 from network_simulation.physics import Physics
-from scipy.sparse.csgraph import shortest_path
 
 class NodeNetwork:
-    def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, stabilization_threshold=None, random_seed=None):
+    def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
+        # Store params
         np.random.seed(random_seed)
-
         self.num_nodes = num_nodes
         self.num_connections = num_connections
         self.alpha = alpha
         self.epsilon = epsilon
 
+        # Construct network
         self.activities = np.random.uniform(-1, 1, num_nodes)   # Random initial activity
         self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=bool)
-
-        self.positions = np.random.uniform([0.1, 0.1], [0.9, 0.9], (num_nodes, 2))
-        normal_distance = 0.5 * np.sqrt(self.num_connections + self.num_nodes) / self.num_nodes
-        self.physics = Physics(normal_distance)
-
-        # Add initial connections
         self.add_random_connections(num_connections)
+        self.positions = np.random.uniform([0.1, 0.1], [0.9, 0.9], (num_nodes, 2))
 
+        # Initialize subclasses
+        self.physics = Physics(normal_distance=(0.5 * np.sqrt(self.num_connections + self.num_nodes) / self.num_nodes))
         self.metrics = Calculator()
         self.breakup_count = 0
         self.successful_rewirings = 0
-
-        self.cpl_history = deque(maxlen=100)
-        self.cc_history = deque(maxlen=100)
-        self.stabilization_threshold = stabilization_threshold
-        self.stabilized = False # Relatable
 
     def update_network_structure(self, new_node_count, new_connection_count):
         """
         Update the structure of the network by changing the number of nodes and connections.
         """
         # Handle node updates
-        if new_node_count > self.num_nodes:
-            # Add new nodes
+        if new_node_count > self.num_nodes:     # Add new nodes
             diff = new_node_count - self.num_nodes
             self.activities = np.append(self.activities, np.random.rand(diff))
             self.adjacency_matrix = np.pad(self.adjacency_matrix, ((0, diff), (0, diff)), mode='constant')
 
-            # Add positions for new nodes along the edges
+            # Add positions for new nodes along the sides of the space
             new_positions = np.random.rand(diff * 3, 2)  # Generate more candidates than needed
             distances = np.linalg.norm(new_positions - 0.5, axis=1)  # Calculate distances from center
             valid_positions = new_positions[distances >= 0.35]  # Filter invalid positions
             self.positions = np.vstack([self.positions, valid_positions[:diff]])  # Add required positions
 
-        elif new_node_count < self.num_nodes:
-            # Remove nodes
+        elif new_node_count < self.num_nodes:       # Remove nodes
             diff = self.num_nodes - new_node_count
             self.activities = self.activities[:new_node_count]
             self.adjacency_matrix = self.adjacency_matrix[:new_node_count, :new_node_count]
@@ -71,23 +60,27 @@ class NodeNetwork:
 
         self.num_connections = new_connection_count
 
-    def add_random_connections(self, num_connections):
+    def add_random_connections(self, num_connections_to_add):
         """Add random connections to the network."""
-        possible_edges = np.triu_indices(self.num_nodes, k=1)
-        edge_indices = np.random.choice(len(possible_edges[0]), size=num_connections, replace=False)
-        for index in edge_indices:
-            i, j = possible_edges[0][index], possible_edges[1][index]
-            self.adjacency_matrix[i, j] = self.adjacency_matrix[j, i] = 1
+        possible_edges = np.array(np.triu_indices(self.num_nodes, k=1)).T
+        available_edges = possible_edges[~self.adjacency_matrix[possible_edges[:, 0], possible_edges[:, 1]]]
+        selected_edges = available_edges[np.random.choice(len(available_edges), size=num_connections_to_add, replace=False)]
 
-    def remove_random_connections(self, num_connections):
+        self.adjacency_matrix[selected_edges[:, 0], selected_edges[:, 1]] = True
+        self.adjacency_matrix[selected_edges[:, 1], selected_edges[:, 0]] = True
+
+    def remove_random_connections(self, num_connections_to_remove):
         """Remove random connections from the network."""
-        existing_edges = np.array(np.where(np.triu(self.adjacency_matrix, k=1))).T
-        if len(existing_edges) < num_connections:
+        existing_edges = np.array(np.triu_indices(self.num_nodes, k=1)).T
+        connected_edges = existing_edges[self.adjacency_matrix[existing_edges[:, 0], existing_edges[:, 1]]]
+
+        if len(connected_edges) < num_connections_to_remove:
             raise ValueError("Not enough connections to remove.")
-        edge_indices = np.random.choice(len(existing_edges), size=num_connections, replace=False)
-        for index in edge_indices:
-            i, j = existing_edges[index]
-            self.adjacency_matrix[i, j] = self.adjacency_matrix[j, i] = 0
+
+        selected_edges = connected_edges[np.random.choice(len(connected_edges), size=num_connections_to_remove, replace=False)]
+
+        self.adjacency_matrix[selected_edges[:, 0], selected_edges[:, 1]] = False
+        self.adjacency_matrix[selected_edges[:, 1], selected_edges[:, 0]] = False
 
     def add_connection(self, a, b):
         self.adjacency_matrix[a, b] = self.adjacency_matrix[b, a] = True
@@ -137,57 +130,6 @@ class NodeNetwork:
     def update_network(self):
         self.update_activity()
         self.rewire()
-
-    def characteristic_path_length(self):
-        path_lengths = shortest_path(self.adjacency_matrix, directed=False, unweighted=True)
-        if np.isinf(path_lengths).any():
-            self.breakup_count += 1
-        valid_lengths = path_lengths[(path_lengths < np.inf) & (path_lengths > 0)]  # FIXME right now, upon breakup, it removes "infinite" distances then computes the average as if that were okay
-        return np.mean(valid_lengths)
-    
-    def clustering_coefficient(self):
-        clustering_coefficients = []
-        for i in range(self.num_nodes):
-            neighbors = np.where(self.adjacency_matrix[i])[0]
-            if len(neighbors) < 2:
-                clustering_coefficients.append(0)
-                continue
-            neighbor_pairs = self.adjacency_matrix[neighbors][:, neighbors]
-            connections = np.sum(neighbor_pairs)
-            possible_connections = len(neighbors) * (len(neighbors) - 1)
-            clustering_coefficients.append(connections / possible_connections)
-        return np.mean(clustering_coefficients)
-
-    def check_stabilization(self):
-        if len(self.cpl_history) < self.cpl_history.maxlen or len(self.cc_history) < self.cc_history.maxlen:
-            return False
-
-        cpl_range = max(self.cpl_history) - min(self.cpl_history)
-        cc_range = max(self.cc_history) - min(self.cc_history)
-
-        cpl_stable = (cpl_range / max(self.cpl_history)) <= self.stabilization_threshold
-        cc_stable = (cc_range / max(self.cc_history)) <= self.stabilization_threshold
-
-        return cpl_stable and cc_stable
-
-    def calculate_stats(self):
-        metrics = self.metrics.calculate_all(self.adjacency_matrix)
-        cpl = metrics.get("Characteristic Path Length", float('nan'))
-        cc = metrics.get("Clustering Coefficient", float('nan'))
-
-        if np.isnan(cpl):   # Network breakup
-            self.stabilized = False
-            return metrics
-
-        # Add metrics to history
-        self.cpl_history.append(cpl)
-        self.cc_history.append(cc)
-
-        # Update stabilization state
-        self.stabilized = self.check_stabilization()
-        metrics["Stabilized"] = self.stabilized
-
-        return metrics
 
     def apply_forces(self, effective_iterations=1):
         self.positions = self.physics.apply_forces(self.adjacency_matrix, self.positions, effective_iterations)

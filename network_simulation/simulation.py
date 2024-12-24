@@ -1,14 +1,13 @@
 from network_simulation.network import NodeNetwork
 from network_simulation.output import Output
 from network_simulation.visualization import Visualization, ColorBy
-import networkx as nx
 
 class Simulation:
     def __init__(self, num_nodes, num_connections, output_dir=None, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
         self.output = Output(output_dir, num_nodes=num_nodes, num_connections=num_connections)
 
-    def run(self, num_steps, display_interval=1000, metrics_interval=1000, show=True, color_by:ColorBy=ColorBy.ACTIVITY):
+    def run(self, num_steps, display_interval=1000, metrics_interval=1000, show=True, color_by=ColorBy.ACTIVITY):
         if display_interval:
             self.visualization = Visualization(positions=self.network.positions,
                                                activities=self.network.activities,
