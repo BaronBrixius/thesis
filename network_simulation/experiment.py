@@ -1,13 +1,6 @@
-from itertools import product
-from network_simulation.output import Output
-from network_simulation.analyzer import PostRunAnalyzer
-from network_simulation.utils import print_times
-from network_simulation.visualization import ColorBy
-import cProfile
-import pstats
-import os
-from gui.app import NetworkControlApp
 from concurrent.futures import ProcessPoolExecutor
+from itertools import product
+import os
 import threading
 import time
 
@@ -38,7 +31,7 @@ class Experiment:
     def run_experiment(self, experiment_folder, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval):
         start = time.time()
 
-        with ProcessPoolExecutor(max_workers=2) as executor:
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = []
             for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
                 scenario_dir = os.path.join(experiment_folder, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")

@@ -1,5 +1,3 @@
-from itertools import product
-from network_simulation.output import Output
 from network_simulation.analyzer import PostRunAnalyzer
 from network_simulation.experiment import Experiment
 from network_simulation.utils import print_times
