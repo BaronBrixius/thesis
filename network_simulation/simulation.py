@@ -22,7 +22,7 @@ class Simulation:
         # Main Loop
         for step in range(num_steps):
             if self.network.stabilized:
-                self.output.logger(f"Stabilized after {step} iterations.")
+                self.output.logger.info(f"Stabilized after {step} iterations.")
                 break
 
             self._step(step, display_interval, metrics_interval)
