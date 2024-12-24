@@ -104,21 +104,25 @@ class Metrics:
         if self.assignment_step == step:
             return self.current_cluster_assignments
 
-        # Reformat current assignments so they can be used for the next calculation, if available
-        initial_membership = None
-        if self.current_cluster_assignments is not None:
-            num_nodes = len(adjacency_matrix)
-            initial_membership = [-1] * num_nodes
-            for cluster_id, cluster in enumerate(self.current_cluster_assignments):
-                for node in cluster:
-                    if node < num_nodes:
-                        initial_membership[node] = cluster_id
+        # Reformat current assignments so they can be used for the calculation, if available
+        initial_membership = self._convert_communities_to_partition(self.current_cluster_assignments, len(adjacency_matrix)) if self.current_cluster_assignments is not None else None
 
         new_cluster_assignments = algorithms.leiden(nx.from_numpy_array(adjacency_matrix), initial_membership=initial_membership)
 
         self.current_cluster_assignments = new_cluster_assignments.communities
         self.assignment_step = step
         return self.current_cluster_assignments
+
+    def _convert_communities_to_partition(self, communities, num_nodes):
+        """
+        Convert a list of communities to a partition format.
+        """
+        partition = np.full(num_nodes, -1, dtype=int)  # Default to unassigned
+        for cluster_id, cluster in enumerate(communities):
+            for node in cluster:
+                if node < num_nodes:
+                    partition[node] = cluster_id
+        return partition
 
     def calculate_cluster_membership_stability(self, current_assignments, previous_assignments):
         """
