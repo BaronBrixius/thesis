@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from matplotlib.colors import ListedColormap
 import networkx as nx
 import numpy as np
 from network_simulation.network import NodeNetwork
@@ -29,9 +30,9 @@ class ControlPanel:
         # Create widgets
         self.frame = ttk.Frame(root, padding="10")
         self.frame.grid(row=0, column=0, sticky="NS")
-        self.create_widgets(toggle_simulation_callback, physics_callback)
+        self.create_widgets(toggle_simulation_callback)
 
-    def create_widgets(self, toggle_simulation_callback, physics_callback):
+    def create_widgets(self, toggle_simulation_callback):
         for row, (key, config) in enumerate(self.configs.items()):
             self.create_labeled_entry(self.frame, config["label"], self.variables[key], row)
 
@@ -90,7 +91,7 @@ class ControlPanel:
     def _parse_value(self, var_type, value):
         return var_type(value)
 
-    def update_metrics(self, network:NodeNetwork, step):
+    def update_metrics(self, network:NodeNetwork, step, colormap:ListedColormap):
         graph = nx.from_numpy_array(network.adjacency_matrix)
         clustering_coeff = network.metrics.calculate_clustering_coefficient(graph)
         rewiring_chance = network.metrics.calculate_rewiring_chance(network.adjacency_matrix, network.activities)
@@ -106,9 +107,25 @@ class ControlPanel:
         activity_variance = [np.var(network.activities[list(cluster)]) for cluster in cluster_assignments]
 
         # Calculate cluster colors
-        color_names = ["Red", "Blue", "Green", "Purple", "Orange", "Yellow", "Brown", "Pink", "Grey"]
-        color_indices = np.linspace(0, len(color_names) - 1, num_clusters, dtype=int)
-        colors = [color_names[i] for i in color_indices]
+        color_name_mapping = {
+            (255, 0, 0):     "Red",    #FF0000
+            (55, 126, 184):  "Blue",   #377EB8
+            (77, 175, 74):   "Green",  #4DAF4A
+            (152, 78, 163):  "Purple", #984EA3
+            (255, 127, 0):   "Orange", #FF7F00
+            (255, 255, 51):  "Yellow", #FFFF33
+            (166, 86, 40):   "Brown",  #A65628
+            (247, 129, 191): "Pink",   #F781BF
+            (153, 153, 153): "Grey"    #999999
+        }
+
+        def rgba_to_name(color):
+            rgb = tuple(c * 255 for c in color[:3])
+            return color_name_mapping.get(rgb, "Unknown")
+
+        cluster_indices = np.linspace(0, 1, num_clusters)  # Normalize indices to [0, 1]
+        colors = [colormap(i) for i in cluster_indices]  # Get RGBA colors from colormap
+        color_names = [rgba_to_name(color) for color in colors]
 
         metrics_text = (
             f"Step: {step}\n"
@@ -118,7 +135,7 @@ class ControlPanel:
             f"Cluster Count: {num_clusters}\n"
         )
 
-        for i, (size, density, variance, color) in enumerate(zip(cluster_sizes, intra_cluster_densities, activity_variance, colors)):
+        for i, (size, density, variance, color) in enumerate(zip(cluster_sizes, intra_cluster_densities, activity_variance, color_names)):
             metrics_text += (
                 f"Cluster {i}: ({color})\n"
                 f"  Size: {size}\n"
