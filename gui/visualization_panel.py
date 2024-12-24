@@ -16,7 +16,7 @@ class VisualizationPanel:
             positions=network.positions,
             activities=network.activities,
             adjacency_matrix=network.adjacency_matrix,
-            cluster_assignments=network.metrics.detect_communities(network.adjacency_matrix, step=0),
+            cluster_assignments=network.metrics.get_cluster_assignments(network.adjacency_matrix, step=0),
             color_by=ColorBy.CLUSTER,
             draw_lines=True,
             show=False
@@ -38,7 +38,7 @@ class VisualizationPanel:
             positions=self.network.positions,
             activities=self.network.activities,
             adjacency_matrix=self.network.adjacency_matrix,
-            cluster_assignments=self.network.metrics.detect_communities(self.network.adjacency_matrix, step),
+            cluster_assignments=self.network.metrics.get_cluster_assignments(self.network.adjacency_matrix, step),
             title=f"Nodes: {self.network.num_nodes}, Connections: {self.network.num_connections}, Step: {step}",
             draw_lines=True
         )

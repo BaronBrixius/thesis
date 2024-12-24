@@ -20,8 +20,6 @@ class NodeNetwork:
         # Initialize subclasses
         self.physics = Physics(normal_distance=(0.5 * np.sqrt(self.num_connections + self.num_nodes) / self.num_nodes))
         self.metrics = Metrics()
-        self.breakup_count = 0
-        self.successful_rewirings = 0
 
     def update_network_structure(self, new_node_count, new_connection_count):
         """
@@ -102,7 +100,7 @@ class NodeNetwork:
         # logistic map: x(n+1) = f(x(n)) = 1 - ax(n)²
         self.activities = 1 - self.alpha * self.activities**2
 
-    def rewire(self):
+    def rewire(self, step):
         # 1. Pick a unit at random (henceforth: pivot)
         pivot = np.random.randint(self.num_nodes)
         while not np.any(self.adjacency_matrix[pivot]): # zero-connection nodes cannot be pivots
@@ -124,12 +122,12 @@ class NodeNetwork:
         # 3b. If there is no connection between the pivot and the candidate, establish it, and break the connection between the pivot and its least synchronized neighbor.
         self.add_connection(pivot, candidate)
         self.remove_connection(pivot, least_synchronized_neighbor)
-        self.successful_rewirings += 1
+        self.metrics.increment_rewiring_count(pivot, from_node=least_synchronized_neighbor, to_node=candidate, adjacency_matrix=self.adjacency_matrix, step=step)
 
     # Update the activity of all nodes
-    def update_network(self):
+    def update_network(self, step):
         self.update_activity()
-        self.rewire()
+        self.rewire(step)
 
     def apply_forces(self, effective_iterations=1):
         self.positions = self.physics.apply_forces(self.adjacency_matrix, self.positions, effective_iterations)

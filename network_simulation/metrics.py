@@ -3,12 +3,18 @@ import numpy as np
 from scipy.signal import periodogram
 from sklearn.metrics.cluster import adjusted_rand_score
 from network_simulation.utils import start_timing, stop_timing
-from cdlib import algorithms
+from cdlib.algorithms import leiden
 
 class Metrics:
     def __init__(self):
         self.breakup_count = 0
-        self.successful_rewirings = 0
+        self.rewirings = {
+            "intra_cluster": 0,
+            "inter_cluster_change": 0,
+            "inter_cluster_same": 0,
+            "intra_to_inter": 0,
+            "inter_to_intra": 0
+        }
         self.current_cluster_assignments = None
         self.assignment_step = None                     # Step at which the cluster assignments were last calculated
 
@@ -16,11 +22,32 @@ class Metrics:
     def increment_breakup_count(self):
         self.breakup_count += 1
 
-    def increment_successful_rewirings(self):
-        self.successful_rewirings += 1
+    def increment_rewiring_count(self, pivot, from_node, to_node, adjacency_matrix, step):
+        """Categorize and count rewiring events."""
+        # TODO I don't love using cached cluster assignments, but recalculating every step is insanely slow. Find a way, if this is valuable (leiden is iterative, could just apply 1 iteration each step?) 
+        self.current_cluster_assignments = self.current_cluster_assignments # self.get_cluster_assignments(adjacency_matrix, step)
+        partitions = self._convert_communities_to_partition(self.current_cluster_assignments, len(adjacency_matrix))
 
-    def reset_rewirings_count(self):
-        self.successful_rewirings = 0
+        pivot_cluster = partitions[pivot]
+        from_cluster = partitions[from_node]
+        to_cluster = partitions[to_node]
+
+        if pivot_cluster == from_cluster == to_cluster:
+            self.rewirings["intra_cluster"] += 1
+        elif pivot_cluster != from_cluster and pivot_cluster != to_cluster:
+            if from_cluster == to_cluster:
+                self.rewirings["inter_cluster_same"] += 1
+            else:
+                self.rewirings["inter_cluster_change"] += 1
+        elif pivot_cluster == from_cluster and pivot_cluster != to_cluster:
+            self.rewirings["intra_to_inter"] += 1
+        elif pivot_cluster != from_cluster and pivot_cluster == to_cluster:
+            self.rewirings["inter_to_intra"] += 1
+
+    def reset_rewiring_count(self):
+        """Reset all rewiring counts."""
+        for key in self.rewirings.keys():
+            self.rewirings[key] = 0
 
     ## Individual Metric Calculation Methods ##
     
@@ -100,14 +127,14 @@ class Metrics:
         overlap = np.sum((current_adjacency > 0) & (previous_adjacency > 0))
         return overlap / num_connections if num_connections > 0 else 0
 
-    def detect_communities(self, adjacency_matrix, step=None):
+    def get_cluster_assignments(self, adjacency_matrix, step=None):
         if self.assignment_step == step:
             return self.current_cluster_assignments
 
         # Reformat current assignments so they can be used for the calculation, if available
         initial_membership = self._convert_communities_to_partition(self.current_cluster_assignments, len(adjacency_matrix)) if self.current_cluster_assignments is not None else None
 
-        new_cluster_assignments = algorithms.leiden(nx.from_numpy_array(adjacency_matrix), initial_membership=initial_membership)
+        new_cluster_assignments = leiden(nx.from_numpy_array(adjacency_matrix), initial_membership=initial_membership)
 
         self.current_cluster_assignments = new_cluster_assignments.communities
         self.assignment_step = step

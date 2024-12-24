@@ -12,7 +12,7 @@ class Simulation:
             self.visualization = Visualization(positions=self.network.positions,
                                                activities=self.network.activities,
                                                adjacency_matrix=self.network.adjacency_matrix,
-                                               cluster_assignments=self.output.calculator.detect_communities(self.network.adjacency_matrix, step=0),
+                                               cluster_assignments=self.network.metrics.get_cluster_assignments(self.network.adjacency_matrix, step=0),
                                                show=show,
                                                color_by=color_by)
 
@@ -20,10 +20,6 @@ class Simulation:
 
         # Main Loop
         for step in range(num_steps):
-            if self.network.stabilized:
-                self.output.logger.info(f"Stabilized after {step} iterations.")
-                break
-
             self._step(step, display_interval, metrics_interval)
 
         self._finalize_simulation(num_steps, display_interval, metrics_interval)
@@ -31,18 +27,18 @@ class Simulation:
     def _step(self, step, display_interval, metrics_interval):
         """Processes a single simulation step."""
         if metrics_interval and step % metrics_interval == 0:
-            self.output.write_metrics_line(step, self.network.adjacency_matrix, self.network.activities, self.network.successful_rewirings)
-            self.network.successful_rewirings = 0   # reset successful rewiring count at interval
+            self.output.write_metrics_line(step, self.network.adjacency_matrix, self.network.activities, self.network.metrics)
+            self.network.metrics.reset_rewiring_count()
 
         if display_interval and step % display_interval == 0:
             self._update_visualization(step, display_interval)
 
-        self.network.update_network()
+        self.network.update_network(step)
 
     def _update_visualization(self, step, display_interval):
         """Apply forces and update the visualization."""
         self.network.apply_forces(min(50, display_interval))
-        self.visualization.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, cluster_assignments=self.output.calculator.detect_communities(self.network.adjacency_matrix, step),
+        self.visualization.update_plot(self.network.positions, self.network.activities, self.network.adjacency_matrix, cluster_assignments=self.network.metrics.get_cluster_assignments(self.network.adjacency_matrix, step),
                               title=f"{self.network.num_nodes} Nodes, {self.network.num_connections} Connections, Generation {step}")
         self.output.save_network_image(self.visualization, step)
 
@@ -53,5 +49,5 @@ class Simulation:
             self.visualization.close()
 
         if metrics_interval:
-            self.output.write_metrics_line(num_steps, self.network.adjacency_matrix, self.network.activities, self.network.successful_rewirings)
-            self.network.successful_rewirings = 0   # reset successful rewiring count at interval
+            self.output.write_metrics_line(num_steps, self.network.adjacency_matrix, self.network.activities, self.network.metrics)
+            self.network.metrics.reset_rewiring_count()

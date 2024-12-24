@@ -35,7 +35,7 @@ class TestCalculator(unittest.TestCase):
 
     def test_detect_communities(self):
         """Test community detection."""
-        cluster_assignments = self.calculator.detect_communities(nx.from_numpy_array(self.adjacency_matrix))
+        cluster_assignments = self.calculator.get_cluster_assignments(nx.from_numpy_array(self.adjacency_matrix))
         self.assertEqual(len(set(cluster_assignments)), 2)  # Two communities expected in the test graph
 
     def test_calculate_cluster_membership_stability(self):

@@ -95,10 +95,10 @@ class ControlPanel:
         graph = nx.from_numpy_array(network.adjacency_matrix)
         clustering_coeff = network.metrics.calculate_clustering_coefficient(graph)
         rewiring_chance = network.metrics.calculate_rewiring_chance(network.adjacency_matrix, network.activities)
-        rewiring_rate = network.successful_rewirings / int(self.variables["metrics_interval"].get())
+        # rewiring_rate = network.successful_rewirings / int(self.variables["metrics_interval"].get())
 
         # Detect communities with optional previous assignments
-        cluster_assignments = network.metrics.detect_communities(network.adjacency_matrix, step)
+        cluster_assignments = network.metrics.get_cluster_assignments(network.adjacency_matrix, step)
 
         # Calculate metrics
         cluster_sizes = [len(cluster) for cluster in cluster_assignments]

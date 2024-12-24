@@ -51,6 +51,15 @@ class PostRunAnalyzer:
         """
         Compute run-level aggregations from the combined dataframe.
         """
+        def summary_stats(group, column_name):
+            """Helper function to compute min, mean, max, and std for a given column."""
+            return {
+                f"Mean {column_name}": group[column_name].mean(),
+                f"StdDev {column_name}": group[column_name].std(),
+                f"Max {column_name}": group[column_name].max(),
+                f"Min {column_name}": group[column_name].min(),
+            }
+
         run_level_data = []
         grouped = aggregated_df.groupby(["Seed", "Nodes", "Edges"])
 
@@ -60,26 +69,27 @@ class PostRunAnalyzer:
                 "Seed": seed,
                 "Nodes": nodes,
                 "Edges": edges,
-                "Mean CC": group["Clustering Coefficient"].mean(),
-                "StdDev CC": group["Clustering Coefficient"].std(),
-                "Max CC": group["Clustering Coefficient"].max(),
-                "Min CC": group["Clustering Coefficient"].min(),
-                "Mean APL": group["Average Path Length"].mean(),
-                "StdDev APL": group["Average Path Length"].std(),
-                "Max APL": group["Average Path Length"].max(),
-                "Min APL": group["Average Path Length"].min(),
-                "Cluster Count Mean": group["Cluster Count"].mean(),
-                "Cluster Count Min": group["Cluster Count"].min(),
-                "Cluster Count Max": group["Cluster Count"].max(),
-                "Cluster Count StdDev": group["Cluster Count"].std(),
-                "Amplitude CC": group["Clustering Coefficient"].max() - group["Clustering Coefficient"].min(),
-                "Mean Rewiring Chance": group["Rewiring Chance"].mean(),
-                "StdDev Rewiring Chance": group["Rewiring Chance"].std(),
-                "Mean Edge Persistence": group["Edge Persistence"].mean(),
-                "StdDev Edge Persistence": group["Edge Persistence"].std(),
-                "Mean Rewirings (interval)": group["Rewirings (interval)"].mean(),
-                "StdDev Rewirings (interval)": group["Rewirings (interval)"].std(),
             }
+
+            columns_to_summarize = [
+                "Clustering Coefficient",
+                "Average Path Length",
+                "Rewiring Chance",
+                "Rewirings (intra_cluster)",
+                "Rewirings (inter_cluster_change)",
+                "Rewirings (inter_cluster_same)",
+                "Rewirings (intra_to_inter)",
+                "Rewirings (inter_to_intra)",
+                # "Edge Persistence",
+            ]
+
+            for column in columns_to_summarize:
+                if column in group.columns:
+                    run_metrics.update(summary_stats(group, column))
+
+            if "Clustering Coefficient" in group.columns:
+                run_metrics["Amplitude CC"] = (group["Clustering Coefficient"].max() - group["Clustering Coefficient"].min())
+
             run_level_data.append(run_metrics)
 
         return pd.DataFrame(run_level_data)
