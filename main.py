@@ -1,14 +1,13 @@
 from network_simulation.analyzer import PostRunAnalyzer
 from network_simulation.experiment import Experiment
 from network_simulation.utils import print_times
-from network_simulation.visualization import ColorBy
 import cProfile
 import pstats
 import os
 from gui.app import NetworkControlApp
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
+    profiler = None #cProfile.Profile()
     if profiler: profiler.enable()
 
     ## Run in GUI
@@ -21,9 +20,9 @@ if __name__ == "__main__":
     experiment_folder = "cluster_tracked"
     experiment = Experiment(experiment_folder)
     experiment.run_experiment(
-                            seed_range=range(3),
+                            seed_range=range(5),
                             nodes_range=[200],
-                            connections_range=[1500, 1800, 2100, 2300, 2500, 2800, 3000, 3500, 4500, 5000, 6000, 7000, 8500, 10000],
+                            connections_range=range(2000, 6001, 1000),
                             num_steps=5_000_000,
                             display_interval=250_000,
                             metrics_interval=1_000

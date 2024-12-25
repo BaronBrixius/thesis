@@ -75,12 +75,16 @@ class PostRunAnalyzer:
                 "Clustering Coefficient",
                 "Average Path Length",
                 "Rewiring Chance",
+                "Cluster Count",
+                "Cluster Membership Stability",
+                "Average Cluster Size",
+                "Average Cluster Density",
+                "Cluster Size Variance",
                 "Rewirings (intra_cluster)",
                 "Rewirings (inter_cluster_change)",
                 "Rewirings (inter_cluster_same)",
                 "Rewirings (intra_to_inter)",
                 "Rewirings (inter_to_intra)",
-                # "Edge Persistence",
             ]
 
             for column in columns_to_summarize:

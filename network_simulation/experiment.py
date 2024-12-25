@@ -37,10 +37,10 @@ class Experiment:
         return False
 
     def run_simulation(self, num_nodes, num_connections, output_dir, num_steps, display_interval, metrics_interval, random_seed, color_by=ColorBy.ACTIVITY):
-        if self.termination_flag:
-             return f"Simulation {random_seed, num_nodes, num_connections} terminated by user."
         from network_simulation.simulation import Simulation  # Import inside to ensure clean process
         sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=output_dir, random_seed=random_seed)
+        if self.termination_flag:
+            return f"Simulation {random_seed, num_nodes, num_connections} terminated by user."
         print(f"Simulation starting for {num_connections} connections with seed {random_seed}")
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval, show=False, color_by=color_by)
         return f"Simulation completed for {num_connections} connections with seed {random_seed}"

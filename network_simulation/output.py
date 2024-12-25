@@ -3,6 +3,7 @@ import logging
 import os
 from network_simulation.metrics import Metrics
 import networkx as nx
+import numpy as np
 import pandas as pd
 import h5py
 import matplotlib.pyplot as plt
@@ -71,29 +72,32 @@ class Output:
 
         self.csv_writer.writerow(row)
 
-    def _compute_row(self, step, adjacency_matrix, activities, metrics:Metrics):
+    def _compute_row(self, step, adjacency_matrix, activities, metrics: Metrics):
         # Shared Computations
         adjacency_matrix_nx = nx.from_numpy_array(adjacency_matrix)
+        previous_cluster_assignments = metrics.current_cluster_assignments
         cluster_assignments = metrics.get_cluster_assignments(adjacency_matrix, step)
+        cluster_sizes = {i: len(cluster) for i, cluster in enumerate(cluster_assignments)}
+        cluster_densities = {i: metrics.calculate_intra_cluster_density(adjacency_matrix, cluster) for i, cluster in enumerate(cluster_assignments)}
+        avg_cluster_size = np.mean(list(cluster_sizes.values()))
+        avg_cluster_density = np.mean(list(cluster_densities.values()))
 
         # Compute
         row = {
             "Step": step,
             "Clustering Coefficient": metrics.calculate_clustering_coefficient(adjacency_matrix_nx),
-            "Average Path Length" : metrics.calculate_average_path_length(adjacency_matrix_nx),
-            # "Assortativity" : metrics.calculate_assortativity(adjacency_matrix_nx),
-            # "Betweenness Centrality" : metrics.calculate_betweenness_centrality(adjacency_matrix_nx)
-            # "Modularity" : metrics.calculate_modularity(adjacency_matrix_nx),
+            "Average Path Length": metrics.calculate_average_path_length(adjacency_matrix_nx),
+            "Rewiring Chance": metrics.calculate_rewiring_chance(adjacency_matrix, activities),
 
-            ### Rewiring Metrics ###
-            "Rewiring Chance" : metrics.calculate_rewiring_chance(adjacency_matrix, activities),
-            # "Edge Persistence" : metrics.calculate_edge_persistence(adjacency_matrix, previous_adjacency_matrix),
-
-            ### Cluster Metrics ###
-            "Cluster Membership" : cluster_assignments,
-            "Cluster Count" : len(cluster_assignments),
-            # "Cluster Membership Stability" : metrics.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments),
-            "Cluster Size Variance" : metrics.calculate_cluster_size_variance([len(cluster) for cluster in cluster_assignments]),
+            # Cluster Metrics
+            "Cluster Membership": {i: cluster for i, cluster in enumerate(cluster_assignments)},
+            "Cluster Count": len(cluster_assignments),
+            "Cluster Membership Stability": metrics.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments),
+            "Cluster Sizes": cluster_sizes,
+            "Average Cluster Size": avg_cluster_size,
+            "Cluster Densities": cluster_densities,
+            "Average Cluster Density": avg_cluster_density,
+            "Cluster Size Variance": metrics.calculate_cluster_size_variance([len(cluster) for cluster in cluster_assignments]),
         }
 
         row.update({f"Rewirings ({key})": value for key, value in metrics.rewirings.items()})
