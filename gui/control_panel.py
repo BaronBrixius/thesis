@@ -131,7 +131,7 @@ class ControlPanel:
             f"Step: {step}\n"
             f"Clustering Coefficient: {clustering_coeff:.3f}\n"
             f"Rewiring Chance: {rewiring_chance:.3f}\n"
-            f"Rewiring Rate: {rewiring_rate:.3f}\n"
+            # f"Rewiring Rate: {rewiring_rate:.3f}\n"
             f"Cluster Count: {num_clusters}\n"
         )
 

@@ -58,6 +58,9 @@ class NodeNetwork:
 
         self.num_connections = new_connection_count
 
+        self.metrics.reset_rewiring_count()
+        self.metrics.current_cluster_assignments = None
+
     def add_random_connections(self, num_connections_to_add):
         """Add random connections to the network."""
         possible_edges = np.array(np.triu_indices(self.num_nodes, k=1)).T

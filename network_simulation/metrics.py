@@ -24,8 +24,8 @@ class Metrics:
 
     def increment_rewiring_count(self, pivot, from_node, to_node, adjacency_matrix, step):
         """Categorize and count rewiring events."""
-        # TODO I don't love using cached cluster assignments, but recalculating every step is insanely slow. Find a way, if this is valuable (leiden is iterative, could just apply 1 iteration each step?) 
-        self.current_cluster_assignments = self.current_cluster_assignments # self.get_cluster_assignments(adjacency_matrix, step)
+        if self.current_cluster_assignments is None:    # TODO I don't love using cached cluster assignments, but recalculating every step is insanely slow. Find a way, if this is valuable (leiden is iterative, could just apply 1 iteration each step?) 
+            self.current_cluster_assignments = self.get_cluster_assignments(adjacency_matrix)
         partitions = self._convert_communities_to_partition(self.current_cluster_assignments, len(adjacency_matrix))
 
         pivot_cluster = partitions[pivot]
@@ -76,39 +76,6 @@ class Metrics:
         most_similar_node = np.argmin(activity_diff, axis=1)                                        # Find the most similar node for each node
         not_connected = [adjacency_matrix[i, most_similar_node[i]] == 0 for i in range(num_nodes)]  # Check if each node is connected to its most similar node
         return np.mean(not_connected)                       # Calculate the rewiring chance as the fraction of nodes not connected to their most similar node
-
-    def calculate_modularity(self, graph):
-        """
-        Modularity:
-        Strength of division of the graph into clusters. Higher modularity indicates stronger community structures.
-        """
-        communities = nx.algorithms.community.louvain_communities(graph)
-        return nx.algorithms.community.quality.modularity(graph, communities)
-
-    def calculate_assortativity(self, graph):
-        """
-        Assortativity:
-        Correlation between the degrees of connected nodes.
-        Positive value: Nodes tend to connect to nodes with similar degree.
-        Negative value: High-degree nodes connect to low-degree nodes.
-        """
-        return nx.degree_assortativity_coefficient(graph)
-
-    def calculate_betweenness_centrality(self, graph):
-        """
-        Betweenness Centrality:
-        How often a node appears on the shortest paths between other nodes.
-        """
-        betweenness = nx.betweenness_centrality(graph)
-        return np.mean(list(betweenness.values()))
-
-    def calculate_network_entropy(self, adjacency_matrix):
-        """
-        Network Entropy: Degree distribution's unpredictability.
-        """
-        degrees = np.sum(adjacency_matrix, axis=1)
-        prob = degrees / degrees.sum()
-        return -np.sum(prob * np.log2(prob + 1e-10))  # Avoid log(0).
 
     def calculate_rich_club_coefficient(self, graph):
         """

@@ -6,6 +6,8 @@ import pstats
 import os
 from gui.app import NetworkControlApp
 
+base_dir = "D:/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output/"
+
 if __name__ == "__main__":
     profiler = None #cProfile.Profile()
     if profiler: profiler.enable()
@@ -17,17 +19,18 @@ if __name__ == "__main__":
     # Experiment("output").run_simulation(num_nodes=200, num_connections=2_000, output_dir="foo",  num_steps=5_000, display_interval=1_000, metrics_interval=1_000, random_seed=42)
 
     ## Experiment Run
-    experiment_folder = "cluster_tracked"
+    experiment_folder = os.path.join(base_dir, "cluster_tracked")
     experiment = Experiment(experiment_folder)
     experiment.run_experiment(
-                            seed_range=range(5),
-                            nodes_range=[200],
-                            connections_range=range(2000, 6001, 1000),
-                            num_steps=5_000_000,
+                            seed_range=range(1),
+                            nodes_range=[200, 300],
+                            connections_range=[x / 1000.0 for x in range(100, 301, 25)],
+                            connections_as_density = True,
+                            num_steps=2_000_000,
                             display_interval=250_000,
-                            metrics_interval=1_000
+                            metrics_interval=1_000,
                         )
-    PostRunAnalyzer(experiment_folder).aggregate_metrics(os.path.join("output", experiment_folder), starting_step=4_000_000)
+    PostRunAnalyzer(experiment_folder).aggregate_metrics(experiment_folder, starting_step=1_500_000)
 
     if profiler: profiler.disable()
 

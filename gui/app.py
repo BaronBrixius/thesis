@@ -48,7 +48,7 @@ class NetworkControlApp:
         while True:
             if self.running.is_set():
                 # Update network state
-                self.network.update_network()
+                self.network.update_network(self.step)
 
                 if self.step % self.display_interval == 0:
                     self.update_visualization()
@@ -87,6 +87,7 @@ class NetworkControlApp:
         # Update network structure if node or connection count changes
         if num_nodes != self.network.num_nodes or num_connections != self.network.num_connections:
             self.network.update_network_structure(num_nodes, num_connections)
+            self.visualization_panel.visualizer.marked = np.zeros(num_nodes, dtype=bool)    #FIXME: kind of out of place right here
             self.update_visualization()
 
         if was_running:

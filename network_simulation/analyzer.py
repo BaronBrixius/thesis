@@ -1,13 +1,6 @@
-import csv
-import logging
 import os
-import networkx as nx
-import numpy as np
 import pandas as pd
-from pandas import DataFrame
 import h5py
-import matplotlib.pyplot as plt
-from network_simulation.metrics import Metrics
 
 class PostRunAnalyzer:
     def __init__(self, project_dir):
@@ -28,8 +21,9 @@ class PostRunAnalyzer:
         for dirpath, dirnames, filenames in os.walk(root_dir):
             variables = self._extract_variables_from_path(dirpath)
             for file in filenames:
-                if file.endswith(".csv") and file.startswith("summary_metrics"):
+                if file.startswith("summary_metrics") and file.endswith(".csv"):
                     file_path = os.path.join(dirpath, file)
+                    print(file_path)
                     df = pd.read_csv(file_path)
 
                     # Add extracted variables as columns
@@ -47,7 +41,7 @@ class PostRunAnalyzer:
             run_level_data.to_csv(run_level_output_filepath, index=False)
             print(f"Aggregated run-level metrics saved to {run_level_output_filepath}")
 
-    def _compute_run_level_aggregations(self, aggregated_df: DataFrame, starting_step):
+    def _compute_run_level_aggregations(self, aggregated_df: pd.DataFrame, starting_step):
         """
         Compute run-level aggregations from the combined dataframe.
         """
@@ -69,6 +63,7 @@ class PostRunAnalyzer:
                 "Seed": seed,
                 "Nodes": nodes,
                 "Edges": edges,
+                "Density": round(edges / (nodes * (nodes - 1) / 2), 3),
             }
 
             columns_to_summarize = [

@@ -14,11 +14,8 @@ class Visualization:
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
 
-        # Initialize marked nodes (hardcoding for now)
+        # Initialize marked nodes
         self.marked = np.zeros(len(positions), dtype=bool)
-        # self.marked[:3] = True  # Hardcode first three nodes as marked
-        # for i in [192, 193, 69, 70, 75, 140, 12, 88, 26, 92, 93, 158, 31, 30, 161, 34, 168, 106, 46, 113, 49, 180, 123, 61]:
-            # self.marked[i] = True
 
         self.custom_colormap = self.create_custom_colormap(self.color_by.value)
 
@@ -44,20 +41,21 @@ class Visualization:
         elif self.color_by == ColorBy.ACTIVITY:
             colors = np.copy(activities)
         elif self.color_by == ColorBy.CLUSTER:
-            if cluster_assignments: #FIXME this is old
+            if cluster_assignments is not None:
                 num_nodes = len(adjacency_matrix)
                 cluster_ids = np.full(num_nodes, -1, dtype=int)  # Default to -1 for unassigned nodes
                 for cluster_id, cluster in enumerate(cluster_assignments):
                     for node in cluster:
                         cluster_ids[node] = cluster_id
-                colors = cluster_ids / np.max(cluster_ids) * 1.75 - 0.75    # Normalize cluster IDs to [-0.75,] for coloring
+                colors = cluster_ids / np.max(cluster_ids) * 1.75 - 0.75    # Normalize cluster IDs to [-0.75, 1] for coloring. -0.75 start makes -1.0 (red) distinct
             else:
                 colors = np.zeros(len(adjacency_matrix))  # Default to zero if no assignments are available
         else:
             raise ValueError(f"Unsupported color_by value: {self.color_by}")
 
-        colors[self.marked] = -1  # Set marked nodes to -1 to map to red in the custom colormap
-        # print(colors)
+        # Set marked nodes to -1 to map to red in the custom colormap
+        colors[self.marked] = -1
+
         return colors
 
 
