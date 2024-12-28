@@ -54,18 +54,16 @@ class NodeNetwork:
 
     def update_activity(self):
         """Update node activities based on neighbors' activities."""
-        if self.adjacency_matrix is None:
-            self.adjacency_matrix = adjacency(self.graph).todense()
+        self.adjacency_matrix = adjacency(self.graph).todense()
 
         # Vectorized activity update
-        neighbor_sums = np.array(self.adjacency_matrix @ self.activities.a).flatten()
+        neighbor_sum = np.einsum("ij,j->i", self.adjacency_matrix, self.activities.a)
         neighbor_counts = np.array(self.adjacency_matrix.sum(axis=1)).flatten()
+        connected_nodes = neighbor_counts > 0
 
-        # Avoid division by zero
-        nonzero_neighbors = neighbor_counts > 0
-        self.activities.a[nonzero_neighbors] = (
-            (1 - self.epsilon) * self.activities.a[nonzero_neighbors] +
-            self.epsilon * (neighbor_sums[nonzero_neighbors] / neighbor_counts[nonzero_neighbors])
+        self.activities.a[connected_nodes] = (
+            (1 - self.epsilon) * self.activities.a[connected_nodes]
+            + self.epsilon * neighbor_sum[connected_nodes] / neighbor_counts[connected_nodes]
         )
 
         # Logistic map
@@ -73,31 +71,33 @@ class NodeNetwork:
 
     def rewire(self, step):
         """Rewire the graph based on activity similarity."""
+        # Select a pivot node
         pivot = self.graph.vertex(np.random.randint(0, self.num_nodes))
         neighbors = list(pivot.out_neighbors())
-        while not neighbors:    # Ensure pivot node has neighbors, in practice this almost never triggers
+        while not neighbors:
             pivot = self.graph.vertex(np.random.randint(0, self.num_nodes))
             neighbors = list(pivot.out_neighbors())
 
+        # Calculate activity differences
         activity_diffs = np.abs(self.activities.a - self.activities[pivot])
-
-        # Most similar node (candidate) and least similar neighbor
         all_vertices = np.arange(self.graph.num_vertices())
         non_neighbors = np.setdiff1d(all_vertices, [int(v) for v in neighbors] + [int(pivot)])
+
+        # Select most similar non-neighbor and least similar neighbor
         candidate = non_neighbors[np.argmin(activity_diffs[non_neighbors])]
+        least_similar_neighbor = neighbors[np.argmax(activity_diffs[[int(n) for n in neighbors]])]
 
-        neighbor_indices = [int(n) for n in neighbors]
-        least_similar_neighbor = neighbor_indices[np.argmax(activity_diffs[neighbor_indices])]
-
-        # Add connection to candidate, remove connection to least similar neighbor
+        # Add connection to candidate and remove from least similar neighbor
         if not self.graph.edge(pivot, candidate):
             self.graph.add_edge(pivot, candidate)
-            edge = self.graph.edge(pivot, least_similar_neighbor)
-            if edge:
-                self.graph.remove_edge(edge)
+            edge_to_remove = self.graph.edge(pivot, least_similar_neighbor)
+            if edge_to_remove:
+                self.graph.remove_edge(edge_to_remove)
 
         # Update metrics
-        self.metrics.increment_rewiring_count(pivot, candidate, least_similar_neighbor, self.graph, step)
+        self.metrics.increment_rewiring_count(
+            pivot, least_similar_neighbor, candidate, self.graph, step
+        )
 
     def update_network(self, step):
         """Update network activities and rewire connections."""

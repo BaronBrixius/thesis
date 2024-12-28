@@ -65,7 +65,7 @@ class Visualization:
 
         return colors
 
-    def update_positions(self, layout_type="arf"):
+    def update_positions(self, layout_type="fr"):
         """Update the positions of the vertices based on the selected layout."""
         if layout_type.lower() == "sfdp":
             self.positions = sfdp_layout(self.graph)
