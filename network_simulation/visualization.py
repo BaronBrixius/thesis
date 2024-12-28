@@ -12,7 +12,7 @@ class ColorBy(Enum):
     CONNECTIONS = "inferno"
 
 class Visualization:
-    def __init__(self, graph, activities, cluster_assignments, layout_type="fr", output_dir="visuals", color_by=ColorBy.ACTIVITY):
+    def __init__(self, graph, activities, cluster_assignments, layout_type="arf", output_dir="visuals", color_by=ColorBy.CONNECTIONS):
         self.logger = logging.getLogger(__name__)
         self.graph = graph
         self.activities = activities
@@ -65,18 +65,19 @@ class Visualization:
 
         return colors
 
-    def update_positions(self, layout_type="fr"):
+    def update_positions(self, layout_type="arf"):
         """Update the positions of the vertices based on the selected layout."""
         if layout_type.lower() == "sfdp":
-            self.positions = sfdp_layout(self.graph)
+            self.positions = sfdp_layout(self.graph, pos=self.positions)
         elif layout_type.lower() == "arf":
-            self.positions = arf_layout(self.graph)
+            self.positions = arf_layout(self.graph, pos=self.positions, max_iter=50)
         elif layout_type.lower() == "fr":
-            self.positions = fruchterman_reingold_layout(self.graph)
+            self.positions = fruchterman_reingold_layout(self.graph, pos=self.position, n_iter=10)
         else:
             self.logger.error(f"Unsupported layout type for update: {layout_type}")
             raise ValueError("Unsupported layout type. Choose 'sfdp', 'arf', or 'fr'.")
         self.logger.info(f"Updated positions using layout: {layout_type}")
+
 
     def refresh_visual(self):
         """Recompute positions and vertex colors to reflect graph changes."""

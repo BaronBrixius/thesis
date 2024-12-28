@@ -3,6 +3,7 @@ from graph_tool.inference import minimize_nested_blockmodel_dl
 import numpy as np
 from scipy.signal import periodogram
 from sklearn.metrics.cluster import adjusted_rand_score
+from graph_tool.inference import BlockState, NestedBlockState
 
 class Metrics:
     def __init__(self):
@@ -85,23 +86,44 @@ class Metrics:
         return np.mean(not_connected)
 
     def get_cluster_assignments(self, graph, step=None):
-        if self.assignment_step == step:
-            return self.current_cluster_assignments
+        """
+        Get cluster assignments using the Stochastic Block Model (SBM) without hierarchy.
+        - Uses cached results if available.
+        """
 
-        # Use Stochastic Block Model (SBM) for community detection
         print(f"Step {step}: Calculating cluster assignments using Stochastic Block Model...")
-        state = minimize_nested_blockmodel_dl(graph)
-        levels = state.get_levels()  # Nested block model may include hierarchical levels
-        cluster_assignments = levels[0].get_blocks().a  # Use the top-level clustering
 
-        # Validate cluster assignments
+        # Initialize SBM with prior assignments if available
+        if self.current_cluster_assignments is not None:
+            print(f"Step {step}: Using prior assignments as initialization.")
+            state = BlockState(
+                graph,
+                b=self.current_cluster_assignments,
+                state_args=dict(deg_corr=True)
+            )
+        else:
+            # Fresh initialization without prior
+            state = BlockState(
+                graph,
+                state_args=dict(deg_corr=True)
+            )
+
+        # Optimize the state
+        state.multiflip_mcmc_sweep(niter=10, beta=np.inf)  # Perform refinement to improve clustering
+
+        # Get clustering
+        cluster_assignments = state.get_blocks().a  # Extract assignments as a NumPy array
+
+        # Validate and log cluster details
         unique_clusters = np.unique(cluster_assignments)
         cluster_sizes = {cluster: np.sum(cluster_assignments == cluster) for cluster in unique_clusters}
         print(f"Step {step}: Found {len(unique_clusters)} clusters with sizes {cluster_sizes}")
 
+        # Cache the results for future use
         self.current_cluster_assignments = cluster_assignments
         self.assignment_step = step
-        return self.current_cluster_assignments
+
+        return cluster_assignments
 
     @staticmethod
     def calculate_cluster_membership_stability(current_assignments, previous_assignments):
