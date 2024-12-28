@@ -7,7 +7,7 @@ import pstats
 import os
 # from gui.app import NetworkControlApp
 
-base_dir = "D:/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output/"
+base_dir = "/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output/"
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -15,7 +15,7 @@ if __name__ == "__main__":
             format="%(asctime)s.%(msecs)03d - %(levelname)s - %(message)s",
             datefmt="%H:%M:%S"
         )
-    
+
     profiler = cProfile.Profile()
     if profiler: profiler.enable()
 
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     # NetworkControlApp()
 
     ## Quick Run
-    Experiment(base_dir).run_simulation(num_nodes=200, num_connections=2_000, output_dir="graphtools",  num_steps=5_000, display_interval=0, metrics_interval=1000, random_seed=42)
+    Experiment(base_dir).run_simulation(num_nodes=200, num_connections=2000, output_dir="graphtools",  num_steps=50_000, display_interval=10000, metrics_interval=1000, random_seed=42)
 
     ## Experiment Run
     # experiment_folder = os.path.join(base_dir, "foo")

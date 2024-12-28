@@ -1,11 +1,8 @@
 from graph_tool.all import Graph, local_clustering, shortest_distance
-from graph_tool import topology
-import networkx as nx
+from graph_tool.inference import minimize_nested_blockmodel_dl
 import numpy as np
 from scipy.signal import periodogram
 from sklearn.metrics.cluster import adjusted_rand_score
-from network_simulation.utils import start_timing, stop_timing
-from cdlib.algorithms import leiden
 
 class Metrics:
     def __init__(self):
@@ -30,7 +27,7 @@ class Metrics:
             self.current_cluster_assignments = self.get_cluster_assignments(graph, step)
 
         partitions = self.current_cluster_assignments
-        print(partitions)
+        # print(partitions)
         pivot_index = int(pivot)
         from_index = int(from_node)
         to_index = int(to_node)
@@ -88,11 +85,21 @@ class Metrics:
         return np.mean(not_connected)
 
     def get_cluster_assignments(self, graph, step=None):
-        if self.current_cluster_assignments is not None and self.assignment_step == step:
+        if self.assignment_step == step:
             return self.current_cluster_assignments
 
-        components, _ = topology.label_components(graph)
-        self.current_cluster_assignments = components.a
+        # Use Stochastic Block Model (SBM) for community detection
+        print(f"Step {step}: Calculating cluster assignments using Stochastic Block Model...")
+        state = minimize_nested_blockmodel_dl(graph)
+        levels = state.get_levels()  # Nested block model may include hierarchical levels
+        cluster_assignments = levels[0].get_blocks().a  # Use the top-level clustering
+
+        # Validate cluster assignments
+        unique_clusters = np.unique(cluster_assignments)
+        cluster_sizes = {cluster: np.sum(cluster_assignments == cluster) for cluster in unique_clusters}
+        print(f"Step {step}: Found {len(unique_clusters)} clusters with sizes {cluster_sizes}")
+
+        self.current_cluster_assignments = cluster_assignments
         self.assignment_step = step
         return self.current_cluster_assignments
 

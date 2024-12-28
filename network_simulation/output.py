@@ -14,26 +14,13 @@ class Output:
         self.num_nodes = num_nodes
         self.num_connections = num_connections
 
-        output_dir = os.path.join("output", project_dir)
-        self.directories = {
-            "base": output_dir,
-            "images": os.path.join(output_dir, "images"),
-        }
-        self._initialize_directories()
+        self.project_dir = project_dir
+        os.makedirs(project_dir, exist_ok=True)
 
-        self.metrics_file_path = os.path.join(self.directories["base"], f"summary_metrics_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
+        self.metrics_file_path = os.path.join(self.project_dir, f"summary_metrics_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
+        print(self.metrics_file_path)
         self.metrics_file = open(self.metrics_file_path, mode="w", newline="")
         self.csv_writer = None
-
-
-    def _initialize_directories(self):
-        for _, path in self.directories.items():
-            os.makedirs(path, exist_ok=True)
-
-    def save_network_image(self, visualization, step):
-        image_path = os.path.join(self.directories["images"], f"network_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.jpg")
-        visualization.fig.savefig(image_path)
-        self.logger.info(f"Saved network visualization for step {step} to {image_path}")
 
     # Runtime Metrics Writing
     def write_metrics_line(self, step, network: NodeNetwork):
