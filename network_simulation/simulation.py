@@ -42,9 +42,9 @@ class Simulation:
 
     def _update_visualization(self, step):
         """Update and save the visualization."""
-        self.visualization.refresh_visual()
         self.visualization.cluster_assignments = self.network.metrics.get_cluster_assignments(self.network.graph, step)
         self.visualization.activities = self.network.activities
+        self.visualization.refresh_visual()
         self.visualization.save_visual(step)
 
     def _finalize_simulation(self, num_steps, display_interval, metrics_interval):

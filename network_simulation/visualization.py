@@ -5,6 +5,7 @@ from enum import Enum
 import os
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from matplotlib import cm
 
 class ColorBy(Enum):
     ACTIVITY = "cividis"
@@ -12,7 +13,7 @@ class ColorBy(Enum):
     CONNECTIONS = "inferno"
 
 class Visualization:
-    def __init__(self, graph, activities, cluster_assignments, layout_type="arf", output_dir="visuals", color_by=ColorBy.CONNECTIONS):
+    def __init__(self, graph, activities, cluster_assignments, output_dir="visuals", color_by=ColorBy.CLUSTER):
         self.logger = logging.getLogger(__name__)
         self.graph = graph
         self.activities = activities
@@ -23,66 +24,48 @@ class Visualization:
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir, exist_ok=True)
 
-        # Choose layout type
-        if layout_type.lower() == "sfdp":
-            self.positions = sfdp_layout(graph)
-        elif layout_type.lower() == "arf":
-            self.positions = arf_layout(graph)
-        elif layout_type.lower() == "fr":
-            self.positions = fruchterman_reingold_layout(graph)
-        else:
-            self.logger.error(f"Unsupported layout type: {layout_type}")
-            raise ValueError("Unsupported layout type. Choose 'sfdp', 'arf', or 'fr'.")
-
+        self.positions = arf_layout(graph)  #fruchterman_reingold_layout(graph)
+        
         # Compute vertex colors
-        self.vertex_colors = self._compute_vertex_colors()
+        self.vertex_colors = self._compute_vertex_colors(self.graph, self.cluster_assignments, self.color_by, self.activities)
 
-    def _compute_vertex_colors(self):
-        """Compute vertex colors based on activity or cluster assignments."""
-        colors = self.graph.new_vertex_property("vector<float>")
+    def _compute_vertex_colors(self, graph, cluster_assignments, color_by, activities):
+        """
+        Compute vertex colors based on the specified color mode.
+        """
+        colors = graph.new_vertex_property("vector<float>")
 
-        if self.color_by == ColorBy.ACTIVITY:
-            normalized_activities = (self.activities.a - np.min(self.activities.a)) / (
-                np.max(self.activities.a) - np.min(self.activities.a)
+        if color_by == ColorBy.ACTIVITY:
+            normalized_activities = (activities.a - np.min(activities.a)) / (
+                np.max(activities.a) - np.min(activities.a)
             )
-            for v in self.graph.vertices():
+            for v in graph.vertices():
                 colors[v] = [normalized_activities[int(v)], 0.5, 1 - normalized_activities[int(v)]]  # RGB mapping
-        elif self.color_by == ColorBy.CLUSTER:
-            unique_clusters = np.unique(self.cluster_assignments)
-            color_map = {cluster: np.random.rand(3) for cluster in unique_clusters}
-            for v in self.graph.vertices():
-                colors[v] = color_map[self.cluster_assignments[int(v)]]
-        elif self.color_by == ColorBy.CONNECTIONS:
-            degrees = self.graph.get_total_degrees(self.graph.get_vertices())
+
+        elif color_by == ColorBy.CLUSTER:
+            unique_clusters = np.unique(cluster_assignments)
+            colormap = cm.get_cmap("Set1", len(unique_clusters))  # Use Set1 colormap for vibrant cluster colors
+            color_map = {cluster: colormap(i)[:3] for i, cluster in enumerate(unique_clusters)}
+
+            for v in graph.vertices():
+                colors[v] = color_map[cluster_assignments[int(v)]]
+
+        elif color_by == ColorBy.CONNECTIONS:
+            degrees = graph.get_total_degrees(graph.get_vertices())
             max_degree = max(degrees)
             min_degree = min(degrees)
             normalized_degrees = (degrees - min_degree) / (max_degree - min_degree)
-            for v in self.graph.vertices():
+            for v in graph.vertices():
                 colors[v] = [normalized_degrees[int(v)], 0.5, 0.5]
         else:
-            self.logger.error(f"Unsupported color_by option: {self.color_by}")
-            raise ValueError(f"Unsupported color_by option: {self.color_by}")
+            raise ValueError(f"Unsupported color_by option: {color_by}")
 
         return colors
 
-    def update_positions(self, layout_type="arf"):
-        """Update the positions of the vertices based on the selected layout."""
-        if layout_type.lower() == "sfdp":
-            self.positions = sfdp_layout(self.graph, pos=self.positions)
-        elif layout_type.lower() == "arf":
-            self.positions = arf_layout(self.graph, pos=self.positions, max_iter=50)
-        elif layout_type.lower() == "fr":
-            self.positions = fruchterman_reingold_layout(self.graph, pos=self.position, n_iter=10)
-        else:
-            self.logger.error(f"Unsupported layout type for update: {layout_type}")
-            raise ValueError("Unsupported layout type. Choose 'sfdp', 'arf', or 'fr'.")
-        self.logger.info(f"Updated positions using layout: {layout_type}")
-
-
     def refresh_visual(self):
         """Recompute positions and vertex colors to reflect graph changes."""
-        self.update_positions()
-        self.vertex_colors = self._compute_vertex_colors()
+        self.positions = arf_layout(self.graph, pos=self.positions, max_iter=25)    # fruchterman_reingold_layout(self.graph, pos=self.positions, n_iter=10)
+        self.vertex_colors = self._compute_vertex_colors(self.graph, self.cluster_assignments, self.color_by, self.activities)
 
     def save_visual(self, step):
         """Save a static visual of the graph."""

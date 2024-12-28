@@ -91,22 +91,10 @@ class Metrics:
         - Uses cached results if available.
         """
 
-        print(f"Step {step}: Calculating cluster assignments using Stochastic Block Model...")
+        # print(f"Step {step}: Calculating cluster assignments using Stochastic Block Model...")
 
         # Initialize SBM with prior assignments if available
-        if self.current_cluster_assignments is not None:
-            print(f"Step {step}: Using prior assignments as initialization.")
-            state = BlockState(
-                graph,
-                b=self.current_cluster_assignments,
-                state_args=dict(deg_corr=True)
-            )
-        else:
-            # Fresh initialization without prior
-            state = BlockState(
-                graph,
-                state_args=dict(deg_corr=True)
-            )
+        state = BlockState(graph, b=self.current_cluster_assignments)
 
         # Optimize the state
         state.multiflip_mcmc_sweep(niter=10, beta=np.inf)  # Perform refinement to improve clustering
@@ -117,7 +105,7 @@ class Metrics:
         # Validate and log cluster details
         unique_clusters = np.unique(cluster_assignments)
         cluster_sizes = {cluster: np.sum(cluster_assignments == cluster) for cluster in unique_clusters}
-        print(f"Step {step}: Found {len(unique_clusters)} clusters with sizes {cluster_sizes}")
+        # print(f"Step {step}: Found {len(unique_clusters)} clusters with sizes {cluster_sizes}")
 
         # Cache the results for future use
         self.current_cluster_assignments = cluster_assignments
