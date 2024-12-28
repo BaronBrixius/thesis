@@ -94,18 +94,18 @@ class ControlPanel:
         return var_type(value)
 
     def update_metrics(self, network:NodeNetwork, step, colormap:ListedColormap):
-        graph = nx.from_numpy_array(network.adjacency_matrix)
+        graph = nx.from_numpy_array(network.get_adjacency_matrix())
         clustering_coeff = network.metrics.calculate_clustering_coefficient(graph)
-        rewiring_chance = network.metrics.calculate_rewiring_chance(network.adjacency_matrix, network.activities)
+        rewiring_chance = network.metrics.calculate_rewiring_chance(network.get_adjacency_matrix(), network.activities)
         # rewiring_rate = network.successful_rewirings / int(self.variables["metrics_interval"].get())
 
         # Detect communities with optional previous assignments
-        cluster_assignments = network.metrics.get_cluster_assignments(network.adjacency_matrix, step)
+        cluster_assignments = network.metrics.get_cluster_assignments(network.get_adjacency_matrix(), step)
 
         # Calculate metrics
         cluster_sizes = [len(cluster) for cluster in cluster_assignments]
         num_clusters = len(cluster_sizes)
-        intra_cluster_densities = [network.metrics.calculate_intra_cluster_density(network.adjacency_matrix, cluster) for cluster in cluster_assignments]
+        intra_cluster_densities = [network.metrics.calculate_intra_cluster_density(network.get_adjacency_matrix(), cluster) for cluster in cluster_assignments]
         activity_variance = [np.var(network.activities[list(cluster)]) for cluster in cluster_assignments]
 
         # Calculate cluster colors

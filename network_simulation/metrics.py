@@ -51,13 +51,15 @@ class Metrics:
 
     ## Individual Metric Calculation Methods ##
     
-    def calculate_clustering_coefficient(self, graph):
+    @staticmethod
+    def calculate_clustering_coefficient(graph):
         """
         Clustering Coefficient (CC): Tendency of nodes to form tightly knit groups (triangles).
         """
         return nx.average_clustering(graph)
 
-    def calculate_average_path_length(self, graph):
+    @staticmethod
+    def calculate_average_path_length(graph):
         """
         Average Path Length (APL): Average shortest path length between all pairs of nodes in the network.
         """
@@ -66,7 +68,8 @@ class Metrics:
         except nx.NetworkXError:
             return None  # Disconnected graph
 
-    def calculate_rewiring_chance(self, adjacency_matrix, activities):
+    @staticmethod
+    def calculate_rewiring_chance(adjacency_matrix, activities):
         """
         Rewiring Chance: Ratio of nodes that are not connected to their most similar node in the network.
         """
@@ -77,13 +80,15 @@ class Metrics:
         not_connected = [adjacency_matrix[i, most_similar_node[i]] == 0 for i in range(num_nodes)]  # Check if each node is connected to its most similar node
         return np.mean(not_connected)                       # Calculate the rewiring chance as the fraction of nodes not connected to their most similar node
 
-    def calculate_rich_club_coefficient(self, graph):
+    @staticmethod
+    def calculate_rich_club_coefficient(graph):
         """
         Rich-Club Coefficient: Tendency of high-degree nodes to form tightly interconnected subgraphs.
         """
         return nx.rich_club_coefficient(graph, normalized=False)    # normalization=True gives divide by zero errors in the code for generating the random graph (weird)
 
-    def calculate_edge_persistence(self, current_adjacency, previous_adjacency, num_connections=None):
+    @staticmethod
+    def calculate_edge_persistence(current_adjacency, previous_adjacency, num_connections=None):
         """
         Edge Persistence: Ratio of existing edges that also existed in the previous snapshot.
         """
@@ -107,7 +112,8 @@ class Metrics:
         self.assignment_step = step
         return self.current_cluster_assignments
 
-    def _convert_communities_to_partition(self, communities, num_nodes):
+    @staticmethod
+    def _convert_communities_to_partition(communities, num_nodes):
         """
         Convert a list of communities to a partition format.
         """
@@ -118,7 +124,8 @@ class Metrics:
                     partition[node] = cluster_id
         return partition
 
-    def calculate_cluster_membership_stability(self, current_assignments, previous_assignments):
+    @staticmethod
+    def calculate_cluster_membership_stability(current_assignments, previous_assignments):
         """
         Cluster Membership Stability: Similarity between cluster assignments across time steps.
         """
@@ -138,30 +145,35 @@ class Metrics:
 
         return adjusted_rand_score(previous_flat, current_flat)
 
-    def calculate_cluster_size_variance(self, cluster_assignments):
+    @staticmethod
+    def calculate_cluster_size_variance(cluster_assignments):
         """Cluster Size Variance: Variability in cluster sizes."""
         _, counts = np.unique(cluster_assignments, return_counts=True)
         return np.var(counts)
 
-    def calculate_intra_cluster_density(self, adjacency_matrix, cluster):
+    @staticmethod
+    def calculate_intra_cluster_density(adjacency_matrix, cluster):
         cluster_nodes = list(cluster)
         subgraph = adjacency_matrix[np.ix_(cluster_nodes, cluster_nodes)]
         num_possible_edges = len(cluster_nodes) * (len(cluster_nodes) - 1) / 2
         return subgraph.sum() / (2 * num_possible_edges)
 
     # Fourier Analysis
-    def calculate_amplitude_of_oscillations(self, values):
+    @staticmethod
+    def calculate_amplitude_of_oscillations(values):
         """Amplitude of Oscillations: Max range of metric values."""
         return np.max(values) - np.min(values)
 
-    def calculate_clustering_coefficient_spectral(self, cc_values):
+    @staticmethod
+    def calculate_clustering_coefficient_spectral(cc_values):
         """Fourier Analysis of CC: Dominant frequency and spectral power."""
         frequencies, power = periodogram(cc_values)
         dominant_frequency = frequencies[np.argmax(power)]
         spectral_power = np.sum(power)
         return {"Dominant Frequency": dominant_frequency, "Spectral Power": spectral_power}
 
-    def calculate_shortest_path_spectral(self, adjacency_matrix):
+    @staticmethod
+    def calculate_shortest_path_spectral(adjacency_matrix):
         """Shortest Path Spectral Metrics: Fourier analysis of path length fluctuations."""
         graph = nx.from_numpy_array(adjacency_matrix)
         try:
@@ -175,7 +187,8 @@ class Metrics:
         return {"Dominant Frequency": None, "Spectral Power": None}
 
     # Helper Methods
-    def summarize_metric(self, values):
+    @staticmethod
+    def summarize_metric(values):
         """Summarizes a metric over the entire run."""
         return {
             "Mean": np.mean(values),

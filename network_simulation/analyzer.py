@@ -1,7 +1,6 @@
 import logging
 import os
 import pandas as pd
-import h5py
 
 class PostRunAnalyzer:
     def __init__(self, project_dir):

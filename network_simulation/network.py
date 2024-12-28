@@ -134,3 +134,6 @@ class NodeNetwork:
 
     def apply_forces(self, effective_iterations=1):
         self.positions = self.physics.apply_forces(self.adjacency_matrix, self.positions, effective_iterations)
+    
+    def get_adjacency_matrix(self):
+        return self.adjacency_matrix
