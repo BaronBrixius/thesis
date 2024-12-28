@@ -96,6 +96,9 @@ class NodeNetwork:
             if edge:
                 self.graph.remove_edge(edge)
 
+        # Update metrics
+        self.metrics.increment_rewiring_count(pivot, candidate, least_similar_neighbor, self.graph, step)
+
     def update_network(self, step):
         """Update network activities and rewire connections."""
         self.update_activity()

@@ -24,15 +24,20 @@ class Metrics:
     def increment_breakup_count(self):
         self.breakup_count += 1
 
-    def increment_rewiring_count(self, pivot, from_node, to_node, adjacency_matrix, step):
+    def increment_rewiring_count(self, pivot, from_node, to_node, graph, step):
         """Categorize and count rewiring events."""
-        if self.current_cluster_assignments is None:    # TODO I don't love using cached cluster assignments, but recalculating every step is insanely slow. Find a way, if this is valuable (leiden is iterative, could just apply 1 iteration each step?) 
-            self.current_cluster_assignments = self.get_cluster_assignments(adjacency_matrix)
-        partitions = self._convert_communities_to_partition(self.current_cluster_assignments, len(adjacency_matrix))
+        if self.current_cluster_assignments is None:
+            self.current_cluster_assignments = self.get_cluster_assignments(graph, step)
 
-        pivot_cluster = partitions[pivot]
-        from_cluster = partitions[from_node]
-        to_cluster = partitions[to_node]
+        partitions = self.current_cluster_assignments
+        print(partitions)
+        pivot_index = int(pivot)
+        from_index = int(from_node)
+        to_index = int(to_node)
+
+        pivot_cluster = partitions[pivot_index]
+        from_cluster = partitions[from_index]
+        to_cluster = partitions[to_index]
 
         if pivot_cluster == from_cluster == to_cluster:
             self.rewirings["intra_cluster"] += 1
@@ -45,6 +50,7 @@ class Metrics:
             self.rewirings["intra_to_inter"] += 1
         elif pivot_cluster != from_cluster and pivot_cluster == to_cluster:
             self.rewirings["inter_to_intra"] += 1
+
 
     def reset_rewiring_count(self):
         """Reset all rewiring counts."""
@@ -81,10 +87,14 @@ class Metrics:
         not_connected = [not graph.edge(i, most_similar_node[i]) for i in range(num_nodes)]
         return np.mean(not_connected)
 
-    def get_cluster_assignments(self, graph):
-        """Get cluster assignments using connected components."""
+    def get_cluster_assignments(self, graph, step=None):
+        if self.current_cluster_assignments is not None and self.assignment_step == step:
+            return self.current_cluster_assignments
+
         components, _ = topology.label_components(graph)
-        return components.a
+        self.current_cluster_assignments = components.a
+        self.assignment_step = step
+        return self.current_cluster_assignments
 
     @staticmethod
     def calculate_cluster_membership_stability(current_assignments, previous_assignments):

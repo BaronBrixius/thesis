@@ -52,9 +52,9 @@ class Output:
         activities = network.activities.a
         previous_cluster_assignments = metrics.current_cluster_assignments
         cluster_assignments = metrics.get_cluster_assignments(graph)
-        cluster_sizes = {i: sum(cluster_assignments == i) for i in np.unique(cluster_assignments)}
+        # cluster_sizes = {i: sum(cluster_assignments == i) for i in np.unique(cluster_assignments)}
         # cluster_densities = {i: metrics.calculate_intra_cluster_density(graph, np.where(cluster_assignments == i)[0]) for i in np.unique(cluster_assignments)}
-        avg_cluster_size = np.mean(list(cluster_sizes.values()))
+        # avg_cluster_size = np.mean(list(cluster_sizes.values()))
         # avg_cluster_density = np.mean(list(cluster_densities.values()))
 
         # Compute
@@ -69,8 +69,8 @@ class Output:
             "Cluster Membership": {i: np.where(cluster_assignments == i)[0].tolist() for i in np.unique(cluster_assignments)},
             "Cluster Count": len(np.unique(cluster_assignments)),
             "Cluster Membership Stability": metrics.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments),
-            "Cluster Sizes": cluster_sizes,
-            "Average Cluster Size": avg_cluster_size,
+            # "Cluster Sizes": cluster_sizes,
+            # "Average Cluster Size": avg_cluster_size,
             # "Cluster Densities": cluster_densities,
             # "Average Cluster Density": avg_cluster_density,
             "Cluster Size Variance": metrics.calculate_cluster_size_variance(cluster_assignments),
