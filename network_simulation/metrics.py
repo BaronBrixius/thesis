@@ -1,3 +1,5 @@
+from graph_tool.all import Graph, local_clustering, shortest_distance
+from graph_tool import topology
 import networkx as nx
 import numpy as np
 from scipy.signal import periodogram
@@ -50,79 +52,39 @@ class Metrics:
             self.rewirings[key] = 0
 
     ## Individual Metric Calculation Methods ##
-    
+
     @staticmethod
     def calculate_clustering_coefficient(graph):
         """
         Clustering Coefficient (CC): Tendency of nodes to form tightly knit groups (triangles).
         """
-        return nx.average_clustering(graph)
+        return local_clustering(graph).get_array().mean()
 
     @staticmethod
     def calculate_average_path_length(graph):
         """
         Average Path Length (APL): Average shortest path length between all pairs of nodes in the network.
         """
-        try:
-            return nx.average_shortest_path_length(graph)
-        except nx.NetworkXError:
-            return None  # Disconnected graph
+        distances = shortest_distance(graph, directed=False).get_2d_array(range(graph.num_vertices()))
+        finite_distances = distances[np.isfinite(distances)]
+        return np.mean(finite_distances) if len(finite_distances) > 0 else None
 
     @staticmethod
-    def calculate_rewiring_chance(adjacency_matrix, activities):
+    def calculate_rewiring_chance(graph, activities):
         """
         Rewiring Chance: Ratio of nodes that are not connected to their most similar node in the network.
         """
         num_nodes = activities.shape[0]
-        activity_diff = np.abs(activities[:, np.newaxis] - activities[np.newaxis, :])               # Compute pairwise differences, ignoring self
+        activity_diff = np.abs(activities[:, np.newaxis] - activities[np.newaxis, :])
         np.fill_diagonal(activity_diff, np.inf)
-        most_similar_node = np.argmin(activity_diff, axis=1)                                        # Find the most similar node for each node
-        not_connected = [adjacency_matrix[i, most_similar_node[i]] == 0 for i in range(num_nodes)]  # Check if each node is connected to its most similar node
-        return np.mean(not_connected)                       # Calculate the rewiring chance as the fraction of nodes not connected to their most similar node
+        most_similar_node = np.argmin(activity_diff, axis=1)
+        not_connected = [not graph.edge(i, most_similar_node[i]) for i in range(num_nodes)]
+        return np.mean(not_connected)
 
-    @staticmethod
-    def calculate_rich_club_coefficient(graph):
-        """
-        Rich-Club Coefficient: Tendency of high-degree nodes to form tightly interconnected subgraphs.
-        """
-        return nx.rich_club_coefficient(graph, normalized=False)    # normalization=True gives divide by zero errors in the code for generating the random graph (weird)
-
-    @staticmethod
-    def calculate_edge_persistence(current_adjacency, previous_adjacency, num_connections=None):
-        """
-        Edge Persistence: Ratio of existing edges that also existed in the previous snapshot.
-        """
-        if previous_adjacency is None:
-            return None
-        if num_connections is None:
-            num_connections = np.sum(previous_adjacency > 0)
-        overlap = np.sum((current_adjacency > 0) & (previous_adjacency > 0))
-        return overlap / num_connections if num_connections > 0 else 0
-
-    def get_cluster_assignments(self, adjacency_matrix, step=None):
-        if self.assignment_step == step:
-            return self.current_cluster_assignments
-
-        # Reformat current assignments so they can be used for the calculation, if available
-        initial_membership = self._convert_communities_to_partition(self.current_cluster_assignments, len(adjacency_matrix)) if self.current_cluster_assignments is not None else None
-
-        new_cluster_assignments = leiden(nx.from_numpy_array(adjacency_matrix), initial_membership=initial_membership)
-
-        self.current_cluster_assignments = new_cluster_assignments.communities
-        self.assignment_step = step
-        return self.current_cluster_assignments
-
-    @staticmethod
-    def _convert_communities_to_partition(communities, num_nodes):
-        """
-        Convert a list of communities to a partition format.
-        """
-        partition = np.full(num_nodes, -1, dtype=int)  # Default to unassigned
-        for cluster_id, cluster in enumerate(communities):
-            for node in cluster:
-                if node < num_nodes:
-                    partition[node] = cluster_id
-        return partition
+    def get_cluster_assignments(self, graph):
+        """Get cluster assignments using connected components."""
+        components, _ = topology.label_components(graph)
+        return components.a
 
     @staticmethod
     def calculate_cluster_membership_stability(current_assignments, previous_assignments):
@@ -132,18 +94,7 @@ class Metrics:
         if previous_assignments is None:
             return None
 
-        # Flatten cluster assignments for comparison
-        def flatten_assignments(assignments):
-            flat = {}
-            for cluster_id, cluster in enumerate(assignments):
-                for node in cluster:
-                    flat[node] = cluster_id
-            return [flat[node] for node in sorted(flat.keys())]
-
-        current_flat = flatten_assignments(current_assignments)
-        previous_flat = flatten_assignments(previous_assignments)
-
-        return adjusted_rand_score(previous_flat, current_flat)
+        return adjusted_rand_score(previous_assignments, current_assignments)
 
     @staticmethod
     def calculate_cluster_size_variance(cluster_assignments):
@@ -152,11 +103,14 @@ class Metrics:
         return np.var(counts)
 
     @staticmethod
-    def calculate_intra_cluster_density(adjacency_matrix, cluster):
-        cluster_nodes = list(cluster)
-        subgraph = adjacency_matrix[np.ix_(cluster_nodes, cluster_nodes)]
+    def calculate_intra_cluster_density(graph, cluster):
+        """Density of intra-cluster connections."""
+        cluster_nodes = [int(v) for v in cluster]
+        subgraph = graph.copy()
+        subgraph.set_vertex_filter(lambda v: int(v) in cluster_nodes)
+        num_edges = subgraph.num_edges()
         num_possible_edges = len(cluster_nodes) * (len(cluster_nodes) - 1) / 2
-        return subgraph.sum() / (2 * num_possible_edges)
+        return num_edges / num_possible_edges if num_possible_edges > 0 else 0
 
     # Fourier Analysis
     @staticmethod
@@ -164,29 +118,6 @@ class Metrics:
         """Amplitude of Oscillations: Max range of metric values."""
         return np.max(values) - np.min(values)
 
-    @staticmethod
-    def calculate_clustering_coefficient_spectral(cc_values):
-        """Fourier Analysis of CC: Dominant frequency and spectral power."""
-        frequencies, power = periodogram(cc_values)
-        dominant_frequency = frequencies[np.argmax(power)]
-        spectral_power = np.sum(power)
-        return {"Dominant Frequency": dominant_frequency, "Spectral Power": spectral_power}
-
-    @staticmethod
-    def calculate_shortest_path_spectral(adjacency_matrix):
-        """Shortest Path Spectral Metrics: Fourier analysis of path length fluctuations."""
-        graph = nx.from_numpy_array(adjacency_matrix)
-        try:
-            apl_values = nx.average_shortest_path_length(graph)
-        except nx.NetworkXError:
-            apl_values = None
-        if apl_values is not None:
-            apl_values = np.array([apl_values])
-            frequencies, power = periodogram(apl_values)
-            return {"Dominant Frequency": frequencies[np.argmax(power)], "Spectral Power": np.sum(power)}
-        return {"Dominant Frequency": None, "Spectral Power": None}
-
-    # Helper Methods
     @staticmethod
     def summarize_metric(values):
         """Summarizes a metric over the entire run."""

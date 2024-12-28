@@ -2,6 +2,7 @@ import csv
 import logging
 import os
 from network_simulation.metrics import Metrics
+from network_simulation.network import NodeNetwork
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -35,8 +36,8 @@ class Output:
         self.logger.info(f"Saved network visualization for step {step} to {image_path}")
 
     # Runtime Metrics Writing
-    def write_metrics_line(self, step, adjacency_matrix, activities, metrics):
-        row = self._compute_row(step, adjacency_matrix, activities, metrics)
+    def write_metrics_line(self, step, network: NodeNetwork):
+        row = self._compute_row(step, network)
 
         if self.csv_writer is None:
             self.csv_writer = csv.DictWriter(self.metrics_file, fieldnames=row.keys())
@@ -44,33 +45,35 @@ class Output:
 
         self.csv_writer.writerow(row)
 
-    def _compute_row(self, step, adjacency_matrix, activities, metrics: Metrics):
+    def _compute_row(self, step, network: NodeNetwork):
         # Shared Computations
-        adjacency_matrix_nx = nx.from_numpy_array(adjacency_matrix)
+        graph = network.graph
+        metrics = network.metrics
+        activities = network.activities.a
         previous_cluster_assignments = metrics.current_cluster_assignments
-        cluster_assignments = metrics.get_cluster_assignments(adjacency_matrix, step)
-        cluster_sizes = {i: len(cluster) for i, cluster in enumerate(cluster_assignments)}
-        cluster_densities = {i: metrics.calculate_intra_cluster_density(adjacency_matrix, cluster) for i, cluster in enumerate(cluster_assignments)}
+        cluster_assignments = metrics.get_cluster_assignments(graph)
+        cluster_sizes = {i: sum(cluster_assignments == i) for i in np.unique(cluster_assignments)}
+        # cluster_densities = {i: metrics.calculate_intra_cluster_density(graph, np.where(cluster_assignments == i)[0]) for i in np.unique(cluster_assignments)}
         avg_cluster_size = np.mean(list(cluster_sizes.values()))
-        avg_cluster_density = np.mean(list(cluster_densities.values()))
+        # avg_cluster_density = np.mean(list(cluster_densities.values()))
 
         # Compute
         row = {
             "Step": step,
-            "Clustering Coefficient": metrics.calculate_clustering_coefficient(adjacency_matrix_nx),
-            "Average Path Length": metrics.calculate_average_path_length(adjacency_matrix_nx),
-            "Rewiring Chance": metrics.calculate_rewiring_chance(adjacency_matrix, activities),
-            "Rich-Club Coefficient": metrics.calculate_rich_club_coefficient(adjacency_matrix_nx),
+            "Clustering Coefficient": metrics.calculate_clustering_coefficient(graph),
+            "Average Path Length": metrics.calculate_average_path_length(graph),
+            "Rewiring Chance": metrics.calculate_rewiring_chance(graph, activities),
+            # "Rich-Club Coefficient": metrics.calculate_rich_club_coefficient(graph),
 
             # Cluster Metrics
-            "Cluster Membership": {i: cluster for i, cluster in enumerate(cluster_assignments)},
-            "Cluster Count": len(cluster_assignments),
+            "Cluster Membership": {i: np.where(cluster_assignments == i)[0].tolist() for i in np.unique(cluster_assignments)},
+            "Cluster Count": len(np.unique(cluster_assignments)),
             "Cluster Membership Stability": metrics.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments),
             "Cluster Sizes": cluster_sizes,
             "Average Cluster Size": avg_cluster_size,
-            "Cluster Densities": cluster_densities,
-            "Average Cluster Density": avg_cluster_density,
-            "Cluster Size Variance": metrics.calculate_cluster_size_variance([len(cluster) for cluster in cluster_assignments]),
+            # "Cluster Densities": cluster_densities,
+            # "Average Cluster Density": avg_cluster_density,
+            "Cluster Size Variance": metrics.calculate_cluster_size_variance(cluster_assignments),
         }
 
         row.update({f"Rewirings ({key})": value for key, value in metrics.rewirings.items()})
