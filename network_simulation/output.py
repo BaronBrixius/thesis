@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 class Output:
     def __init__(self, project_dir, num_nodes=None, num_connections=None):
+        self.logger = logging.getLogger(__name__)
         self.num_nodes = num_nodes
         self.num_connections = num_connections
 
@@ -23,20 +24,10 @@ class Output:
         self.metrics_file = open(self.metrics_file_path, mode="w", newline="")
         self.csv_writer = None
 
-        self.logger = self._initialize_logger()
 
     def _initialize_directories(self):
         for _, path in self.directories.items():
             os.makedirs(path, exist_ok=True)
-
-    @staticmethod
-    def _initialize_logger():
-        logging.basicConfig(
-            level=logging.WARNING,
-            format="%(asctime)s.%(msecs)03d - %(levelname)s - %(message)s",
-            datefmt="%H:%M:%S"
-        )
-        return logging.getLogger(__name__)
 
     def save_network_image(self, visualization, step):
         image_path = os.path.join(self.directories["images"], f"network_nodes_{self.num_nodes}_edges_{self.num_connections}_step_{step}.jpg")

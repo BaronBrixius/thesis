@@ -1,3 +1,4 @@
+import logging
 import tkinter as tk
 from tkinter import ttk
 from matplotlib.colors import ListedColormap
@@ -7,6 +8,7 @@ from network_simulation.network import NodeNetwork
 
 class ControlPanel:
     def __init__(self, root, network:NodeNetwork, apply_changes_callback, toggle_simulation_callback, physics_callback):
+        self.logger = logging.getLogger(__name__)
         self.apply_changes_callback = apply_changes_callback
         self.previous_cluster_assignments = None
         self.physics_callback = physics_callback
@@ -86,7 +88,7 @@ class ControlPanel:
             }
             self.apply_changes_callback(**values)
         except ValueError as e:
-            print("Invalid input detected:", e)
+            self.logger.error("Invalid input detected:", e)
 
     def _parse_value(self, var_type, value):
         return var_type(value)

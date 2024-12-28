@@ -1,4 +1,5 @@
 from enum import Enum
+import logging
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap
@@ -11,6 +12,7 @@ class ColorBy(Enum):
 
 class Visualization:
     def __init__(self, positions, activities, adjacency_matrix, cluster_assignments, draw_lines=True, show=False, color_by:ColorBy=ColorBy.ACTIVITY):
+        self.logger = logging.getLogger(__name__)
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
 
@@ -89,7 +91,7 @@ class Visualization:
 
         # Check for invalid values
         if not np.all(np.isfinite(positions)):
-            print("Error: Invalid positions detected (NaN or inf).")
+            self.logger.error("Error: Invalid positions detected (NaN or inf).")
             return
 
         # Update node colors and positions

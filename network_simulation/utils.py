@@ -13,6 +13,8 @@ def stop_timing(label):
         accumulated_times[label]['total_time'] += elapsed_time
         accumulated_times[label]['start_time'] = 0  # Reset start time
 
-def print_times():
+def get_times():
+    result = []
     for label, times in accumulated_times.items():
-        print(f"{label}: {times['total_time']:.4f} seconds")
+        result.append(f"{label}: {times['total_time']:.4f} seconds")
+    return "\n".join(result)

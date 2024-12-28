@@ -1,9 +1,11 @@
+import logging
 import os
 import pandas as pd
 import h5py
 
 class PostRunAnalyzer:
     def __init__(self, project_dir):
+        self.logger = logging.getLogger(__name__)
         self.project_dir = project_dir
 
     def aggregate_metrics(self, root_dir, starting_step=500_000, snapshot_output_filepath=None, run_level_output_filepath=None):
@@ -23,7 +25,7 @@ class PostRunAnalyzer:
             for file in filenames:
                 if file.startswith("summary_metrics") and file.endswith(".csv"):
                     file_path = os.path.join(dirpath, file)
-                    print(file_path)
+                    self.logger.debug(f"Reading {file_path}")
                     df = pd.read_csv(file_path)
 
                     # Add extracted variables as columns
@@ -35,11 +37,11 @@ class PostRunAnalyzer:
         if folder_data:
             aggregated_df = pd.concat(folder_data, ignore_index=True)
             aggregated_df.to_csv(snapshot_output_filepath, index=False)
-            print(f"Aggregated snapshot metrics saved to {snapshot_output_filepath}")
+            self.logger.info(f"Aggregated snapshot metrics saved to {snapshot_output_filepath}")
 
             run_level_data = self._compute_run_level_aggregations(aggregated_df, starting_step)
             run_level_data.to_csv(run_level_output_filepath, index=False)
-            print(f"Aggregated run-level metrics saved to {run_level_output_filepath}")
+            self.logger.info(f"Aggregated run-level metrics saved to {run_level_output_filepath}")
 
     def _compute_run_level_aggregations(self, aggregated_df: pd.DataFrame, starting_step):
         """
