@@ -52,3 +52,6 @@ class Simulation:
         if metrics_interval:
             self.output.write_metrics_line(num_steps, self.network)
             self.network.metrics.reset_rewiring_count()
+
+        if display_interval:
+            self._update_visualization(num_steps)
