@@ -21,7 +21,7 @@ class NodeNetwork:
         # Initialize node activities
         self.activities = self.graph.new_vertex_property("float")
         self.activities.a = np.random.uniform(-1, 1, num_nodes)
-        
+
         self.metrics = Metrics()
 
     def add_random_connections(self, num_connections_to_add):
@@ -35,10 +35,9 @@ class NodeNetwork:
                 edges.add((v1, v2))
 
         self.graph.add_edge_list(edges)
-        self.adjacency_matrix = adjacency(self.graph).todense()
 
-    def update_activity(self):
-        """Update node activities based on neighbors' activities."""
+    def step_update(self, step):
+        """Perform one step of activity update and rewiring in a single pass."""
         start_timing("activity1")
         edges = self.graph.get_edges()
         stop_timing("activity1")
@@ -62,8 +61,6 @@ class NodeNetwork:
         self.activities.a = 1 - self.alpha * self.activities.a**2
         stop_timing("activity3")
 
-    def rewire(self, step):
-        """Rewire the graph based on activity similarity."""
         start_timing("rewire1")
         # Select a pivot node
         pivot_idx = np.random.randint(0, self.num_nodes)
@@ -75,11 +72,10 @@ class NodeNetwork:
 
         start_timing("rewire2")
         # Calculate activity differences
-        all_vertices = self.graph.get_vertices()
         is_neighbor = np.zeros(self.num_nodes, dtype=bool)
         is_neighbor[pivot_neighbors] = True
         is_neighbor[pivot_idx] = True
-        non_neighbors = all_vertices[~is_neighbor]
+        non_neighbors = np.where(~is_neighbor)[0]
 
         # Calculate activity differences
         activity_diffs = np.abs(self.activities.a - self.activities.a[pivot_idx])
@@ -107,6 +103,5 @@ class NodeNetwork:
         """Update network activities and rewire connections over multiple iterations."""
         start_timing("update_network")
         for _ in range(iterations):
-            self.update_activity()
-            self.rewire(step)
+            self.step_update(step)
         stop_timing("update_network")
