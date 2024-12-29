@@ -14,7 +14,7 @@ class NodeNetwork:
         self.epsilon = epsilon
 
         # Initialize graph
-        self.graph = Graph(directed=False)
+        self.graph = Graph(directed=False, fast_edge_removal=True)
         self.graph.add_vertex(num_nodes)  # Add nodes to the graph
         self.add_random_connections(num_connections)
 
@@ -47,20 +47,18 @@ class NodeNetwork:
 
     def add_edge(self, source, target):
         """Add an edge and update the degrees."""
-        if not self.graph.edge(source, target):
-            self.graph.add_edge(source, target)
-            self.degrees[source] += 1
-            self.degrees[target] += 1
-            self.adjacency_matrix[source, target] = self.adjacency_matrix[target, source] = True
+        self.graph.add_edge(source, target)
+        self.degrees[source] += 1
+        self.degrees[target] += 1
+        self.adjacency_matrix[source, target] = self.adjacency_matrix[target, source] = True
 
     def remove_edge(self, source, target):
         """Remove an edge and update the degrees."""
         edge = self.graph.edge(source, target)
-        if edge:
-            self.graph.remove_edge(edge)
-            self.degrees[source] -= 1
-            self.degrees[target] -= 1
-            self.adjacency_matrix[source, target] = self.adjacency_matrix[target, source] = False
+        self.graph.remove_edge(edge)
+        self.degrees[source] -= 1
+        self.degrees[target] -= 1
+        self.adjacency_matrix[source, target] = self.adjacency_matrix[target, source] = False
 
     def update_activity(self):
         start_timing("activity1")
@@ -89,23 +87,24 @@ class NodeNetwork:
         # 2. From all other units, select the one that is most synchronized (henceforth: candidate) and least synchronized neighbor
         # TODO optimize with a loop to look for both at once?
         activity_diff = np.abs(self.activities.a - self.activities.a[pivot])
-        activity_diff_neighbors = activity_diff * self.adjacency_matrix[pivot]
         activity_diff[pivot] = np.inf                                   # stop the pivot from connecting to itself
         candidate = np.argmin(activity_diff)                            # most similar activity
-        least_similar_neighbor = np.argmax(activity_diff_neighbors)     # least similar neighbor
-        stop_timing("rewire2")
+        least_similar_neighbor = pivot_neighbors[np.argmax(activity_diff[pivot_neighbors])]     # least similar neighbor
 
-        start_timing("rewire3")
         # 3a. If there is a connection between the pivot and the candidate already, do nothing
         if self.graph.edge(pivot, candidate):
             return
+        stop_timing("rewire2")
 
+        start_timing("rewire3")
         self.add_edge(pivot, candidate)
+        stop_timing("rewire3")
+        start_timing("rewire4")
         self.remove_edge(pivot, least_similar_neighbor)
 
         # Update metrics
-        self.metrics.increment_rewiring_count(pivot, least_similar_neighbor, candidate, self.graph, step)
-        stop_timing("rewire3")
+        # self.metrics.increment_rewiring_count(pivot, least_similar_neighbor, candidate, self.graph, step)
+        stop_timing("rewire4")
 
     def update_network(self, step):
         start_timing("update_network")
