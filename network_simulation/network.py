@@ -1,31 +1,26 @@
 from graph_tool.all import Graph, adjacency
 import numpy as np
 from network_simulation.metrics import Metrics
+from network_simulation.utils import start_timing, stop_timing
 
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
         # Seed for reproducibility
         np.random.seed(random_seed)
+
         self.num_nodes = num_nodes
         self.num_connections = num_connections
+        self.alpha = alpha
+        self.epsilon = epsilon
 
         # Initialize graph
         self.graph = Graph(directed=False)
         self.graph.add_vertex(num_nodes)  # Add nodes to the graph
-        self.alpha = alpha
-        self.epsilon = epsilon
-
-        # Initialize node activities and positions
-        self.activities = self.graph.new_vertex_property("float")
-        for v in self.graph.vertices():
-            self.activities[v] = np.random.uniform(-1, 1)
-
-        self.positions = self.graph.new_vertex_property("vector<float>")
-        for v in self.graph.vertices():
-            self.positions[v] = np.random.uniform(0.1, 0.9, 2)
-
-        # Add random connections
         self.add_random_connections(num_connections)
+
+        # Initialize node activities
+        self.activities = self.graph.new_vertex_property("float")
+        self.activities.a = np.random.uniform(-1, 1, num_nodes)
         
         self.metrics = Metrics()
 
@@ -42,25 +37,22 @@ class NodeNetwork:
         self.graph.add_edge_list(edges)
         self.adjacency_matrix = adjacency(self.graph).todense()
 
-    def remove_random_connections(self, num_connections_to_remove):
-        """Remove random connections from the graph."""
-        edges = list(self.graph.edges())
-        if len(edges) < num_connections_to_remove:
-            raise ValueError("Not enough connections to remove.")
-
-        selected_edges = np.random.choice(len(edges), size=num_connections_to_remove, replace=False)
-        for edge_idx in selected_edges:
-            self.graph.remove_edge(edges[edge_idx])
-
     def update_activity(self):
         """Update node activities based on neighbors' activities."""
-        self.adjacency_matrix = adjacency(self.graph).todense()
+        start_timing("activity1")
+        edges = self.graph.get_edges()
+        stop_timing("activity1")
 
+        start_timing("activity2")
         # Vectorized activity update
-        neighbor_sum = np.einsum("ij,j->i", self.adjacency_matrix, self.activities.a)
-        neighbor_counts = np.array(self.adjacency_matrix.sum(axis=1)).flatten()
+        neighbor_sum = np.zeros(self.num_nodes)
+        np.add.at(neighbor_sum, edges[:, 0], self.activities.a[edges[:, 1]])
+        np.add.at(neighbor_sum, edges[:, 1], self.activities.a[edges[:, 0]])
+        neighbor_counts = self.graph.get_total_degrees(self.graph.get_vertices())
         connected_nodes = neighbor_counts > 0
+        stop_timing("activity2")
 
+        start_timing("activity3")
         self.activities.a[connected_nodes] = (
             (1 - self.epsilon) * self.activities.a[connected_nodes]
             + self.epsilon * neighbor_sum[connected_nodes] / neighbor_counts[connected_nodes]
@@ -68,16 +60,20 @@ class NodeNetwork:
 
         # Logistic map
         self.activities.a = 1 - self.alpha * self.activities.a**2
+        stop_timing("activity3")
 
     def rewire(self, step):
         """Rewire the graph based on activity similarity."""
+        start_timing("rewire1")
         # Select a pivot node
         pivot = self.graph.vertex(np.random.randint(0, self.num_nodes))
         neighbors = list(pivot.out_neighbors())
         while not neighbors:
             pivot = self.graph.vertex(np.random.randint(0, self.num_nodes))
             neighbors = list(pivot.out_neighbors())
+        stop_timing("rewire1")
 
+        start_timing("rewire2")
         # Calculate activity differences
         activity_diffs = np.abs(self.activities.a - self.activities[pivot])
         all_vertices = np.arange(self.graph.num_vertices())
@@ -86,7 +82,9 @@ class NodeNetwork:
         # Select most similar non-neighbor and least similar neighbor
         candidate = non_neighbors[np.argmin(activity_diffs[non_neighbors])]
         least_similar_neighbor = neighbors[np.argmax(activity_diffs[[int(n) for n in neighbors]])]
+        stop_timing("rewire2")
 
+        start_timing("rewire3")
         # Add connection to candidate and remove from least similar neighbor
         if not self.graph.edge(pivot, candidate):
             self.graph.add_edge(pivot, candidate)
@@ -98,16 +96,12 @@ class NodeNetwork:
         self.metrics.increment_rewiring_count(
             pivot, least_similar_neighbor, candidate, self.graph, step
         )
+        stop_timing("rewire3")
 
-    def update_network(self, step):
-        """Update network activities and rewire connections."""
-        self.update_activity()
-        self.rewire(step)
-
-    def apply_forces(self, effective_iterations=1):
-        """Placeholder for force-directed layout (if needed)."""
-        pass  # Graph-tool provides visualization, but forces are external.
-
-    def get_adjacency_matrix(self):
-        """Get the adjacency matrix of the graph."""
-        return self.graph.get_adjacency().data
+    def update_network(self, step, iterations=1):
+        """Update network activities and rewire connections over multiple iterations."""
+        start_timing("update_network")
+        for _ in range(iterations):
+            self.update_activity()
+            self.rewire(step)
+        stop_timing("update_network")
