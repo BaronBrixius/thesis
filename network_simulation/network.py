@@ -27,6 +27,10 @@ class NodeNetwork:
         self.degrees = self.graph.new_vertex_property("int")
         self.degrees.a = self.graph.get_total_degrees(self.vertices)
 
+        self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=bool)
+        for edge in self.graph.get_edges():
+            self.adjacency_matrix[edge[0], edge[1]] = self.adjacency_matrix[edge[1], edge[0]] = True
+
         self.metrics = Metrics()
 
     def add_random_connections(self, num_connections_to_add):
@@ -47,6 +51,7 @@ class NodeNetwork:
             self.graph.add_edge(source, target)
             self.degrees[source] += 1
             self.degrees[target] += 1
+            self.adjacency_matrix[source, target] = self.adjacency_matrix[target, source] = True
 
     def remove_edge(self, source, target):
         """Remove an edge and update the degrees."""
@@ -55,34 +60,20 @@ class NodeNetwork:
             self.graph.remove_edge(edge)
             self.degrees[source] -= 1
             self.degrees[target] -= 1
+            self.adjacency_matrix[source, target] = self.adjacency_matrix[target, source] = False
 
     def update_activity(self):
-        """Perform one step of activity update and rewiring in a single pass."""
         start_timing("activity1")
-        edges = self.graph.get_edges()
+        # Sum up neighbor activities
+        neighbor_sums = np.einsum("ij,j->i", self.adjacency_matrix, self.activities.a)
         stop_timing("activity1")
 
         start_timing("activity2")
-        # Vectorized activity update
-        neighbor_sums_src = np.bincount(edges[:, 0], weights=self.activities.a[edges[:, 1]], minlength=self.num_nodes)
-        neighbor_sums_dst = np.bincount(edges[:, 1], weights=self.activities.a[edges[:, 0]], minlength=self.num_nodes)
+        # Split activity between neighbors (determined by epsilon)
+        neighbor_influenced_activity = (1 - self.epsilon) * self.activities.a + self.epsilon * neighbor_sums / self.degrees.a   # TODO add a catch for division by zero
+        # Apply logistic map
+        self.activities.a = 1 - self.alpha * (neighbor_influenced_activity)**2
         stop_timing("activity2")
-
-        start_timing("activity3")
-
-        # reimplement this as a backup for if we ever get a divided by zero error
-        # connected_nodes = self.degrees > 0
-        # stop_timing("activity2")
-
-        # start_timing("activity3")
-        # self.activities.a[connected_nodes] = (
-        #     (1 - self.epsilon) * self.activities.a[connected_nodes]
-        #     + self.epsilon * self.neighbor_sums[connected_nodes] / self.degrees[connected_nodes]
-        # )
-
-        # Logistic map
-        self.activities.a = 1 - self.alpha * ((1 - self.epsilon) * self.activities.a + self.epsilon * (neighbor_sums_src + neighbor_sums_dst) / self.degrees.a)**2
-        stop_timing("activity3")
 
     def rewire(self, step):
         start_timing("rewire1")
