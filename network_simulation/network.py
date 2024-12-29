@@ -22,6 +22,12 @@ class NodeNetwork:
         self.activities = self.graph.new_vertex_property("float")
         self.activities.a = np.random.uniform(-1, 1, num_nodes)
 
+        self.vertices = self.graph.get_vertices()
+        # Preallocate reusable arrays
+        self.neighbor_sums = self.graph.new_vertex_property("float")
+        self.degrees = self.graph.new_vertex_property("int")
+        self.degrees.a = self.graph.get_total_degrees(self.vertices)
+
         self.metrics = Metrics()
 
     def add_random_connections(self, num_connections_to_add):
@@ -36,6 +42,21 @@ class NodeNetwork:
 
         self.graph.add_edge_list(edges)
 
+    def add_edge(self, source, target):
+        """Add an edge and update the degrees."""
+        if not self.graph.edge(source, target):
+            self.graph.add_edge(source, target)
+            self.degrees[source] += 1
+            self.degrees[target] += 1
+
+    def remove_edge(self, source, target):
+        """Remove an edge and update the degrees."""
+        edge = self.graph.edge(source, target)
+        if edge:
+            self.graph.remove_edge(edge)
+            self.degrees[source] -= 1
+            self.degrees[target] -= 1
+
     def update_activity(self):
         """Perform one step of activity update and rewiring in a single pass."""
         start_timing("activity1")
@@ -44,18 +65,26 @@ class NodeNetwork:
 
         start_timing("activity2")
         # Vectorized activity update
-        neighbor_sum = np.zeros(self.num_nodes)
-        np.add.at(neighbor_sum, edges[:, 0], self.activities.a[edges[:, 1]])
-        np.add.at(neighbor_sum, edges[:, 1], self.activities.a[edges[:, 0]])
-        neighbor_counts = self.graph.get_total_degrees(self.graph.get_vertices())
-        connected_nodes = neighbor_counts > 0
+        self.neighbor_sums.a.fill(0)
+        np.add.at(self.neighbor_sums.a, edges[:, 0], self.activities.a[edges[:, 1]])
+        np.add.at(self.neighbor_sums.a, edges[:, 1], self.activities.a[edges[:, 0]])
         stop_timing("activity2")
 
         start_timing("activity3")
-        self.activities.a[connected_nodes] = (
-            (1 - self.epsilon) * self.activities.a[connected_nodes]
-            + self.epsilon * neighbor_sum[connected_nodes] / neighbor_counts[connected_nodes]
+        self.activities.a = (
+            (1 - self.epsilon) * self.activities.a
+            + self.epsilon * self.neighbor_sums.a / self.degrees.a
         )
+
+        # connected_nodes = self.degrees > 0
+        # stop_timing("activity2")
+
+        # start_timing("activity3")
+        # self.activities.a[connected_nodes] = (
+        #     (1 - self.epsilon) * self.activities.a[connected_nodes]
+        #     + self.epsilon * self.neighbor_sums[connected_nodes] / self.degrees[connected_nodes]
+        # )
+
 
         # Logistic map
         self.activities.a = 1 - self.alpha * self.activities.a**2
