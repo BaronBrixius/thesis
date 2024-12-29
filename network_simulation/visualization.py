@@ -13,12 +13,12 @@ class ColorBy(Enum):
     CONNECTIONS = "inferno"
 
 class Visualization:
-    def __init__(self, graph, activities, cluster_assignments, output_dir="visuals", color_by=ColorBy.CLUSTER):
+    def __init__(self, graph, activities, cluster_assignments, output_dir="sim", color_by=ColorBy.CLUSTER):
         self.logger = logging.getLogger(__name__)
         self.graph = graph
         self.activities = activities
         self.cluster_assignments = cluster_assignments
-        self.output_dir = output_dir
+        self.output_dir = os.path.join(output_dir, "images")
         self.color_by = color_by
 
         if not os.path.exists(self.output_dir):
