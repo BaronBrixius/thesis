@@ -24,7 +24,6 @@ class NodeNetwork:
 
         self.vertices = self.graph.get_vertices()
         # Preallocate reusable arrays
-        self.neighbor_sums = self.graph.new_vertex_property("float")
         self.degrees = self.graph.new_vertex_property("int")
         self.degrees.a = self.graph.get_total_degrees(self.vertices)
 
@@ -65,9 +64,8 @@ class NodeNetwork:
 
         start_timing("activity2")
         # Vectorized activity update
-        self.neighbor_sums.a.fill(0)
-        np.add.at(self.neighbor_sums.a, edges[:, 0], self.activities.a[edges[:, 1]])
-        np.add.at(self.neighbor_sums.a, edges[:, 1], self.activities.a[edges[:, 0]])
+        neighbor_sums_src = np.bincount(edges[:, 0], weights=self.activities.a[edges[:, 1]], minlength=self.num_nodes)
+        neighbor_sums_dst = np.bincount(edges[:, 1], weights=self.activities.a[edges[:, 0]], minlength=self.num_nodes)
         stop_timing("activity2")
 
         start_timing("activity3")
@@ -83,7 +81,7 @@ class NodeNetwork:
         # )
 
         # Logistic map
-        self.activities.a = 1 - self.alpha * ((1 - self.epsilon) * self.activities.a + self.epsilon * self.neighbor_sums.a / self.degrees.a)**2
+        self.activities.a = 1 - self.alpha * ((1 - self.epsilon) * self.activities.a + self.epsilon * (neighbor_sums_src + neighbor_sums_dst) / self.degrees.a)**2
         stop_timing("activity3")
 
     def rewire(self, step):
