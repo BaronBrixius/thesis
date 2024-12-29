@@ -78,38 +78,33 @@ class NodeNetwork:
     def rewire(self, step):
         start_timing("rewire1")
         # Select a pivot node
-        pivot_idx = np.random.randint(0, self.num_nodes)
-        pivot_neighbors = self.graph.get_out_neighbors(pivot_idx)
+        pivot = np.random.randint(self.num_nodes)
+        pivot_neighbors = self.graph.get_out_neighbors(pivot)
         while len(pivot_neighbors) == 0:            # Select another pivot if pivot has no neighbors, very rarely happens in practice
-            pivot_idx = np.random.randint(0, self.num_nodes)
-            pivot_neighbors = self.graph.get_out_neighbors(pivot_idx)
+            pivot = np.random.randint(self.num_nodes)
+            pivot_neighbors = self.graph.get_out_neighbors(pivot)
         stop_timing("rewire1")
 
         start_timing("rewire2")
-        # Calculate activity differences
-        is_neighbor = np.zeros(self.num_nodes, dtype=bool)
-        is_neighbor[pivot_neighbors] = True
-        is_neighbor[pivot_idx] = True
-        non_neighbors = np.where(~is_neighbor)[0]
-
-        # Calculate activity differences
-        activity_diffs = np.abs(self.activities.a - self.activities.a[pivot_idx])
-
-        # Select most similar non-neighbor and least similar neighbor
-        candidate = non_neighbors[np.argmin(activity_diffs[non_neighbors])]
-        least_similar_neighbor = pivot_neighbors[np.argmax(activity_diffs[pivot_neighbors])]
+        # 2. From all other units, select the one that is most synchronized (henceforth: candidate) and least synchronized neighbor
+        # TODO optimize with a loop to look for both at once?
+        activity_diff = np.abs(self.activities.a - self.activities.a[pivot])
+        activity_diff_neighbors = activity_diff * self.adjacency_matrix[pivot]
+        activity_diff[pivot] = np.inf                                   # stop the pivot from connecting to itself
+        candidate = np.argmin(activity_diff)                            # most similar activity
+        least_similar_neighbor = np.argmax(activity_diff_neighbors)     # least similar neighbor
         stop_timing("rewire2")
 
         start_timing("rewire3")
-        # Add connection to candidate and remove from least similar neighbor
-        if not self.graph.edge(pivot_idx, candidate):
-            self.graph.add_edge(pivot_idx, candidate)
-            edge_to_remove = self.graph.edge(pivot_idx, least_similar_neighbor)
-            if edge_to_remove:
-                self.graph.remove_edge(edge_to_remove)
+        # 3a. If there is a connection between the pivot and the candidate already, do nothing
+        if self.graph.edge(pivot, candidate):
+            return
+
+        self.add_edge(pivot, candidate)
+        self.remove_edge(pivot, least_similar_neighbor)
 
         # Update metrics
-        self.metrics.increment_rewiring_count(pivot_idx, least_similar_neighbor, candidate, self.graph, step)
+        self.metrics.increment_rewiring_count(pivot, least_similar_neighbor, candidate, self.graph, step)
         stop_timing("rewire3")
 
     def update_network(self, step):
