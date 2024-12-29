@@ -66,35 +66,40 @@ class NodeNetwork:
         """Rewire the graph based on activity similarity."""
         start_timing("rewire1")
         # Select a pivot node
-        pivot = self.graph.vertex(np.random.randint(0, self.num_nodes))
-        neighbors = list(pivot.out_neighbors())
-        while not neighbors:
-            pivot = self.graph.vertex(np.random.randint(0, self.num_nodes))
-            neighbors = list(pivot.out_neighbors())
+        pivot_idx = np.random.randint(0, self.num_nodes)
+        pivot_neighbors = self.graph.get_out_neighbors(pivot_idx)
+        while len(pivot_neighbors) == 0:
+            pivot_idx = np.random.randint(0, self.num_nodes)
+            pivot_neighbors = self.graph.get_out_neighbors(pivot_idx)
         stop_timing("rewire1")
 
         start_timing("rewire2")
         # Calculate activity differences
-        activity_diffs = np.abs(self.activities.a - self.activities[pivot])
-        all_vertices = np.arange(self.graph.num_vertices())
-        non_neighbors = np.setdiff1d(all_vertices, [int(v) for v in neighbors] + [int(pivot)])
+        all_vertices = self.graph.get_vertices()
+        is_neighbor = np.zeros(self.num_nodes, dtype=bool)
+        is_neighbor[pivot_neighbors] = True
+        is_neighbor[pivot_idx] = True
+        non_neighbors = all_vertices[~is_neighbor]
+
+        # Calculate activity differences
+        activity_diffs = np.abs(self.activities.a - self.activities.a[pivot_idx])
 
         # Select most similar non-neighbor and least similar neighbor
         candidate = non_neighbors[np.argmin(activity_diffs[non_neighbors])]
-        least_similar_neighbor = neighbors[np.argmax(activity_diffs[[int(n) for n in neighbors]])]
+        least_similar_neighbor = pivot_neighbors[np.argmax(activity_diffs[pivot_neighbors])]
         stop_timing("rewire2")
 
         start_timing("rewire3")
         # Add connection to candidate and remove from least similar neighbor
-        if not self.graph.edge(pivot, candidate):
-            self.graph.add_edge(pivot, candidate)
-            edge_to_remove = self.graph.edge(pivot, least_similar_neighbor)
+        if not self.graph.edge(pivot_idx, candidate):
+            self.graph.add_edge(pivot_idx, candidate)
+            edge_to_remove = self.graph.edge(pivot_idx, least_similar_neighbor)
             if edge_to_remove:
                 self.graph.remove_edge(edge_to_remove)
 
         # Update metrics
         self.metrics.increment_rewiring_count(
-            pivot, least_similar_neighbor, candidate, self.graph, step
+            pivot_idx, least_similar_neighbor, candidate, self.graph, step
         )
         stop_timing("rewire3")
 
