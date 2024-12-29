@@ -71,11 +71,8 @@ class NodeNetwork:
         stop_timing("activity2")
 
         start_timing("activity3")
-        self.activities.a = (
-            (1 - self.epsilon) * self.activities.a
-            + self.epsilon * self.neighbor_sums.a / self.degrees.a
-        )
 
+        # reimplement this as a backup for if we ever get a divided by zero error
         # connected_nodes = self.degrees > 0
         # stop_timing("activity2")
 
@@ -85,9 +82,8 @@ class NodeNetwork:
         #     + self.epsilon * self.neighbor_sums[connected_nodes] / self.degrees[connected_nodes]
         # )
 
-
         # Logistic map
-        self.activities.a = 1 - self.alpha * self.activities.a**2
+        self.activities.a = 1 - self.alpha * ((1 - self.epsilon) * self.activities.a + self.epsilon * self.neighbor_sums.a / self.degrees.a)**2
         stop_timing("activity3")
 
     def rewire(self, step):
