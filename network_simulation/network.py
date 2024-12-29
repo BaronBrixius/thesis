@@ -36,7 +36,7 @@ class NodeNetwork:
 
         self.graph.add_edge_list(edges)
 
-    def step_update(self, step):
+    def update_activity(self):
         """Perform one step of activity update and rewiring in a single pass."""
         start_timing("activity1")
         edges = self.graph.get_edges()
@@ -61,11 +61,12 @@ class NodeNetwork:
         self.activities.a = 1 - self.alpha * self.activities.a**2
         stop_timing("activity3")
 
+    def rewire(self, step):
         start_timing("rewire1")
         # Select a pivot node
         pivot_idx = np.random.randint(0, self.num_nodes)
         pivot_neighbors = self.graph.get_out_neighbors(pivot_idx)
-        while len(pivot_neighbors) == 0:
+        while len(pivot_neighbors) == 0:            # Select another pivot if pivot has no neighbors, very rarely happens in practice
             pivot_idx = np.random.randint(0, self.num_nodes)
             pivot_neighbors = self.graph.get_out_neighbors(pivot_idx)
         stop_timing("rewire1")
@@ -99,9 +100,8 @@ class NodeNetwork:
         )
         stop_timing("rewire3")
 
-    def update_network(self, step, iterations=1):
-        """Update network activities and rewire connections over multiple iterations."""
+    def update_network(self, step):
         start_timing("update_network")
-        for _ in range(iterations):
-            self.step_update(step)
+        self.update_activity()
+        self.rewire(step)
         stop_timing("update_network")
