@@ -45,19 +45,23 @@ class NodeNetwork:
 
         self.graph.add_edge_list(edges)
 
-    def add_edge(self, source, target):
-        """Add an edge and update the degrees."""
-        self.graph.add_edge(source, target)
-        self.degrees[source] += 1
-        self.degrees[target] += 1
-        self.adjacency_matrix[source, target] = self.adjacency_matrix[target, source] = True
+    def swap_edge(self, pivot, old_target, new_target):
+        """Swap one endpoint of an edge, replacing old_target with new_target."""
+        edge = self.graph.edge(pivot, old_target)
+        if not edge:
+            return  # Edge doesn't exist, no need to proceed
 
-    def remove_edge(self, source, target):
-        """Remove an edge and update the degrees."""
-        self.graph.remove_edge(self.graph.edge(source, target))
-        self.degrees[source] -= 1
-        self.degrees[target] -= 1
-        self.adjacency_matrix[source, target] = self.adjacency_matrix[target, source] = False
+        # Update adjacency matrix
+        self.adjacency_matrix[pivot, old_target] = self.adjacency_matrix[old_target, pivot] = False
+        self.adjacency_matrix[pivot, new_target] = self.adjacency_matrix[new_target, pivot] = True
+
+        # Update degrees
+        self.degrees[old_target] -= 1
+        self.degrees[new_target] += 1
+
+        # Efficiently replace the edge
+        self.graph.remove_edge(edge)
+        self.graph.add_edge(pivot, new_target)
 
     def update_activity(self):
         start_timing("activity1")
@@ -98,14 +102,11 @@ class NodeNetwork:
         stop_timing("rewire2")
 
         start_timing("rewire3")
-        self.add_edge(pivot, candidate)
-        stop_timing("rewire3")
-        start_timing("rewire4")
-        self.remove_edge(pivot, least_similar_neighbor)
+        self.swap_edge(pivot, least_similar_neighbor, candidate)
 
         # Update metrics
-        # self.metrics.increment_rewiring_count(pivot, least_similar_neighbor, candidate, self.graph, step)
-        stop_timing("rewire4")
+        self.metrics.increment_rewiring_count(pivot, least_similar_neighbor, candidate, self.graph, step)
+        stop_timing("rewire3")
 
     def update_network(self, step):
         start_timing("update_network")

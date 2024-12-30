@@ -37,31 +37,23 @@ class Output:
         graph = network.graph
         metrics = network.metrics
         activities = network.activities.a
-        previous_cluster_assignments = metrics.current_cluster_assignments
-        cluster_assignments = metrics.get_cluster_assignments(graph)
-        # cluster_sizes = {i: sum(cluster_assignments == i) for i in np.unique(cluster_assignments)}
-        # cluster_densities = {i: metrics.calculate_intra_cluster_density(graph, np.where(cluster_assignments == i)[0]) for i in np.unique(cluster_assignments)}
-        # avg_cluster_size = np.mean(list(cluster_sizes.values()))
-        # avg_cluster_density = np.mean(list(cluster_densities.values()))
 
-        # Compute
+        # Get cluster metrics
+        cluster_metrics = metrics.get_cluster_metrics(graph, step)
+
+        # Compute row data
         row = {
             "Step": step,
-            "Clustering Coefficient": metrics.calculate_clustering_coefficient(graph),
+            "Clustering Coefficient": metrics.get_clustering_coefficient(graph),
             "Average Path Length": metrics.calculate_average_path_length(graph),
             "Rewiring Chance": metrics.calculate_rewiring_chance(graph, activities),
-            # "Rich-Club Coefficient": metrics.calculate_rich_club_coefficient(graph),
-
-            # Cluster Metrics
-            "Cluster Membership": {i: np.where(cluster_assignments == i)[0].tolist() for i in np.unique(cluster_assignments)},
-            "Cluster Count": len(np.unique(cluster_assignments)),
-            "Cluster Membership Stability": metrics.calculate_cluster_membership_stability(cluster_assignments, previous_cluster_assignments),
-            # "Cluster Sizes": cluster_sizes,
-            # "Average Cluster Size": avg_cluster_size,
-            # "Cluster Densities": cluster_densities,
-            # "Average Cluster Density": avg_cluster_density,
-            "Cluster Size Variance": metrics.calculate_cluster_size_variance(cluster_assignments),
         }
 
-        row.update({f"Rewirings ({key})": value for key, value in metrics.rewirings.items()})
+        # Update with cluster metrics
+        row.update(cluster_metrics)
+
+        # Add rewiring metrics
+        row.update(
+            {f"Rewirings ({key})": value for key, value in metrics.rewirings.items()}
+        )
         return row

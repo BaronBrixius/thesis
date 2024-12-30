@@ -1,6 +1,7 @@
 import logging
 from network_simulation.analyzer import PostRunAnalyzer
 from network_simulation.experiment import Experiment
+from network_simulation.metrics import Metrics
 from network_simulation.utils import get_times
 import cProfile
 import pstats
@@ -45,3 +46,4 @@ if __name__ == "__main__":
     if profiler: pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(40)
 
     print(get_times())   #TODO Remove for final version
+    # print(Metrics.get_cluster_assignments.cache_info())

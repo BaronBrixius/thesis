@@ -16,7 +16,7 @@ class Simulation:
         self.visualization = Visualization(
             graph=self.network.graph,
             activities=self.network.activities,
-            cluster_assignments=self.network.metrics.get_cluster_assignments(self.network.graph),
+            cluster_assignments=self.network.metrics.get_cluster_assignments(self.network.graph, step=0),
             output_dir=output_dir
         )
 
@@ -33,7 +33,7 @@ class Simulation:
         """Processes a single simulation step."""
         if metrics_interval and step % metrics_interval == 0:
             self.output.write_metrics_line(step, self.network)
-            self.network.metrics.reset_rewiring_count()
+            self.network.metrics.reset_rewiring_counts()
 
         if display_interval and step % display_interval == 0:
             self._update_visualization(step)
@@ -51,7 +51,7 @@ class Simulation:
         """Handles final outputs after the simulation loop ends."""
         if metrics_interval:
             self.output.write_metrics_line(num_steps, self.network)
-            self.network.metrics.reset_rewiring_count()
+            self.network.metrics.reset_rewiring_counts()
 
         if display_interval:
             self._update_visualization(num_steps)
