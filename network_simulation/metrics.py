@@ -44,8 +44,7 @@ class Metrics:
 
     def reset_rewiring_counts(self):
         """Reset all rewiring counts."""
-        for key in self.rewirings.keys():
-            self.rewirings[key] = 0
+        self.rewirings = {key: 0 for key in self.rewirings}
 
     ## Individual Metric Calculation Methods ##
 
