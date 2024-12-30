@@ -77,26 +77,21 @@ class Metrics:
         not_connected = [not graph.edge(i, most_similar_node[i]) for i in range(num_nodes)]
         return np.mean(not_connected)
 
-    # @lru_cache(maxsize=128)
-    def get_cluster_assignments(self, graph: Graph, step: int):
-        state = BlockState(graph, b=self.current_cluster_assignments)
-        state.multiflip_mcmc_sweep(niter=10, beta=np.inf)
-        cluster_assignments = state.get_blocks().a
-        self.current_cluster_assignments = cluster_assignments
-        return cluster_assignments
-
+    @lru_cache(maxsize=128)
     def get_cluster_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
-        old_cluster_assignment = self.current_cluster_assignments
+        # Tuples to be hashable for lru_cache
+        old_cluster_assignments = tuple(self.current_cluster_assignments)
         cluster_assignments = self.get_cluster_assignments(graph, step)
-        unique_clusters = np.unique(cluster_assignments)
+        cluster_assignments_tuple = tuple(cluster_assignments)
+        unique_clusters = set(cluster_assignments)
 
-        cluster_sizes = self.get_cluster_sizes(tuple(cluster_assignments))
-        intra_cluster_densities = self.get_cluster_densities(graph, tuple(cluster_assignments))
+        cluster_sizes = self.get_cluster_sizes(cluster_assignments_tuple)
+        intra_cluster_densities = self.get_cluster_densities(graph, cluster_assignments_tuple)
 
         return {
             "Cluster Membership": {i: np.where(cluster_assignments == i)[0].tolist() for i in unique_clusters},
             "Cluster Count": len(unique_clusters),
-            "Cluster Membership Stability": self.calculate_cluster_membership_stability(cluster_assignments, old_cluster_assignment),
+            "Cluster Membership Stability": self.calculate_cluster_membership_stability(cluster_assignments_tuple, old_cluster_assignments),
             "Cluster Sizes": cluster_sizes,
             "Average Cluster Size": np.mean(list(cluster_sizes.values())),
             "Cluster Densities": intra_cluster_densities,
@@ -104,14 +99,22 @@ class Metrics:
             "Cluster Size Variance": self.calculate_cluster_size_variance(cluster_assignments),
         }
 
+    @lru_cache(maxsize=128)
+    def get_cluster_assignments(self, graph: Graph, step: int):
+        state = BlockState(graph, b=self.current_cluster_assignments)
+        state.multiflip_mcmc_sweep(niter=10, beta=np.inf)
+        cluster_assignments = state.get_blocks().a
+        self.current_cluster_assignments = cluster_assignments
+        return cluster_assignments
+
     @staticmethod
-    # @lru_cache(maxsize=128)
+    @lru_cache(maxsize=128)
     def get_cluster_sizes(cluster_assignments: tuple) -> Dict[int, int]:
         counts = np.unique(cluster_assignments, return_counts=True)[1]
         return {i: count for i, count in enumerate(counts)}
 
     @staticmethod
-    # @lru_cache(maxsize=128)
+    @lru_cache(maxsize=128)
     def get_cluster_densities(graph: Graph, cluster_assignments: tuple) -> Dict[int, float]:
         unique_clusters = np.unique(cluster_assignments)
         return {
@@ -122,7 +125,7 @@ class Metrics:
         }
 
     @staticmethod
-    # @lru_cache(maxsize=128)
+    @lru_cache(maxsize=128)
     def get_intra_cluster_density(graph: Graph, cluster_nodes: tuple) -> float:
         graph.set_vertex_filter(graph.new_vertex_property("bool", vals=[int(v) in cluster_nodes for v in graph.vertices()]), inverted=False)
         num_edges = graph.num_edges()
@@ -131,7 +134,8 @@ class Metrics:
         return num_edges / num_possible_edges if num_possible_edges > 0 else 0
 
     @staticmethod
-    def calculate_cluster_membership_stability(current_assignments: np.ndarray, previous_assignments: np.ndarray) -> float:
+    @lru_cache(maxsize=128)
+    def calculate_cluster_membership_stability(current_assignments: tuple, previous_assignments: tuple) -> float:
         """Cluster Membership Stability: Similarity between cluster assignments across time steps."""
         if previous_assignments is None:
             return 0.0
@@ -143,23 +147,3 @@ class Metrics:
         """Cluster Size Variance: Variability in cluster sizes."""
         _, counts = np.unique(cluster_assignments, return_counts=True)
         return np.var(counts)
-
-    # Fourier Analysis
-    @staticmethod
-    def calculate_amplitude_of_oscillations(values: np.ndarray) -> float:
-        """Amplitude of Oscillations: Max range of metric values."""
-        return np.max(values) - np.min(values)
-
-    @staticmethod
-    def summarize_metric(values: np.ndarray) -> Dict[str, float]:
-        """Summarizes a metric over the entire run."""
-        return {
-            "Mean": np.mean(values),
-            "StdDev": np.std(values),
-            "Max": np.max(values),
-            "Min": np.min(values),
-        }
-
-    @staticmethod
-    def calculate_fourier_transform(values: np.ndarray) -> np.ndarray:
-        return np.abs(np.fft.fft(values))
