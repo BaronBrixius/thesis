@@ -2,6 +2,7 @@ import logging
 from network_simulation.analyzer import PostRunAnalyzer
 from network_simulation.experiment import Experiment
 from network_simulation.metrics import Metrics
+from network_simulation.visualization import ColorBy
 from network_simulation.utils import get_times
 import cProfile
 import pstats
@@ -24,7 +25,8 @@ if __name__ == "__main__":
     # NetworkControlApp()
 
     ## Quick Run
-    Experiment(base_dir).run_simulation(num_nodes=200, num_connections=2000, output_dir="graphtools",  num_steps=20000, display_interval=1000, metrics_interval=1000, random_seed=4)
+    Experiment(base_dir).run_simulation(num_nodes=200, num_connections=2000, output_dir="graphtools", 
+                                        num_steps=200000, display_interval=50000, metrics_interval=1000, random_seed=42, color_by=ColorBy.CLUSTER)
 
     ## Experiment Run
     # experiment_folder = os.path.join(base_dir, "foo")

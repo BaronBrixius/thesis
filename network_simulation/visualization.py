@@ -5,11 +5,12 @@ import logging
 from enum import Enum
 import os
 from matplotlib import cm
+from network_simulation.utils import start_timing, stop_timing
 
 class ColorBy(Enum):
     ACTIVITY = cm.get_cmap("cividis")
     CLUSTER = cm.get_cmap("Set1")
-    CONNECTIONS = cm.get_cmap("inferno")
+    DEGREE = cm.get_cmap("inferno")
 
 class Visualization:
     def __init__(self, network:NodeNetwork, output_dir="sim", color_by=ColorBy.ACTIVITY):
@@ -34,7 +35,7 @@ class Visualization:
             self.logger.error(f"Layout computation failed: {e}")
             return None
 
-    def _compute_vertex_colors(self, network:NodeNetwork, step):
+    def _compute_vertex_colors(self, network: NodeNetwork, step):
         """
         Update vertex colors based on the specified color mode.
         """
@@ -42,31 +43,36 @@ class Visualization:
         colormap = self.color_by.value
 
         if self.color_by == ColorBy.ACTIVITY:
-            normalized_activities = (network.activities.a - np.min(network.activities.a)) / (
-                np.max(network.activities.a) - np.min(network.activities.a)
-            )
+            min_val, max_val = np.min(network.activities.a), np.max(network.activities.a)
+            if max_val == min_val:
+                normalized_activities = np.zeros_like(network.activities.a)  # All the same
+            else:
+                normalized_activities = (network.activities.a - min_val) / (max_val - min_val)
             for v in network.graph.vertices():
-                colors[v] = [normalized_activities[int(v)], 0.5, 1 - normalized_activities[int(v)]]  # RGB mapping
+                colors[v] = colormap(normalized_activities[int(v)])[:3]  # RGB only
 
         elif self.color_by == ColorBy.CLUSTER:
             cluster_assignments = network.metrics.get_cluster_assignments(network.graph, step)
             unique_clusters = np.unique(cluster_assignments)
-            color_map = {cluster: colormap(i)[:3] for i, cluster in enumerate(unique_clusters)}
+            color_map = {cluster: colormap(i / len(unique_clusters))[:3] for i, cluster in enumerate(unique_clusters)}
 
-            for v in network.vertices:
+            for v in network.graph.vertices():
                 colors[v] = color_map[cluster_assignments[int(v)]]
 
-        elif self.color_by == ColorBy.CONNECTIONS:
-            degrees = network.degrees.a
-            max_degree = max(degrees)
-            min_degree = min(degrees)
-            normalized_degrees = (degrees - min_degree) / (max_degree - min_degree)
-            for v in network.vertices:
-                colors[v] = [normalized_degrees[int(v)], 0.5, 0.5]
+        elif self.color_by == ColorBy.DEGREE:
+            min_degree, max_degree = np.min(network.degrees.a), np.max(network.degrees.a)
+            if max_degree == min_degree:
+                normalized_degrees = np.zeros_like(network.degrees.a)  # All the same
+            else:
+                normalized_degrees = (network.degrees.a - min_degree) / (max_degree - min_degree)
+            for v in network.graph.vertices():
+                colors[v] = colormap(normalized_degrees[int(v)])[:3]
+
         else:
             raise ValueError(f"Unsupported color_by option: {self.color_by}")
         
         return colors
+
 
     def refresh_visual(self, network:NodeNetwork, step, max_iter=25):
         """Recompute positions and vertex colors to reflect graph changes."""
@@ -79,8 +85,7 @@ class Visualization:
         graph_draw(
             network.graph,
             pos=self.positions,
-            vertex_fill_color=self.colors.a,  # Truncate RGBA to RGB
+            vertex_fill_color=self.colors,  # Truncate RGBA to RGB
             output=output_path,
             # output_size=(800, 600),
         )
-        self.logger.info(f"Saved visualization at step {step} to {output_path}")

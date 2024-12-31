@@ -48,8 +48,8 @@ class Experiment:
         if self.termination_flag.is_set():
             return f"Simulation {random_seed, num_nodes, num_connections} terminated by user."
         from network_simulation.simulation import Simulation  # Import inside to ensure clean process
-        sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=self.experiment_folder+output_dir, random_seed=random_seed)
-        sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval, show=False, color_by=color_by)
+        sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=self.experiment_folder+output_dir, color_by=color_by, random_seed=random_seed)
+        sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
         return f"Simulation completed for {num_nodes} nodes, {num_connections} connections with seed {random_seed}"
 
     def run_experiment(self, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval, connections_as_density=False):
