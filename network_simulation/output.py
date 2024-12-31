@@ -44,7 +44,7 @@ class Output:
         # Compute row data
         row = {
             "Step": step,
-            "Clustering Coefficient": metrics.get_clustering_coefficient(graph),
+            "Clustering Coefficient": metrics.calculate_clustering_coefficient(graph),
             "Average Path Length": metrics.calculate_average_path_length(graph),
             "Rewiring Chance": metrics.calculate_rewiring_chance(graph, activities),
         }

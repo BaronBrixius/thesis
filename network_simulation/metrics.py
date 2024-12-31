@@ -49,7 +49,7 @@ class Metrics:
     ## Individual Metric Calculation Methods ##
 
     @staticmethod
-    def get_clustering_coefficient(graph: Graph) -> float:
+    def calculate_clustering_coefficient(graph: Graph) -> float:
         """
         Clustering Coefficient (CC): Tendency of nodes to form tightly knit groups (triangles).
         """
@@ -79,7 +79,7 @@ class Metrics:
     @lru_cache(maxsize=128)
     def get_cluster_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
         # Tuples to be hashable for lru_cache
-        old_cluster_assignments = tuple(self.current_cluster_assignments)
+        old_cluster_assignments = tuple(self.current_cluster_assignments) if self.current_cluster_assignments is not None else None
         cluster_assignments = self.get_cluster_assignments(graph, step)
         cluster_assignments_tuple = tuple(cluster_assignments)
         unique_clusters = set(cluster_assignments)
@@ -90,7 +90,7 @@ class Metrics:
         return {
             "Cluster Membership": {i: np.where(cluster_assignments == i)[0].tolist() for i in unique_clusters},
             "Cluster Count": len(unique_clusters),
-            "Cluster Membership Stability": self.calculate_cluster_membership_stability(cluster_assignments_tuple, old_cluster_assignments),
+            "Cluster Membership Stability": self.get_cluster_membership_stability(cluster_assignments_tuple, old_cluster_assignments),
             "Cluster Sizes": cluster_sizes,
             "Average Cluster Size": np.mean(list(cluster_sizes.values())),
             "Cluster Densities": intra_cluster_densities,
@@ -134,7 +134,7 @@ class Metrics:
 
     @staticmethod
     @lru_cache(maxsize=128)
-    def calculate_cluster_membership_stability(current_assignments: tuple, previous_assignments: tuple) -> float:
+    def get_cluster_membership_stability(current_assignments: tuple, previous_assignments: tuple) -> float:
         """Cluster Membership Stability: Similarity between cluster assignments across time steps."""
         if previous_assignments is None:
             return 0.0

@@ -24,7 +24,7 @@ if __name__ == "__main__":
     # NetworkControlApp()
 
     ## Quick Run
-    Experiment(base_dir).run_simulation(num_nodes=200, num_connections=2000, output_dir="graphtools",  num_steps=200000, display_interval=50000, metrics_interval=1000, random_seed=42)
+    Experiment(base_dir).run_simulation(num_nodes=200, num_connections=2000, output_dir="graphtools",  num_steps=20000, display_interval=1000, metrics_interval=1000, random_seed=4)
 
     ## Experiment Run
     # experiment_folder = os.path.join(base_dir, "foo")

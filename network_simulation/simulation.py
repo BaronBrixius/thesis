@@ -1,9 +1,7 @@
 import logging
 from network_simulation.network import NodeNetwork
 from network_simulation.output import Output
-from graph_tool.draw import graph_draw
-import numpy as np
-import os
+from network_simulation.visualization import ColorBy
 from network_simulation.visualization import Visualization
 
 class Simulation:
@@ -11,16 +9,10 @@ class Simulation:
         self.logger = logging.getLogger(__name__)
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
         self.output = Output(output_dir, num_nodes=num_nodes, num_connections=num_connections)
+        cluster_assignments = self.network.metrics.get_cluster_assignments(self.network.graph, step=0),   # FIXME this shouldn't be needed but it is, something about the  assignment caching probably
+        self.visualization = Visualization(network=self.network, output_dir=output_dir)
 
-        # Initialize Visualization
-        self.visualization = Visualization(
-            graph=self.network.graph,
-            activities=self.network.activities,
-            cluster_assignments=self.network.metrics.get_cluster_assignments(self.network.graph, step=0),
-            output_dir=output_dir
-        )
-
-    def run(self, num_steps, display_interval=1000, metrics_interval=1000, show=False, color_by="cluster"):
+    def run(self, num_steps, display_interval=1000, metrics_interval=1000, show=False, color_by=ColorBy.CLUSTER):
         self.logger.info(f"Starting with Nodes: {self.network.num_nodes}, Connections: {self.network.num_connections}, Steps: {num_steps}")
 
         # Main Loop
@@ -36,16 +28,14 @@ class Simulation:
             self.network.metrics.reset_rewiring_counts()
 
         if display_interval and step % display_interval == 0:
-            self._update_visualization(step)
+            self._update_visualization(step, display_interval)
 
         self.network.update_network(step)
 
-    def _update_visualization(self, step):
+    def _update_visualization(self, step, display_interval):
         """Update and save the visualization."""
-        self.visualization.cluster_assignments = self.network.metrics.get_cluster_assignments(self.network.graph, step)
-        self.visualization.activities = self.network.activities
-        self.visualization.refresh_visual()
-        self.visualization.save_visual(step)
+        self.visualization.refresh_visual(self.network, step, max_iter=min(25, display_interval))
+        self.visualization.save_visual(self.network, step)
 
     def _finalize_simulation(self, num_steps, display_interval, metrics_interval):
         """Handles final outputs after the simulation loop ends."""
@@ -54,4 +44,4 @@ class Simulation:
             self.network.metrics.reset_rewiring_counts()
 
         if display_interval:
-            self._update_visualization(num_steps)
+            self._update_visualization(num_steps, display_interval)
