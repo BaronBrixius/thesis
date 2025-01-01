@@ -1,5 +1,5 @@
 from graph_tool.all import Graph, local_clustering, shortest_distance
-from graph_tool.inference import BlockState
+from graph_tool.inference import BlockState, minimize_blockmodel_dl
 import numpy as np
 from sklearn.metrics.cluster import adjusted_rand_score
 from typing import Optional, Dict, List
@@ -16,6 +16,7 @@ class Metrics:
             "inter_to_intra": 0,
         }
         self.current_cluster_assignments = None
+        self.block_state = None
 
     # Runtime Tracking
     def increment_breakup_count(self):
@@ -87,22 +88,34 @@ class Metrics:
         cluster_sizes = self.get_cluster_sizes(cluster_assignments_tuple)
         intra_cluster_densities = self.get_cluster_densities(graph, cluster_assignments_tuple)
 
-        return {
-            "Cluster Membership": {i: np.where(cluster_assignments == i)[0].tolist() for i in unique_clusters},
+        cluster_metrics = {
+            "Cluster Membership": {i: np.where(self.current_cluster_assignments == i)[0].tolist() for i in unique_clusters},
             "Cluster Count": len(unique_clusters),
-            "Cluster Membership Stability": self.get_cluster_membership_stability(cluster_assignments_tuple, old_cluster_assignments),
+            "Cluster Membership Stability": self.get_cluster_membership_stability(tuple(self.current_cluster_assignments), old_cluster_assignments),
             "Cluster Sizes": cluster_sizes,
             "Average Cluster Size": np.mean(list(cluster_sizes.values())),
             "Cluster Densities": intra_cluster_densities,
             "Average Cluster Density": np.mean(list(intra_cluster_densities.values())),
-            "Cluster Size Variance": self.calculate_cluster_size_variance(cluster_assignments),
+            "Cluster Size Variance": self.calculate_cluster_size_variance(self.current_cluster_assignments),
+            "SBM Entropy": self.block_state.entropy(),
         }
+
+        # Add SBM-based metrics
+        # sbm_posterior = self.get_sbm_posterior_probabilities(graph)
+
+        # cluster_metrics.update({
+            # "SBM Mean Posterior": sbm_posterior["Mean Entropy"],
+            # "SBM StdDev Posterior": sbm_posterior["StdDev Entropy"],
+            # "SBM Best Posterior": sbm_posterior["Best Entropy"],
+        # })
+
+        return cluster_metrics
 
     @lru_cache(maxsize=128)
     def get_cluster_assignments(self, graph: Graph, step: int):
-        state = BlockState(graph, b=self.current_cluster_assignments)
-        state.multiflip_mcmc_sweep(niter=10, beta=np.inf)
-        cluster_assignments = state.get_blocks().a
+        self.block_state = BlockState(graph, b=self.current_cluster_assignments)
+        self.block_state.multiflip_mcmc_sweep(niter=10, beta=np.inf)
+        cluster_assignments = self.block_state.get_blocks().a
         self.current_cluster_assignments = cluster_assignments
         return cluster_assignments
 
@@ -146,3 +159,16 @@ class Metrics:
         """Cluster Size Variance: Variability in cluster sizes."""
         _, counts = np.unique(cluster_assignments, return_counts=True)
         return np.var(counts)
+
+    @staticmethod
+    def get_sbm_posterior_probabilities(graph, num_runs=10):
+        """Run SBM multiple times and calculate posterior probabilities."""
+        entropies = []
+        for _ in range(num_runs):
+            state = minimize_blockmodel_dl(graph)
+            entropies.append(state.entropy())
+        return {
+            "Mean Entropy": np.mean(entropies),
+            "StdDev Entropy": np.std(entropies),
+            "Best Entropy": min(entropies),
+        }

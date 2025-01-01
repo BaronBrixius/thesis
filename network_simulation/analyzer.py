@@ -81,6 +81,10 @@ class PostRunAnalyzer:
                 "Rewirings (inter_cluster_same)",
                 "Rewirings (intra_to_inter)",
                 "Rewirings (inter_to_intra)",
+                "SBM Entropy",
+                # "SBM Mean Posterior",
+                # "SBM StdDev Posterior",
+                # "SBM Best Posterior"
             ]
 
             for column in columns_to_summarize:
