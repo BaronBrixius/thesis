@@ -1,4 +1,5 @@
 from graph_tool.all import Graph, local_clustering, shortest_distance
+from graph_tool.stats import vertex_average
 from graph_tool.inference import BlockState, minimize_blockmodel_dl
 import numpy as np
 from sklearn.metrics.cluster import adjusted_rand_score
@@ -62,7 +63,10 @@ class Metrics:
         Average Path Length (APL): Average shortest path length between all pairs of nodes in the network.
         """
         distances = shortest_distance(graph, directed=False)
-        return sum([sum(i) for i in distances])/(graph.num_vertices()**2-graph.num_vertices())
+        n = graph.num_vertices()
+        # Only sum the upper triangle of the distance matrix, and double it
+        ave_path_length = 2 * sum([sum(row[j + 1:]) for j, row in enumerate(distances)])/(n**2-n)
+        return ave_path_length
 
     @staticmethod
     def calculate_rewiring_chance(graph: Graph, activities: np.ndarray) -> float:
