@@ -61,9 +61,8 @@ class Metrics:
         """
         Average Path Length (APL): Average shortest path length between all pairs of nodes in the network.
         """
-        distances = shortest_distance(graph, directed=False).get_2d_array(range(graph.num_vertices()))
-        finite_distances = distances[np.isfinite(distances)]
-        return np.mean(finite_distances) if len(finite_distances) > 0 else None
+        distances = shortest_distance(graph, directed=False)
+        return sum([sum(i) for i in distances])/(graph.num_vertices()**2-graph.num_vertices())
 
     @staticmethod
     def calculate_rewiring_chance(graph: Graph, activities: np.ndarray) -> float:
