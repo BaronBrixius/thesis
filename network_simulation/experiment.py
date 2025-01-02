@@ -65,7 +65,7 @@ class Experiment:
                     self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
                     num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
                 scenario_dir = os.path.join(f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
-                if self.is_scenario_completed(scenario_dir, num_steps / metrics_interval):
+                if metrics_interval and self.is_scenario_completed(scenario_dir, num_steps / metrics_interval):
                     self.logger.debug(f"Skipping completed scenario: {scenario_dir}")
                     continue
 
