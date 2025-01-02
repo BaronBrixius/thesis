@@ -48,7 +48,7 @@ class Experiment:
         if self.termination_flag.is_set():
             return f"Simulation {random_seed, num_nodes, num_connections} terminated by user."
         from network_simulation.simulation import Simulation  # Import inside to ensure clean process
-        sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=self.experiment_folder+output_dir, color_by=color_by, random_seed=random_seed)
+        sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=os.path.join(self.experiment_folder, output_dir), color_by=color_by, random_seed=random_seed)
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
         return f"Simulation completed for {num_nodes} nodes, {num_connections} connections with seed {random_seed}"
 
@@ -64,7 +64,7 @@ class Experiment:
                 if connections_as_density:   # decimal values for num_connections represent network density, and are converted
                     self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
                     num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
-                scenario_dir = os.path.join(self.experiment_folder, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
+                scenario_dir = os.path.join(f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
                 if self.is_scenario_completed(scenario_dir, num_steps / metrics_interval):
                     self.logger.debug(f"Skipping completed scenario: {scenario_dir}")
                     continue

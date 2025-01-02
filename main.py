@@ -9,7 +9,7 @@ import pstats
 import os
 from gui.app import NetworkControlApp
 
-base_dir = "/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output/"
+base_dir = "output"
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -34,9 +34,9 @@ if __name__ == "__main__":
     experiment.run_experiment(
                             seed_range=range(5),
                             nodes_range=[200],
-                            connections_range=range(2000, 6000, 250),      # [x / 100.0 for x in range(2, 40, 2)],
+                            connections_range=range(1500, 8000, 250),      # [x / 100.0 for x in range(2, 40, 2)],
                             connections_as_density = False,
-                            num_steps=3_000_000,
+                            num_steps=3_0_000,
                             display_interval=100_000,
                             metrics_interval=1_000,
                         )
