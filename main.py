@@ -18,7 +18,7 @@ if __name__ == "__main__":
             datefmt="%H:%M:%S"
         )
 
-    profiler = cProfile.Profile()
+    profiler = None #cProfile.Profile()
     if profiler: profiler.enable()
 
     ## Run in GUI
