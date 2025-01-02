@@ -1,11 +1,10 @@
 from network_simulation.network import NodeNetwork
-from graph_tool.draw import graph_draw, sfdp_layout, arf_layout, fruchterman_reingold_layout
+from graph_tool.draw import graph_draw, arf_layout, fruchterman_reingold_layout
 import numpy as np
 import logging
 from enum import Enum
 import os
 from matplotlib import cm
-from network_simulation.utils import start_timing, stop_timing
 
 class ColorBy(Enum):
     ACTIVITY = cm.get_cmap("cividis")
@@ -21,16 +20,17 @@ class Visualization:
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir, exist_ok=True)
 
-        self.positions = self.compute_layout(network.graph, None, 100)
+        self.positions = self._compute_layout(network.graph, None, 100)
         self.colors = network.graph.new_vertex_property("vector<float>")
         self.colors = self._compute_vertex_colors(network, 0)
 
-    def compute_layout(self, graph, old_positions=None, max_iter=25):
+    def _compute_layout(self, graph, old_positions=None, max_iter=25):
         """
         Compute or update the layout positions using the chosen algorithm.
         """
         try:
-            return arf_layout(graph, pos=old_positions, max_iter=max_iter)
+            layout = arf_layout(graph, pos=old_positions, epsilon=10000, max_iter=0)
+            return layout
         except Exception as e:
             self.logger.error(f"Layout computation failed: {e}")
             return None
@@ -76,7 +76,7 @@ class Visualization:
 
     def refresh_visual(self, network:NodeNetwork, step, max_iter=25):
         """Recompute positions and vertex colors to reflect graph changes."""
-        self.positions = self.compute_layout(network.graph, self.positions, max_iter)
+        self.positions = self._compute_layout(network.graph, self.positions, max_iter)
         self.colors = self._compute_vertex_colors(network, step)
 
     def save_visual(self, network:NodeNetwork, step):
@@ -85,7 +85,8 @@ class Visualization:
         graph_draw(
             network.graph,
             pos=self.positions,
-            vertex_fill_color=self.colors,  # Truncate RGBA to RGB
+            vertex_fill_color=self.colors,
+            vertex_size=7,
+            edge_pen_width=0.7,
             output=output_path,
-            # output_size=(800, 600),
         )
