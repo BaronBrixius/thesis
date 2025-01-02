@@ -28,14 +28,9 @@ class Simulation:
             self.network.metrics.reset_rewiring_counts()
 
         if display_interval and step % display_interval == 0:
-            self._update_visualization(step, display_interval)
+            self.visualization.draw_visual(self.network, step, display_interval)
 
         self.network.update_network(step)
-
-    def _update_visualization(self, step, display_interval):
-        """Update and save the visualization."""
-        self.visualization.refresh_visual(self.network, step, max_iter=min(25, display_interval))
-        self.visualization.save_visual(self.network, step)
 
     def _finalize_simulation(self, num_steps, display_interval, metrics_interval):
         """Handles final outputs after the simulation loop ends."""
@@ -44,4 +39,4 @@ class Simulation:
             self.network.metrics.reset_rewiring_counts()
 
         if display_interval:
-            self._update_visualization(num_steps, display_interval)
+            self.visualization.draw_visual(self.network, num_steps, display_interval)

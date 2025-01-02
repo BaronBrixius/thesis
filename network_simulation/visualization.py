@@ -13,6 +13,7 @@ class ColorBy(Enum):
 
 class Visualization:
     def __init__(self, network:NodeNetwork, output_dir="sim", color_by=ColorBy.ACTIVITY):
+        
         self.logger = logging.getLogger(__name__)
         self.color_by = color_by
 
@@ -73,20 +74,26 @@ class Visualization:
         
         return colors
 
-
     def refresh_visual(self, network:NodeNetwork, step, max_iter=25):
         """Recompute positions and vertex colors to reflect graph changes."""
         self.positions = self._compute_layout(network.graph, self.positions, max_iter)
         self.colors = self._compute_vertex_colors(network, step)
 
-    def save_visual(self, network:NodeNetwork, step):
+    def draw_visual(self, network:NodeNetwork, step, display_interval, ax=None):
         """Save a static visual of the graph."""
+        self.refresh_visual(network, step, max_iter=min(25, display_interval))
         output_path = os.path.join(self.output_dir, f"{step}.png")
-        graph_draw(
+        artist = graph_draw(
             network.graph,
             pos=self.positions,
             vertex_fill_color=self.colors,
             vertex_size=7,
             edge_pen_width=0.7,
             output=output_path,
+            mplfig=ax,
+            eprops=dict(color=[0.2, 0.22, 0.23, 0.5]),
         )
+        if ax:
+            artist.fit_view()
+            ax.set_xlim(-10, 10)
+            ax.set_ylim(-10, 10)

@@ -51,7 +51,7 @@ class NetworkControlApp:
                 self.network.update_network(self.step)
 
                 if self.step % self.display_interval == 0:
-                    self.update_visualization()
+                    self.visualization_panel.update(self.step, self.display_interval)
 
                 if self.step % self.metrics_interval == 0:
                     self.control_panel.update_metrics(self.network, self.step, colormap=self.visualization_panel.visualizer.custom_colormap)
@@ -63,8 +63,7 @@ class NetworkControlApp:
 
     def update_visualization(self):
         """Update the visualization with current network state."""
-        self.network.apply_forces(min(50, self.display_interval))
-        self.visualization_panel.update(self.step)
+        self.visualization_panel.update(self.step, self.display_interval)
 
     def apply_changes(self, **kwargs):
         """
@@ -85,10 +84,10 @@ class NetworkControlApp:
         self.metrics_interval = kwargs.get("metrics_interval")
 
         # Update network structure if node or connection count changes
-        if num_nodes != self.network.num_nodes or num_connections != self.network.num_connections:
-            self.network.update_network_structure(num_nodes, num_connections)
-            self.visualization_panel.visualizer.marked = np.zeros(num_nodes, dtype=bool)    #FIXME: kind of out of place right here
-            self.update_visualization()
+        # if num_nodes != self.network.num_nodes or num_connections != self.network.num_connections:
+            # self.network.update_network_structure(num_nodes, num_connections)
+            # self.visualization_panel.visualizer.marked = np.zeros(num_nodes, dtype=bool)    #FIXME: kind of out of place right here
+            # self.visualization_panel.update(self.step, self.display_interval)
 
         if was_running:
             self.running.set()
