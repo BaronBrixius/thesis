@@ -19,7 +19,7 @@ class NodeNetwork:
 
         # Initialize node activities
         self.activities = self.graph.new_vertex_property("float")
-        self.activities.a = np.random.uniform(-1, 1, num_nodes)
+        self.activities.a = np.random.uniform(-0.7, 1.0, num_nodes)
 
         self.vertices = self.graph.get_vertices()
         # Preallocate reusable arrays
