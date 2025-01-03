@@ -66,14 +66,11 @@ class NodeNetwork:
         # Sum up neighbor activities
         neighbor_sums = np.einsum("ij,j->i", self.adjacency_matrix, self.activities.a)
         # Split activity between neighbors (determined by epsilon)
-        try:
-            self.activities.a = (1 - self.epsilon) * self.activities.a + self.epsilon * neighbor_sums / self.degrees.a   # TODO add a catch for division by zero
-        except ZeroDivisionError:   # disconnected graph, it's fairly rare, so we can afford to just recalculate
-            print("ZeroDivisionError")  # TODO this doesn't seem to trigger even when we get errors?
-            neighbor_counts = self.graph.get_total_degrees(self.graph.get_vertices())
-            connected_nodes = neighbor_counts > 0
-            self.activities.a[connected_nodes] = ((1 - self.epsilon) * self.activities.a[connected_nodes] + self.epsilon * neighbor_sums[connected_nodes] / neighbor_counts[connected_nodes])
-
+        connected_nodes = neighbor_sums > 0
+        self.activities.a[connected_nodes] = (
+            (1 - self.epsilon) * self.activities.a[connected_nodes] + 
+            self.epsilon * neighbor_sums[connected_nodes] / self.degrees.a[connected_nodes]
+            )
         # Apply logistic map
         self.activities.a = 1 - self.alpha * (self.activities.a)**2
 
