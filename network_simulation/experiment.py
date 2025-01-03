@@ -64,10 +64,11 @@ class Experiment:
                 if connections_as_density:   # decimal values for num_connections represent network density, and are converted
                     self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
                     num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
+                #FIXME: scenario_dir should be assembled a bit in run_simulation, not here, since run_simulation now doesn't use base_dir
                 scenario_dir = os.path.join(self.experiment_folder, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
-                # if metrics_interval and self.is_scenario_completed(scenario_dir, num_steps / metrics_interval):
-                #     self.logger.debug(f"Skipping completed scenario: {scenario_dir}")
-                #     continue
+                if metrics_interval and self.is_scenario_completed(scenario_dir, num_steps / metrics_interval):
+                    self.logger.debug(f"Skipping completed scenario: {scenario_dir}")
+                    continue
 
                 # Add simulation to queue
                 futures.append(
