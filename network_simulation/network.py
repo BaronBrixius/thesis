@@ -66,7 +66,7 @@ class NodeNetwork:
         # Sum up neighbor activities
         neighbor_sums = np.einsum("ij,j->i", self.adjacency_matrix, self.activities.a)
         # Split activity between neighbors (determined by epsilon)
-        connected_nodes = neighbor_sums > 0
+        connected_nodes = self.degrees.a > 0
         self.activities.a[connected_nodes] = (
             (1 - self.epsilon) * self.activities.a[connected_nodes] + 
             self.epsilon * neighbor_sums[connected_nodes] / self.degrees.a[connected_nodes]
