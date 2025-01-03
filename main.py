@@ -25,16 +25,16 @@ if __name__ == "__main__":
     # NetworkControlApp()
 
     ## Quick Run
-    # Experiment(base_dir).run_simulation(num_nodes=200, num_connections=2000, output_dir="graphtools", 
+    # Experiment(base_dir).run_simulation(num_nodes=200, num_connections=2000, output_dir="output/graphtools", 
     #                                     num_steps=20000, display_interval=5000, metrics_interval=1000, random_seed=42, color_by=ColorBy.ACTIVITY)
 
     # Experiment Run
-    experiment_folder = os.path.join(base_dir, "new_graphtools_stuff")
+    experiment_folder = os.path.join(base_dir, "brand_new_metrics")
     experiment = Experiment(experiment_folder)
     experiment.run_experiment(
                             seed_range=range(5),
                             nodes_range=[200],
-                            connections_range=range(250, 19_901, 250),      # [x / 100.0 for x in range(2, 40, 2)],
+                            connections_range=range(1250, 9_901, 250),      # [x / 100.0 for x in range(2, 40, 2)],
                             connections_as_density = False,
                             num_steps=3_000_000,
                             display_interval=100_000,
