@@ -1,4 +1,4 @@
-from graph_tool.all import Graph, adjacency
+from graph_tool.all import Graph
 import numpy as np
 from network_simulation.metrics import Metrics
 
@@ -30,7 +30,7 @@ class NodeNetwork:
         for edge in self.graph.get_edges():
             self.adjacency_matrix[edge[0], edge[1]] = self.adjacency_matrix[edge[1], edge[0]] = True
 
-        self.metrics = Metrics()
+        self.metrics = Metrics(num_nodes)
 
     def add_random_connections(self, num_connections_to_add):
         """Add random connections to the graph."""
@@ -94,7 +94,7 @@ class NodeNetwork:
         self.swap_edge(pivot, least_similar_neighbor, candidate)
 
         # Update metrics
-        self.metrics.increment_rewiring_count(pivot, least_similar_neighbor, candidate, self.graph, step)
+        self.metrics.increment_rewiring_count(pivot, least_similar_neighbor, candidate, step)
 
     def update_network(self, step):
         self.update_activity()

@@ -7,9 +7,9 @@ import os
 from matplotlib import cm
 
 class ColorBy(Enum):
-    ACTIVITY = cm.get_cmap("cividis")
-    CLUSTER = cm.get_cmap("Set1")
-    DEGREE = cm.get_cmap("inferno")
+    ACTIVITY = "cividis"
+    CLUSTER = "Set1"
+    DEGREE = "inferno"
 
 class Visualization:
     def __init__(self, network:NodeNetwork, output_dir="foo", color_by=ColorBy.ACTIVITY):
@@ -39,7 +39,7 @@ class Visualization:
         """
         Update vertex colors based on the specified color mode.
         """
-        colormap = self.color_by.value
+        colormap = cm.get_cmap(self.color_by.value)
 
         if self.color_by == ColorBy.ACTIVITY:
             min_val, max_val = np.min(network.activities.a), np.max(network.activities.a)

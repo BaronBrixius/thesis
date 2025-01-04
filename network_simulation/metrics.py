@@ -1,13 +1,12 @@
 from graph_tool.all import Graph, local_clustering, shortest_distance
-from graph_tool.stats import vertex_average
 from graph_tool.inference import BlockState, minimize_blockmodel_dl
 import numpy as np
 from sklearn.metrics.cluster import adjusted_rand_score
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 from functools import lru_cache
 
 class Metrics:
-    def __init__(self):
+    def __init__(self, num_nodes):
         self.breakup_count = 0
         self.rewirings = {
             "intra_cluster": 0,
@@ -16,17 +15,14 @@ class Metrics:
             "intra_to_inter": 0,
             "inter_to_intra": 0,
         }
-        self.current_cluster_assignments = None
+        self.current_cluster_assignments = np.zeros(num_nodes, dtype=int)
         self.block_state = None
 
     # Runtime Tracking
     def increment_breakup_count(self):
         self.breakup_count += 1
 
-    def increment_rewiring_count(self, pivot, from_node, to_node, graph: Graph, step: int):
-        if self.current_cluster_assignments is None:
-            self.current_cluster_assignments = self.get_cluster_assignments(graph, step)
-
+    def increment_rewiring_count(self, pivot, from_node, to_node, step: int):
         partitions = self.current_cluster_assignments
         pivot_cluster = partitions[int(pivot)]
         from_cluster = partitions[int(from_node)]
@@ -80,7 +76,7 @@ class Metrics:
         not_connected = [not graph.edge(i, most_similar_node[i]) for i in range(num_nodes)]
         return np.mean(not_connected)
 
-    @lru_cache(maxsize=128)
+    @lru_cache(maxsize=16)
     def get_cluster_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
         # Tuples to be hashable for lru_cache
         old_cluster_assignments = tuple(self.current_cluster_assignments) if self.current_cluster_assignments is not None else None
@@ -114,7 +110,7 @@ class Metrics:
 
         return cluster_metrics
 
-    @lru_cache(maxsize=128)
+    @lru_cache(maxsize=16)
     def get_cluster_assignments(self, graph: Graph, step: int):
         self.block_state = BlockState(graph, b=self.current_cluster_assignments)
         self.block_state.multiflip_mcmc_sweep(niter=10, beta=np.inf)
@@ -123,13 +119,13 @@ class Metrics:
         return cluster_assignments
 
     @staticmethod
-    @lru_cache(maxsize=128)
+    @lru_cache(maxsize=8)
     def get_cluster_sizes(cluster_assignments: tuple) -> Dict[int, int]:
         counts = np.unique(cluster_assignments, return_counts=True)[1]
         return {i: count for i, count in enumerate(counts)}
 
     @staticmethod
-    @lru_cache(maxsize=128)
+    @lru_cache(maxsize=8)
     def get_cluster_densities(graph: Graph, cluster_assignments: tuple) -> Dict[int, float]:
         unique_clusters = np.unique(cluster_assignments)
         return {
@@ -140,7 +136,7 @@ class Metrics:
         }
 
     @staticmethod
-    @lru_cache(maxsize=128)
+    @lru_cache(maxsize=8)
     def get_intra_cluster_density(graph: Graph, cluster_nodes: tuple) -> float:
         graph.set_vertex_filter(graph.new_vertex_property("bool", vals=[int(v) in cluster_nodes for v in graph.vertices()]), inverted=False)
         num_edges = graph.num_edges()
@@ -149,7 +145,7 @@ class Metrics:
         return num_edges / num_possible_edges if num_possible_edges > 0 else 0
 
     @staticmethod
-    @lru_cache(maxsize=128)
+    @lru_cache(maxsize=8)
     def get_cluster_membership_stability(current_assignments: tuple, previous_assignments: tuple) -> float:
         """Cluster Membership Stability: Similarity between cluster assignments across time steps."""
         if previous_assignments is None:

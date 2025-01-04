@@ -1,9 +1,9 @@
 from concurrent.futures import ProcessPoolExecutor
-import itertools
-from network_simulation.visualization import  ColorBy
+from itertools import product
+from network_simulation.visualization import ColorBy
 import logging
 import os
-import pandas as pd
+from pandas import read_csv
 import shutil
 import threading
 import multiprocessing
@@ -34,14 +34,14 @@ class Experiment:
                 metrics_path = os.path.join(scenario_dir, file_name)
                 if os.path.exists(metrics_path):
                     try:
-                        metrics_df = pd.read_csv(metrics_path)
+                        metrics_df = read_csv(metrics_path)
                         if len(metrics_df) >= expected_num_rows:    # if the metrics file is long enough
                             self.logger.info(f"Skipping completed scenario: {scenario_dir}")
                             return True
-                        else:
-                            shutil.rmtree(scenario_dir)             # remove incomplete scenario
                     except Exception as e:
-                        self.logger.error(f"Error reading metrics file for {scenario_dir}: {e}")
+                        pass
+                    shutil.rmtree(scenario_dir)             # remove incomplete scenario
+                    return False
         return False
 
     def run_simulation(self, num_nodes, num_connections, output_dir, num_steps, display_interval, metrics_interval, random_seed, color_by=ColorBy.ACTIVITY):
@@ -60,14 +60,14 @@ class Experiment:
 
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = []
-            for num_nodes, num_connections, seed in itertools.product(nodes_range, connections_range, seed_range):
+            for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
                 if connections_as_density:   # decimal values for num_connections represent network density, and are converted
                     self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
                     num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
                 #FIXME: scenario_dir should be assembled a bit in run_simulation, not here, since run_simulation now doesn't use base_dir
                 scenario_dir = os.path.join(self.experiment_folder, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
                 if metrics_interval and self.is_scenario_completed(scenario_dir, num_steps / metrics_interval):
-                    self.logger.debug(f"Skipping completed scenario: {scenario_dir}")
+                    self.logger.info(f"Skipping completed scenario: {scenario_dir}")
                     continue
 
                 # Add simulation to queue
@@ -86,11 +86,14 @@ class Experiment:
 
             # Monitor progress and handle exceptions
             for future in futures:
-                if self.termination_flag.is_set():
-                    self.logger.info("Stopping pending simulations.")
-                    break
-                result = future.result()
-                self.logger.info(result + f" at time {time.time() - start}")
+                try:
+                    if self.termination_flag.is_set():
+                        self.logger.info("Stopping pending simulations.")
+                        break
+                    result = future.result()
+                    self.logger.info(result + f" at time {time.time() - start}")
+                except Exception as e:
+                    self.logger.error(f"Error in simulation {scenario_dir}: {repr(e)}")
 
         total_time = time.time() - start
         self.logger.info(f"End time: {total_time} s = {total_time / 3600} h")
