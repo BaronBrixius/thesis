@@ -9,7 +9,6 @@ class Simulation:
         self.logger = logging.getLogger(__name__)
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
         self.output = Output(output_dir, num_nodes=num_nodes, num_connections=num_connections)
-        cluster_assignments = self.network.metrics.get_cluster_assignments(self.network.graph, step=0),   # FIXME this shouldn't be needed but it is, something about the  assignment caching probably
         self.visualization = Visualization(network=self.network, output_dir=output_dir, color_by=color_by)
 
     def run(self, num_steps, display_interval=1000, metrics_interval=1000):
