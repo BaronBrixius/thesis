@@ -56,7 +56,7 @@ class Experiment:
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
         return f"Simulation completed for {num_nodes} nodes, {num_connections} connections with seed {random_seed}"
 
-    def run_experiment(self, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval, connections_as_density=False):
+    def run_experiment(self, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval):
         # Start thread to check for early termination
         threading.Thread(target=self.monitor_input_early_termination, daemon=True).start()
 
@@ -65,7 +65,7 @@ class Experiment:
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = []
             for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
-                if connections_as_density:   # decimal values for num_connections represent network density, and are converted
+                if isinstance(num_connections, float):  # decimal values treated as network density percentages
                     self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
                     num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
 
