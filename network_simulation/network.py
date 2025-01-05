@@ -1,6 +1,7 @@
 from graph_tool.all import Graph
 import numpy as np
 from network_simulation.metrics import Metrics
+from network_simulation.utils import start_timing, stop_timing
 
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
@@ -21,10 +22,11 @@ class NodeNetwork:
         self.activities = self.graph.new_vertex_property("float")
         self.activities.a = np.random.uniform(-0.7, 1.0, num_nodes)
 
+        # Preallocate reused arrays
         self.vertices = self.graph.get_vertices()
-        # Preallocate reusable arrays
         self.degrees = self.graph.new_vertex_property("int")
         self.degrees.a = self.graph.get_total_degrees(self.vertices)
+        self.shuffled_indices = np.arange(num_nodes)
 
         self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=bool)
         for edge in self.graph.get_edges():
@@ -43,24 +45,6 @@ class NodeNetwork:
                 edges.add((v1, v2))
 
         self.graph.add_edge_list(edges)
-
-    def swap_edge(self, pivot, old_target, new_target):
-        """Swap one endpoint of an edge, replacing old_target with new_target."""
-        edge = self.graph.edge(pivot, old_target)
-        if not edge:
-            return  # Edge doesn't exist, no need to proceed
-
-        # Update adjacency matrix
-        self.adjacency_matrix[pivot, old_target] = self.adjacency_matrix[old_target, pivot] = False
-        self.adjacency_matrix[pivot, new_target] = self.adjacency_matrix[new_target, pivot] = True
-
-        # Update degrees
-        self.degrees[old_target] -= 1
-        self.degrees[new_target] += 1
-
-        # Efficiently replace the edge
-        self.graph.remove_edge(edge)
-        self.graph.add_edge(pivot, new_target)
 
     def update_activity(self):
         # Sum up neighbor activities
@@ -85,7 +69,9 @@ class NodeNetwork:
         # 2. From all other units, select the one that is most synchronized (henceforth: candidate) and least synchronized neighbor
         activity_diff = np.abs(self.activities.a - self.activities.a[pivot])
         activity_diff[pivot] = np.inf                                   # stop the pivot from connecting to itself
-        candidate = np.argmin(activity_diff)                            # most similar activity
+        np.random.shuffle(self.shuffled_indices)
+        shuffled_candidate = np.argmin(activity_diff[self.shuffled_indices])        # Find the index of the minimum in the shuffled array
+        candidate = self.shuffled_indices[shuffled_candidate]                       # Randomly chosen among most similar nodes
         least_similar_neighbor = pivot_neighbors[np.argmax(activity_diff[pivot_neighbors])]     # least similar neighbor
 
         # 3a. If there is a connection between the pivot and the candidate already, do nothing
@@ -95,6 +81,24 @@ class NodeNetwork:
 
         # Update metrics
         self.metrics.increment_rewiring_count(pivot, least_similar_neighbor, candidate, step)
+
+    def swap_edge(self, pivot, old_target, new_target):
+        """Swap one endpoint of an edge, replacing old_target with new_target."""
+        edge = self.graph.edge(pivot, old_target)
+        if not edge:
+            return  # Edge doesn't exist, no need to proceed
+
+        # Update adjacency matrix
+        self.adjacency_matrix[pivot, old_target] = self.adjacency_matrix[old_target, pivot] = False
+        self.adjacency_matrix[pivot, new_target] = self.adjacency_matrix[new_target, pivot] = True
+
+        # Update degrees
+        self.degrees[old_target] -= 1
+        self.degrees[new_target] += 1
+
+        # Efficiently replace the edge
+        self.graph.remove_edge(edge)
+        self.graph.add_edge(pivot, new_target)
 
     def update_network(self, step):
         self.update_activity()
