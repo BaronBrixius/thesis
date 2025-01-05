@@ -35,12 +35,10 @@ class Experiment:
                 if os.path.exists(metrics_path):
                     try:
                         metrics_df = read_csv(metrics_path)
-                        if len(metrics_df) >= expected_num_rows:    # if the metrics file is long enough
-                            self.logger.info(f"Skipping completed scenario: {simulation_dir}")
-                            return True
+                        return len(metrics_df) >= expected_num_rows    # if the metrics file is long enough
                     except Exception:
                         pass
-                    shutil.rmtree(simulation_dir)             # remove incomplete scenario
+                    shutil.rmtree(simulation_dir)             # remove incomplete or broken simulation
                     return False
         return False
 
