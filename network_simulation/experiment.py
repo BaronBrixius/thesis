@@ -42,7 +42,7 @@ class Experiment:
                     return False
         return False
 
-    def run_simulation(self, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by=ColorBy.ACTIVITY, skip=False):
+    def run_one_simulation(self, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by=ColorBy.ACTIVITY, skip=False):
         if self.termination_flag.is_set():
             return f"Simulation {random_seed, num_nodes, num_connections} terminated by user."
 
@@ -72,7 +72,7 @@ class Experiment:
                 # Add simulation to queue
                 futures.append(
                     executor.submit(
-                        self.run_simulation,
+                        self.run_one_simulation,
                         num_nodes=num_nodes,
                         num_connections=num_connections,
                         simulation_dir=os.path.join(f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}"),
