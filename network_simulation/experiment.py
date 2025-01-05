@@ -49,7 +49,7 @@ class Experiment:
         # Skip if scenario is already completed
         full_dir = os.path.join(self.experiment_folder, simulation_dir)
         if skip and metrics_interval and self.is_scenario_completed(full_dir, num_steps / metrics_interval):
-            return f"Skipping completed scenario: {full_dir}"
+            return f"Skipping completed scenario: {random_seed, num_nodes, num_connections}"
 
         from network_simulation.simulation import Simulation  # Import inside to ensure clean process
         sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=full_dir, color_by=color_by, random_seed=random_seed)
