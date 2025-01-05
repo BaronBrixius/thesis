@@ -13,7 +13,6 @@ class ColorBy(Enum):
 
 class Visualization:
     def __init__(self, network:NodeNetwork, output_dir="foo", color_by=ColorBy.ACTIVITY):
-        
         self.logger = logging.getLogger(__name__)
         self.color_by = color_by
 
@@ -25,9 +24,6 @@ class Visualization:
         self.colors = network.graph.new_vertex_property("vector<float>")
 
     def _compute_layout(self, graph, old_positions=None, max_iter=25):
-        """
-        Compute or update the layout positions using the chosen algorithm.
-        """
         try:
             layout = arf_layout(graph, pos=old_positions, epsilon=10000, max_iter=0)
             return layout
@@ -36,9 +32,6 @@ class Visualization:
             return None
 
     def _compute_vertex_colors(self, network: NodeNetwork, step):
-        """
-        Update vertex colors based on the specified color mode.
-        """
         colormap = cm.get_cmap(self.color_by.value)
 
         if self.color_by == ColorBy.ACTIVITY:
