@@ -25,30 +25,36 @@ class Experiment:
                 self.logger.info("Termination signal received. Slow-stopping experiment...")
                 break
 
-    def is_scenario_completed(self, scenario_dir, expected_num_rows):
+    def is_scenario_completed(self, simulation_dir, expected_num_rows):
         """Check if the scenario is completed based on existing metrics."""
-        if not os.path.exists(scenario_dir):
+        if not os.path.exists(simulation_dir):
             return False
-        for file_name in os.listdir(scenario_dir):
+        for file_name in os.listdir(simulation_dir):
             if file_name.startswith("summary_metrics") and file_name.endswith(".csv"):
-                metrics_path = os.path.join(scenario_dir, file_name)
+                metrics_path = os.path.join(simulation_dir, file_name)
                 if os.path.exists(metrics_path):
                     try:
                         metrics_df = read_csv(metrics_path)
                         if len(metrics_df) >= expected_num_rows:    # if the metrics file is long enough
-                            self.logger.info(f"Skipping completed scenario: {scenario_dir}")
+                            self.logger.info(f"Skipping completed scenario: {simulation_dir}")
                             return True
-                    except Exception as e:
+                    except Exception:
                         pass
-                    shutil.rmtree(scenario_dir)             # remove incomplete scenario
+                    shutil.rmtree(simulation_dir)             # remove incomplete scenario
                     return False
         return False
 
-    def run_simulation(self, num_nodes, num_connections, output_dir, num_steps, display_interval, metrics_interval, random_seed, color_by=ColorBy.ACTIVITY):
+    def run_simulation(self, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by=ColorBy.ACTIVITY, skip=False):
         if self.termination_flag.is_set():
             return f"Simulation {random_seed, num_nodes, num_connections} terminated by user."
+
+        # Skip if scenario is already completed
+        full_dir = os.path.join(self.experiment_folder, simulation_dir)
+        if skip and metrics_interval and self.is_scenario_completed(full_dir, num_steps / metrics_interval):
+            return f"Skipping completed scenario: {full_dir}"
+
         from network_simulation.simulation import Simulation  # Import inside to ensure clean process
-        sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=output_dir, color_by=color_by, random_seed=random_seed)
+        sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=full_dir, color_by=color_by, random_seed=random_seed)
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
         return f"Simulation completed for {num_nodes} nodes, {num_connections} connections with seed {random_seed}"
 
@@ -64,11 +70,6 @@ class Experiment:
                 if connections_as_density:   # decimal values for num_connections represent network density, and are converted
                     self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
                     num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
-                #FIXME: scenario_dir should be assembled a bit in run_simulation, not here, since run_simulation now doesn't use base_dir
-                scenario_dir = os.path.join(self.experiment_folder, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
-                if metrics_interval and self.is_scenario_completed(scenario_dir, num_steps / metrics_interval):
-                    self.logger.info(f"Skipping completed scenario: {scenario_dir}")
-                    continue
 
                 # Add simulation to queue
                 futures.append(
@@ -76,11 +77,12 @@ class Experiment:
                         self.run_simulation,
                         num_nodes=num_nodes,
                         num_connections=num_connections,
-                        output_dir=scenario_dir,
+                        simulation_dir=os.path.join(f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}"),
                         num_steps=num_steps,
                         display_interval=display_interval,
                         metrics_interval=metrics_interval,
-                        random_seed=seed
+                        random_seed=seed,
+                        skip=True,
                     )
                 )
 
@@ -93,7 +95,7 @@ class Experiment:
                     result = future.result()
                     self.logger.info(result + f" at time {time.time() - start}")
                 except Exception as e:
-                    self.logger.error(f"Error in simulation {scenario_dir}: {repr(e)}")
+                    self.logger.error(f"Error in simulation: {repr(e)}")
 
         total_time = time.time() - start
         self.logger.info(f"End time: {total_time} s = {total_time / 3600} h")
