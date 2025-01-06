@@ -54,10 +54,10 @@ class Experiment:
         from network_simulation.simulation import Simulation  # Import inside to ensure clean process
         sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=full_dir, color_by=color_by, random_seed=random_seed)
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
-        return f"Simulation completed for {num_nodes} nodes, {num_connections} connections with seed {random_seed}"
+        return f"Simulation completed for {random_seed, num_nodes, num_connections}"
 
     def run_experiment(self, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval):
-        # Start thread to check for early termination
+        # Start thread that checks for early termination
         threading.Thread(target=self.monitor_input_early_termination, daemon=True).start()
 
         start = time.time()
