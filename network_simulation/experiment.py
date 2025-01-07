@@ -56,13 +56,13 @@ class Experiment:
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
         return f"Simulation completed for {random_seed, num_nodes, num_connections}"
 
-    def run_experiment(self, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval):
+    def run_experiment(self, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval, max_workers=os.cpu_count()):
         # Start thread that checks for early termination
         threading.Thread(target=self.monitor_input_early_termination, daemon=True).start()
 
         start = time.time()
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = []
             for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
                 if isinstance(num_connections, float):  # decimal values treated as network density percentages
