@@ -49,10 +49,10 @@ class PostRunAnalyzer:
         def summary_stats(group, column_name):
             """Helper function to compute min, mean, max, and std for a given column."""
             return {
-                f"Mean {column_name}": group[column_name].mean(),
-                f"StdDev {column_name}": group[column_name].std(),
-                f"Max {column_name}": group[column_name].max(),
-                f"Min {column_name}": group[column_name].min(),
+                f"{column_name} Mean": group[column_name].mean(),
+                f"{column_name} StdDev": group[column_name].std(),
+                f"{column_name} Max": group[column_name].max(),
+                f"{column_name} Min": group[column_name].min(),
             }
 
         run_level_data = []
@@ -65,6 +65,8 @@ class PostRunAnalyzer:
                 "Nodes": nodes,
                 "Edges": edges,
                 "Density": round(edges / (nodes * (nodes - 1) / 2), 3),
+                "Cluster Count Round": round(group["Cluster Count"].mean()),
+                "Cluster Count DecimalRound": round(group["Cluster Count"].mean(), 1),
             }
 
             columns_to_summarize = [
