@@ -53,6 +53,7 @@ class Experiment:
 
         from network_simulation.simulation import Simulation  # Import inside to ensure clean process
         sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=full_dir, color_by=color_by, random_seed=random_seed)
+        self.logger.info(f"Starting with {random_seed, num_nodes, num_connections}")
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
         return f"Simulation completed for {random_seed, num_nodes, num_connections}"
 
@@ -87,9 +88,6 @@ class Experiment:
             # Monitor progress and handle exceptions
             for future in futures:
                 try:
-                    if self.termination_flag.is_set():
-                        self.logger.info("Stopping pending simulations.")
-                        break
                     result = future.result()
                     self.logger.info(result + f" at time {time.time() - start}")
                 except Exception as e:
