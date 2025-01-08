@@ -52,9 +52,9 @@ class NodeNetwork:
         # Split activity between neighbors (determined by epsilon)
         connected_nodes = self.degrees.a > 0
         self.activities.a[connected_nodes] = (
-            (1 - self.epsilon) * self.activities.a[connected_nodes] + 
-            self.epsilon * neighbor_sums[connected_nodes] / self.degrees.a[connected_nodes]
-            )
+            (1 - self.epsilon)  * self.activities.a[connected_nodes] + 
+            self.epsilon        * neighbor_sums[connected_nodes] / self.degrees.a[connected_nodes]
+        )
         # Apply logistic map
         self.activities.a = 1 - self.alpha * (self.activities.a)**2
 
