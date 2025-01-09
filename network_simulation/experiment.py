@@ -44,7 +44,7 @@ class Experiment:
 
     def run_one_simulation(self, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by=ColorBy.ACTIVITY, skip=False):
         if self.termination_flag.is_set():
-            return f"Simulation {random_seed, num_nodes, num_connections} terminated by user."
+            return f"Simulation {random_seed, num_nodes, num_connections} terminated by user"
 
         # Skip if scenario is already completed
         full_dir = os.path.join(self.experiment_folder, simulation_dir)
