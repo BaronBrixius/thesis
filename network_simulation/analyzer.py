@@ -1,75 +1,86 @@
 import logging
 import os
 import pandas as pd
+import csv
+
 
 class PostRunAnalyzer:
     def __init__(self, project_dir):
         self.logger = logging.getLogger(__name__)
         self.project_dir = project_dir
 
-    def aggregate_metrics(self, root_dir, starting_step=500_000, snapshot_output_filepath=None, run_level_output_filepath=None):
+    def aggregate_metrics(self, root_dir, starting_step=2_000_000, snapshot_output_filepath=None, run_level_output_filepath=None):
         """
         Aggregates metrics from all metrics_summary_nodes_{num_nodes}_edges_{num_edges}.csv files
-        in subfolders of the specified root directory into a single CSV file.
+        in subfolders of the specified root directory into a single CSV file, processing each file one at a time.
         """
-        if snapshot_output_filepath is None:
-            snapshot_output_filepath = os.path.join(root_dir, "aggregated_snapshot_metrics.csv")
-        if run_level_output_filepath is None:
-            run_level_output_filepath = os.path.join(root_dir, "run_level_metrics.csv")
+        snapshot_output_filepath = self.prepare_file(snapshot_output_filepath, os.path.join(root_dir, "aggregated_snapshot_metrics.csv"))
+        run_level_output_filepath = self.prepare_file(run_level_output_filepath, os.path.join(root_dir, "run_level_metrics.csv"))
 
-        folder_data = []
+        # Prepare for run-level metrics
+        run_writer = None
+        with open(run_level_output_filepath, mode='w', newline='', encoding='utf-8') as run_level_file:
+            for dirpath, _, filenames in os.walk(root_dir):
+                variables = self._extract_variables_from_path(dirpath)
+                for file in filenames:
+                    if file.startswith("summary_metrics") and file.endswith(".csv"):
+                        file_path = os.path.join(dirpath, file)
+                        self.logger.debug(f"Processing {file_path}")
 
-        for dirpath, dirnames, filenames in os.walk(root_dir):
-            variables = self._extract_variables_from_path(dirpath)
-            for file in filenames:
-                if file.startswith("summary_metrics") and file.endswith(".csv"):
-                    file_path = os.path.join(dirpath, file)
-                    self.logger.debug(f"Reading {file_path}")
-                    df = pd.read_csv(file_path)
+                        try:
+                            # Read file
+                            df = self.parse_file_to_df(file_path, variables)
+                            # Write snapshot-level metrics
+                            self._write_snapshot_metrics(df, snapshot_output_filepath)
+                            # Write run-level metrics
+                            run_writer = self._write_run_metrics(df, variables, starting_step, run_writer, run_level_file)
 
-                    # Add extracted variables as columns
-                    for var, val in variables.items():
-                        df[var] = val
+                        except Exception as e:
+                            self.logger.error(f"Error processing file {file_path}: {e}")
+                            continue
 
-                    folder_data.append(df)
+    def prepare_file(self, filepath, default_filepath):
+        if filepath is None:
+            filepath = default_filepath
+        if os.path.exists(filepath):
+            os.remove(filepath)
 
-        if folder_data:
-            aggregated_df = pd.concat(folder_data, ignore_index=True)
-            aggregated_df.to_csv(snapshot_output_filepath, index=False)
-            self.logger.info(f"Aggregated snapshot metrics saved to {snapshot_output_filepath}")
+        return filepath
 
-            run_level_data = self._compute_run_level_aggregations(aggregated_df, starting_step)
-            run_level_data.to_csv(run_level_output_filepath, index=False)
-            self.logger.info(f"Aggregated run-level metrics saved to {run_level_output_filepath}")
+    def parse_file_to_df(self, file_path, variables_to_add):
+        df = pd.read_csv(file_path)
+        for var, val in variables_to_add.items():
+            df[var] = val  # Add extracted variables as columns
 
-    def _compute_run_level_aggregations(self, aggregated_df: pd.DataFrame, starting_step):
-        """
-        Compute run-level aggregations from the combined dataframe.
-        """
-        def summary_stats(group, column_name):
-            """Helper function to compute min, mean, max, and std for a given column."""
-            return {
-                f"{column_name} Mean": group[column_name].mean(),
-                f"{column_name} StdDev": group[column_name].std(),
-                f"{column_name} Max": group[column_name].max(),
-                f"{column_name} Min": group[column_name].min(),
-            }
+        # Computed columns
+        df['Cluster Sizes'] = df['Cluster Sizes'].apply(eval)   # ensure formatting
+        df['Ideal Edges'] = df['Cluster Sizes'].apply(lambda cluster_sizes: sum((size * (size - 1)) // 2 for size in cluster_sizes))
+        df['Structure'] = df['Cluster Sizes'].apply(lambda cluster_sizes: ",".join(map(str, sorted(cluster_sizes.values()))))
 
-        run_level_data = []
-        grouped = aggregated_df.groupby(["Seed", "Nodes", "Edges"])
+        return df
 
-        for (seed, nodes, edges), group in grouped:
-            group = group[group["Step"] >= starting_step]
-            run_metrics = {
-                "Seed": seed,
-                "Nodes": nodes,
-                "Edges": edges,
-                "Density": round(edges / (nodes * (nodes - 1) / 2), 3),
-                "Cluster Count Round": round(group["Cluster Count"].mean()),
-                "Cluster Count DecimalRound": round(group["Cluster Count"].mean(), 1),
-            }
+    def _write_snapshot_metrics(self, df, snapshot_output_filepath):
+        """Writes the snapshot-level metrics to the specified CSV file."""
+        with open(snapshot_output_filepath, mode='a', newline='', encoding='utf-8') as snapshot_file:
+            writer = csv.DictWriter(snapshot_file, fieldnames=df.columns)
+            if snapshot_file.tell() == 0:  # Write header only if file is empty
+                writer.writeheader()
+            df.to_csv(snapshot_file, index=False, header=False)
 
-            columns_to_summarize = [
+    def _write_run_metrics(self, df, variables, starting_step, run_writer, run_level_file):
+        """Compute run-level metrics for a single file and write them to the run-level output file."""
+        df = df[df["Step"] >= starting_step]
+        run_metrics = {
+            "Seed": variables.get("Seed", None),
+            "Nodes": variables.get("Nodes", None),
+            "Edges": variables.get("Edges", None),
+            "Density": round(variables.get("Edges", 0) / (variables.get("Nodes", 0) * (variables.get("Nodes", 0) - 1) / 2), 3),
+            "Cluster Count Round": round(df["Cluster Count"].mean()),
+            "Cluster Count DeciRound": round(df["Cluster Count"].mean(), 1),
+        }
+
+        # Add summary stats for relevant columns
+        columns_to_summarize = [
                 "Clustering Coefficient",
                 "Average Path Length",
                 "Rewiring Chance",
@@ -89,16 +100,20 @@ class PostRunAnalyzer:
                 # "SBM Best Posterior"
             ]
 
-            for column in columns_to_summarize:
-                if column in group.columns:
-                    run_metrics.update(summary_stats(group, column))
+        for column in columns_to_summarize:
+            if column in df.columns:
+                run_metrics[f"{column} Mean"] = df[column].mean()
+                run_metrics[f"{column} StdDev"] = df[column].std()
+                run_metrics[f"{column} Max"] = df[column].max()
+                run_metrics[f"{column} Min"] = df[column].min()
 
-            if "Clustering Coefficient" in group.columns:
-                run_metrics["Amplitude CC"] = (group["Clustering Coefficient"].max() - group["Clustering Coefficient"].min())
+        # Write run-level metrics
+        if run_writer is None:
+            run_writer = csv.DictWriter(run_level_file, fieldnames=run_metrics.keys())
+            run_writer.writeheader()
+        run_writer.writerow(run_metrics)
 
-            run_level_data.append(run_metrics)
-
-        return pd.DataFrame(run_level_data)
+        return run_writer
 
     def _extract_variables_from_path(self, path):
         """

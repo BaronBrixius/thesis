@@ -29,8 +29,7 @@ if __name__ == "__main__":
 
     # Experiment Run
     experiment_folder = os.path.join(base_dir, "brand_new_metrics")
-    experiment = Experiment(experiment_folder)
-    experiment.run_experiment(
+    Experiment(experiment_folder).run_experiment(
                             seed_range=range(5),
                             nodes_range=[200],
                             connections_range=range(10, 19901, 10),      # [x / 100.0 for x in range(2, 40, 2)],
