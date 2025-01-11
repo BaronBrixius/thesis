@@ -35,7 +35,8 @@ class Experiment:
                 if os.path.exists(metrics_path):
                     try:
                         metrics_df = read_csv(metrics_path)
-                        return len(metrics_df) >= expected_num_rows    # if the metrics file is long enough
+                        if len(metrics_df) >= expected_num_rows:    # if the metrics file is long enough
+                            return True
                     except Exception:
                         pass
                     shutil.rmtree(simulation_dir)             # remove incomplete or broken simulation

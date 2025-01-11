@@ -1,4 +1,3 @@
-import logging
 from network_simulation.network import NodeNetwork
 from network_simulation.output import Output
 from network_simulation.visualization import ColorBy
