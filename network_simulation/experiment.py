@@ -39,7 +39,7 @@ class Experiment:
                             return True
                     except Exception:
                         pass
-                    shutil.rmtree(simulation_dir)             # remove incomplete or broken simulation
+                    # shutil.rmtree(simulation_dir)             # remove incomplete or broken simulation
                     return False
         return False
 
