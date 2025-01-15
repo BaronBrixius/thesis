@@ -1,5 +1,5 @@
 from graph_tool.all import Graph, local_clustering, shortest_distance
-from graph_tool.inference import BlockState, minimize_blockmodel_dl
+from graph_tool.inference import minimize_blockmodel_dl
 import numpy as np
 from sklearn.metrics.cluster import adjusted_rand_score
 from typing import Optional, Dict
@@ -118,8 +118,7 @@ class Metrics:
 
     @lru_cache(maxsize=16)
     def get_cluster_assignments(self, graph: Graph, step: int):
-        self.block_state = BlockState(graph, b=self.current_cluster_assignments)
-        self.block_state.multiflip_mcmc_sweep(niter=10, beta=np.inf)
+        self.block_state = minimize_blockmodel_dl(graph, state_args={"b":self.current_cluster_assignments})
         cluster_assignments = self.block_state.get_blocks().a
         self.current_cluster_assignments = cluster_assignments
         return cluster_assignments
