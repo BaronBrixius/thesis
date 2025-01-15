@@ -3,13 +3,12 @@ import os
 import pandas as pd
 import csv
 
-
 class PostRunAnalyzer:
     def __init__(self, project_dir):
         self.logger = logging.getLogger(__name__)
         self.project_dir = project_dir
 
-    def aggregate_metrics(self, root_dir, starting_step=2_000_000, snapshot_output_filepath=None, run_level_output_filepath=None):
+    def aggregate_metrics(self, root_dir, snapshot_output_filepath=None, run_level_output_filepath=None):
         """
         Aggregates metrics from all metrics_summary_nodes_{num_nodes}_edges_{num_edges}.csv files
         in subfolders of the specified root directory into a single CSV file, processing each file one at a time.
@@ -33,7 +32,7 @@ class PostRunAnalyzer:
                             # Write snapshot-level metrics
                             self._write_snapshot_metrics(df, snapshot_output_filepath)
                             # Write run-level metrics
-                            run_writer = self._write_run_metrics(df, variables, starting_step, run_writer, run_level_file)
+                            run_writer = self._write_run_metrics(df, run_writer, run_level_file)
 
                         except Exception as e:
                             self.logger.error(f"Error processing file {file_path}: {e}")
@@ -53,9 +52,29 @@ class PostRunAnalyzer:
             df[var] = val  # Add extracted variables as columns
 
         # Computed columns
-        df['Cluster Sizes'] = df['Cluster Sizes'].apply(eval)   # ensure formatting
-        df['Ideal Edges'] = df['Cluster Sizes'].apply(lambda cluster_sizes: sum((size * (size - 1)) // 2 for size in cluster_sizes))
-        df['Structure'] = df['Cluster Sizes'].apply(lambda cluster_sizes: ",".join(map(str, sorted(cluster_sizes.values()))))
+        cluster_sizes = df['Cluster Sizes'].apply(eval)
+        df['Ideal Edges'] = cluster_sizes.apply(lambda cluster_sizes: sum((size * (size - 1)) // 2 for size in cluster_sizes.values()))
+        df['Structure'] = cluster_sizes.apply(lambda cluster_sizes: ",".join(map(str, sorted(cluster_sizes.values()))))
+
+        def calculate_intracluster_edges(row):
+            # Extract cluster membership and densities
+            cluster_membership = eval(row['Cluster Membership'])  # Cluster IDs mapped to lists of members
+            cluster_densities = eval(row['Cluster Densities'])    # Cluster IDs mapped to densities
+
+            # Calculate the number of intracluster edges
+            intracluster_edges = int(sum(
+                cluster_densities[cluster_id] * (len(members) * (len(members) - 1)) / 2
+                for cluster_id, members in cluster_membership.items()
+            ))
+
+            return intracluster_edges
+
+        df['Delta Cluster Count'] = df['Cluster Count'].diff()
+        df['Intracluster Edges'] = df.apply(calculate_intracluster_edges, axis=1)
+        df['Intracluster Edge Ratio'] = df['Intracluster Edges'] / df['Edges']
+        df['Intercluster Edges'] = df['Edges'] - df['Intracluster Edges']
+        df['Intracluster Edge Ratio Delta'] = df['Intracluster Edge Ratio'].diff()
+        df['Cluster Size Variance Delta'] = df['Cluster Size Variance'].diff()
 
         return df
 
@@ -67,51 +86,54 @@ class PostRunAnalyzer:
                 writer.writeheader()
             df.to_csv(snapshot_file, index=False, header=False)
 
-    def _write_run_metrics(self, df, variables, starting_step, run_writer, run_level_file):
-        """Compute run-level metrics for a single file and write them to the run-level output file."""
-        df = df[df["Step"] >= starting_step]
-        run_metrics = {
-            "Seed": variables.get("Seed", None),
-            "Nodes": variables.get("Nodes", None),
-            "Edges": variables.get("Edges", None),
-            "Density": round(variables.get("Edges", 0) / (variables.get("Nodes", 0) * (variables.get("Nodes", 0) - 1) / 2), 3),
-            "Cluster Count Round": round(df["Cluster Count"].mean()),
-            "Cluster Count DeciRound": round(df["Cluster Count"].mean(), 1),
-        }
+    def _write_run_metrics(self, df, run_writer, run_level_file):
+        """Compute run-level metrics and write them to the run-level output file."""
 
-        # Add summary stats for relevant columns
-        columns_to_summarize = [
-                "Clustering Coefficient",
-                "Average Path Length",
-                "Rewiring Chance",
-                "Cluster Count",
-                "Cluster Membership Stability",
-                "Average Cluster Size",
-                "Average Cluster Density",
-                "Cluster Size Variance",
-                "Rewirings (intra_cluster)",
-                "Rewirings (inter_cluster_change)",
-                "Rewirings (inter_cluster_same)",
-                "Rewirings (intra_to_inter)",
-                "Rewirings (inter_to_intra)",
-                "SBM Entropy",
-                # "SBM Mean Posterior",
-                # "SBM StdDev Posterior",
-                # "SBM Best Posterior"
-            ]
+        # Convert step to millions and group by relevant columns
+        df["Step (Millions)"] = (df["Step"] // 1_000_000).astype(int)
+        grouped = df.groupby(["Seed", "Nodes", "Edges", "Step (Millions)"])
 
-        for column in columns_to_summarize:
-            if column in df.columns:
-                run_metrics[f"{column} Mean"] = df[column].mean()
-                run_metrics[f"{column} StdDev"] = df[column].std()
-                run_metrics[f"{column} Max"] = df[column].max()
-                run_metrics[f"{column} Min"] = df[column].min()
+        # Aggregate metrics for each group
+        aggregated = grouped.agg({
+            "Seed": "first",
+            "Nodes": "first",
+            "Edges": "first",
+            "Step (Millions)": "first",
+            "Cluster Count": "mean",
+            "Intracluster Edges": "mean",
+            "Intracluster Edge Ratio": "mean",
+            "Intracluster Edge Ratio Delta": "mean",
+            "Intercluster Edges": "mean",
+            "Clustering Coefficient": ["mean", "std"],
+            "Average Path Length": ["mean", "std"],
+            "Rewiring Chance": "mean",
+            "Cluster Membership Stability": "mean",
+            "Average Cluster Density": "mean",
+            "Cluster Size Variance": "mean",
+            "Cluster Size Variance Delta": "mean",
+            "Rewirings (intra_cluster)": "mean",
+            "Rewirings (inter_cluster_change)": "mean",
+            "Rewirings (inter_cluster_same)": "mean",
+            "Rewirings (intra_to_inter)": "mean",
+            "Rewirings (inter_to_intra)": "mean",
+            "SBM Entropy": "mean",
+        })
 
-        # Write run-level metrics
-        if run_writer is None:
-            run_writer = csv.DictWriter(run_level_file, fieldnames=run_metrics.keys())
-            run_writer.writeheader()
-        run_writer.writerow(run_metrics)
+        # Add computed metrics
+        aggregated["Density"] = aggregated["Edges"] / (aggregated["Nodes"] * (aggregated["Nodes"] - 1) / 2)
+        aggregated["Cluster Count Round"] = aggregated["Cluster Count"].round()
+        aggregated["Cluster Count DeciRound"] = aggregated["Cluster Count"].round(1)
+
+        # Flatten the aggregated data into a dictionary
+        for idx, row in aggregated.iterrows():
+            run_metrics = row.to_dict()
+
+            # Write run-level metrics
+            if run_writer is None:
+                run_writer = csv.DictWriter(run_level_file, fieldnames=run_metrics.keys())
+                run_writer.writeheader()
+
+            run_writer.writerow(run_metrics)
 
         return run_writer
 

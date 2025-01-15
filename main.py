@@ -36,8 +36,9 @@ if __name__ == "__main__":
                             num_steps=3_000_000,
                             display_interval=100_000,
                             metrics_interval=1_000,
+                            color_by=ColorBy.CLUSTER,
                         )
-    PostRunAnalyzer(experiment_folder).aggregate_metrics(experiment_folder, starting_step=2_000_000)
+    PostRunAnalyzer(experiment_folder).aggregate_metrics(experiment_folder)
 
     if profiler: profiler.disable()
 

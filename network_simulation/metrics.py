@@ -18,6 +18,10 @@ class Metrics:
         self.current_cluster_assignments = np.zeros(num_nodes, dtype=int)
         self.block_state = None
 
+    #TODO Does increased variance increase the intra-hub ratio, by virtue of the larger hub sucking up the connections?
+    #TODO can do do rewiring chance by type as well, in terms of hub?
+    #TODO add rich-club coefficient back, I assume it scales *against* stability
+
     # Runtime Tracking
     def increment_breakup_count(self):
         self.breakup_count += 1
@@ -84,17 +88,19 @@ class Metrics:
         cluster_assignments_tuple = tuple(cluster_assignments)
         unique_clusters = set(cluster_assignments)
 
-        cluster_sizes = self.get_cluster_sizes(cluster_assignments_tuple)
         intra_cluster_densities = self.get_cluster_densities(graph, cluster_assignments_tuple)
 
+        cluster_membership_dict = {i: np.where(self.current_cluster_assignments == i)[0].tolist() for i in unique_clusters}
+        cluster_sizes = {k: len(v) for k, v in cluster_membership_dict.items()}
+
         cluster_metrics = {
-            "Cluster Membership": {i: np.where(self.current_cluster_assignments == i)[0].tolist() for i in unique_clusters},
+            "Cluster Membership": cluster_membership_dict,
             "Cluster Count": len(unique_clusters),
             "Cluster Membership Stability": self.get_cluster_membership_stability(tuple(self.current_cluster_assignments), old_cluster_assignments),
             "Cluster Sizes": cluster_sizes,
             "Average Cluster Size": np.mean(list(cluster_sizes.values())),
             "Cluster Densities": intra_cluster_densities,
-            "Average Cluster Density": np.mean(list(intra_cluster_densities.values())),
+            "Average Cluster Density": np.sum([intra_cluster_densities[cluster] * cluster_sizes[cluster] for cluster in unique_clusters]) / np.sum(list(cluster_sizes.values())),   # weighted
             "Cluster Size Variance": self.calculate_cluster_size_variance(self.current_cluster_assignments),
             "SBM Entropy": self.block_state.entropy(),
         }
