@@ -23,7 +23,7 @@ class Simulation:
             self.network.metrics.reset_rewiring_counts()
 
         if display_interval and step % display_interval == 0:
-            self.visualization.draw_visual(self.network, step, display_interval)
+            self.visualization.draw_visual(self.network, step)
 
         self.network.update_network(step)
 

@@ -87,7 +87,7 @@ class Metrics:
         cluster_assignments = self.get_cluster_assignments(graph, step)
         cluster_assignments_tuple = tuple(cluster_assignments)
         unique_clusters = set(cluster_assignments)
-
+        # TODO streamline this a bit, detect communities and then do stats by them. this feels like a lot of re-iterating over the communities in slightly different ways
         intra_cluster_densities = self.get_cluster_densities(graph, cluster_assignments_tuple)
 
         cluster_membership_dict = {i: np.where(self.current_cluster_assignments == i)[0].tolist() for i in unique_clusters}

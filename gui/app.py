@@ -54,7 +54,7 @@ class NetworkControlApp:
                     self.visualization_panel.update(self.step, self.display_interval)
 
                 if self.step % self.metrics_interval == 0:
-                    self.control_panel.update_metrics(self.network, self.step, colormap=self.visualization_panel.visualizer.custom_colormap)
+                    self.control_panel.update_metrics(self.network, self.step, colormap=self.visualization_panel.visualizer.colors)
 
                 time.sleep(0.00000001)  # Small delay to avoid busy looping
                 self.step += 1

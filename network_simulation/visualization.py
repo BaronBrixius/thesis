@@ -20,13 +20,12 @@ class Visualization:
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir, exist_ok=True)
 
-        self.positions = self._compute_layout(network.graph, None, 100)
+        self.positions = self._compute_layout(network.graph)
         self.colors = network.graph.new_vertex_property("vector<float>")
 
-    def _compute_layout(self, graph, old_positions=None, max_iter=25):
+    def _compute_layout(self, graph, old_positions=None, max_iter=None):
         try:
-            layout = arf_layout(graph, pos=old_positions, epsilon=10000, max_iter=0)
-            return layout
+            return arf_layout(graph, pos=old_positions, epsilon=10000, max_iter=max_iter)
         except Exception as e:
             self.logger.error(f"Layout computation failed: {e}")
             return None
@@ -63,14 +62,14 @@ class Visualization:
         else:
             raise ValueError(f"Unsupported color_by option: {self.color_by}")
 
-    def refresh_visual(self, network:NodeNetwork, step, max_iter=25):
+    def refresh_visual(self, network:NodeNetwork, step, max_iter=None):
         """Recompute positions and vertex colors to reflect graph changes."""
         self.positions = self._compute_layout(network.graph, self.positions, max_iter)
         self._compute_vertex_colors(network, step)
 
-    def draw_visual(self, network:NodeNetwork, step, display_interval, ax=None):
+    def draw_visual(self, network:NodeNetwork, step, max_iter=None, ax=None):
         """Save a static visual of the graph."""
-        self.refresh_visual(network, step, max_iter=min(25, display_interval))
+        self.refresh_visual(network, step, max_iter=max_iter)
         density = network.num_connections / (network.num_nodes * (network.num_nodes - 1) / 2)
         output_path = os.path.join(self.output_dir, f"{step}.png")
         artist = graph_draw(

@@ -13,7 +13,7 @@ class VisualizationPanel:
         self.visualizer = Visualization(network, output_dir=output_dir, color_by=ColorBy.CLUSTER)
 
         self.create_canvas()
-        self.update(0, 1)
+        self.update(step=0, max_iter=1)
 
     def create_canvas(self):
         frame = ttk.Frame(self.root)
@@ -28,8 +28,8 @@ class VisualizationPanel:
         self.canvas.get_tk_widget().config(width=800, height=600)  # Set canvas size
         self.canvas.draw()
 
-    def update(self, step, display_interval):
+    def update(self, step, max_iter):
         """Update the visualization with the current step."""
-        self.visualizer.draw_visual(self.network, step, display_interval, ax=self.ax)
+        self.visualizer.draw_visual(self.network, step, max_iter, ax=self.ax)
         self.ax.set_title(f"Nodes: {self.network.num_nodes}, Connections: {self.network.num_connections}, Step: {step}")
         self.canvas.draw()

@@ -10,7 +10,6 @@ class ControlPanel:
     def __init__(self, root, network:NodeNetwork, apply_changes_callback, toggle_simulation_callback, physics_callback):
         self.logger = logging.getLogger(__name__)
         self.apply_changes_callback = apply_changes_callback
-        self.previous_cluster_assignments = None
         self.physics_callback = physics_callback
 
         # Configuration for variables and their labels
@@ -46,7 +45,7 @@ class ControlPanel:
         metrics_frame.grid(row=len(self.configs) + 1, column=0, columnspan=2, sticky="EW")
         self.metrics_text = tk.Text(metrics_frame, height=40, width=30, wrap="word", state="disabled", bg="lightgray")
         self.metrics_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.metrics_text.insert("1.0", " ")
+        # self.metrics_text.insert("1.0", " ")
         scrollbar = ttk.Scrollbar(metrics_frame, orient=tk.VERTICAL, command=self.metrics_text.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.metrics_text.config(yscrollcommand=scrollbar.set)
@@ -94,19 +93,14 @@ class ControlPanel:
         return var_type(value)
 
     def update_metrics(self, network:NodeNetwork, step, colormap:ListedColormap):
-        graph = nx.from_numpy_array(network.get_adjacency_matrix())
-        clustering_coeff = network.metrics.calculate_clustering_coefficient(graph)
-        rewiring_chance = network.metrics.calculate_rewiring_chance(network.get_adjacency_matrix(), network.activities)
-        # rewiring_rate = network.successful_rewirings / int(self.variables["metrics_interval"].get())
-
         # Detect communities with optional previous assignments
-        cluster_assignments = network.metrics.get_cluster_assignments(network.get_adjacency_matrix(), step)
+        cluster_assignments = network.metrics.get_cluster_assignments(network.graph, step)
 
         # Calculate metrics
-        cluster_sizes = [len(cluster) for cluster in cluster_assignments]
+        cluster_membership_dict = {i: np.where(cluster_assignments == i)[0].tolist() for i in set(cluster_assignments)}
+        cluster_sizes = {k: len(v) for k, v in cluster_membership_dict.items()}
         num_clusters = len(cluster_sizes)
-        intra_cluster_densities = [network.metrics.calculate_intra_cluster_density(network.get_adjacency_matrix(), cluster) for cluster in cluster_assignments]
-        activity_variance = [np.var(network.activities[list(cluster)]) for cluster in cluster_assignments]
+        intra_cluster_densities = network.metrics.get_cluster_densities(network.graph, tuple(cluster_assignments))
 
         # Calculate cluster colors
         color_name_mapping = {
@@ -126,30 +120,31 @@ class ControlPanel:
             return color_name_mapping.get(rgb, "Unknown")
 
         cluster_indices = np.linspace(0, 1, num_clusters)  # Normalize indices to [0, 1]
-        colors = [colormap(i) for i in cluster_indices]  # Get RGBA colors from colormap
+        colors = [colormap[i] for i in cluster_indices]  # Get RGBA colors from colormap
         color_names = [rgba_to_name(color) for color in colors]
 
         metrics_text = (
             f"Step: {step}\n"
-            f"Clustering Coefficient: {clustering_coeff:.3f}\n"
-            f"Rewiring Chance: {rewiring_chance:.3f}\n"
-            # f"Rewiring Rate: {rewiring_rate:.3f}\n"
+            f"Clustering Coefficient: {network.metrics.calculate_clustering_coefficient(network.graph):.3f}\n"
+            # f"Rewiring Chance: {network.metrics.calculate_rewiring_chance(network.graph, network.activities):.3f}\n"
             f"Cluster Count: {num_clusters}\n"
         )
 
-        for i, (size, density, variance, color) in enumerate(zip(cluster_sizes, intra_cluster_densities, activity_variance, color_names)):
+        intracluster_edges = 0.0
+        for i, (size, density, color) in enumerate(zip(cluster_sizes.values(), intra_cluster_densities.values(), color_names)):
             metrics_text += (
                 f"Cluster {i}: ({color})\n"
                 f"  Size: {size}\n"
                 f"  Density: {density:.3f}\n"
-                f"  Activity Variance: {variance:.3f}\n"
             )
+            intracluster_edges += density * (size * (size - 1) / 2)
+        intracluster_edges = int(intracluster_edges)
+        metrics_text += f"Intra- Edges: {intracluster_edges}\n"
+        metrics_text += f"Inter- Edges: {network.num_connections - intracluster_edges}\n"
 
-        metrics_text += f"Cluster Assignments: {cluster_assignments}\n"
+        # metrics_text += f"Cluster Assignments: {cluster_assignments}\n"
 
         self.metrics_text.config(state="normal")
         self.metrics_text.delete("1.0", tk.END)
         self.metrics_text.insert("1.0", metrics_text)
         self.metrics_text.config(state="disabled")
-
-        self.previous_cluster_assignments = cluster_assignments
