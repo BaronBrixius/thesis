@@ -88,7 +88,7 @@ class Metrics:
             "Cluster Sizes": cluster_sizes,
             "Cluster Densities": intra_cluster_densities,
             "Average Cluster Density": total_density_weight / total_nodes,
-            "Cluster Size Variance": self.calculate_cluster_size_variance(cluster_assignments),
+            "Cluster Size Variance": np.var(cluster_sizes),
             "SBM Entropy Normalized": self.block_state.entropy() / graph.num_edges(),
         }
 
@@ -96,9 +96,21 @@ class Metrics:
 
     @lru_cache(maxsize=16)
     def get_cluster_assignments(self, graph: Graph, step: int):
-        self.block_state = minimize_blockmodel_dl(graph, state=PPBlockState, state_args={"b":self.current_cluster_assignments})
-        self.current_cluster_assignments = self.block_state.get_blocks().a
-        return self.current_cluster_assignments
+        results = []
+        for i in range(5):
+            block_state = minimize_blockmodel_dl(graph, state=PPBlockState, state_args={"b": self.current_cluster_assignments}, multilevel_mcmc_args={"B_max":10})
+            entropy = block_state.entropy()
+            assignments = block_state.get_blocks().a
+            results.append((entropy, assignments, block_state))
+
+            # print(f"Step {step} Run {i+1}: Clusters = {len(np.unique(assignments))}, Entropy = {entropy}")
+
+        print("\n")
+        # Select the state with the lowest entropy
+        best_entropy, best_assignments, best_state = min(results, key=lambda x: x[0])
+        self.block_state = best_state
+        self.current_cluster_assignments = best_assignments
+        return best_assignments
 
     @staticmethod
     @lru_cache(maxsize=8)
@@ -108,12 +120,6 @@ class Metrics:
         num_possible_edges = len(cluster_nodes) * (len(cluster_nodes) - 1) / 2
         graph.set_vertex_filter(None)
         return num_edges / num_possible_edges if num_possible_edges > 0 else 0
-
-    @staticmethod
-    def calculate_cluster_size_variance(cluster_assignments: np.ndarray) -> float:
-        """Cluster Size Variance: Variability in cluster sizes."""
-        _, counts = np.unique(cluster_assignments, return_counts=True)
-        return np.var(counts)
 
     @staticmethod
     def calculate_rich_club_coefficients(adjacency_matrix) -> Dict[int, float]:
