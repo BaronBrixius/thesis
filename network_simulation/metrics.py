@@ -1,7 +1,7 @@
 from graph_tool.all import Graph, local_clustering, shortest_distance
-from graph_tool.inference import minimize_blockmodel_dl
+from graph_tool.inference import minimize_blockmodel_dl, PPBlockState
+import networkx as nx
 import numpy as np
-from sklearn.metrics.cluster import adjusted_rand_score
 from typing import Optional, Dict
 from functools import lru_cache
 
@@ -17,10 +17,6 @@ class Metrics:
         }
         self.current_cluster_assignments = np.zeros(num_nodes, dtype=int)
         self.block_state = None
-
-    #TODO Does increased variance increase the intra-hub ratio, by virtue of the larger hub sucking up the connections?
-    #TODO can do do rewiring chance by type as well, in terms of hub?
-    #TODO add rich-club coefficient back, I assume it scales *against* stability
 
     # Runtime Tracking
     def increment_breakup_count(self):
@@ -68,77 +64,41 @@ class Metrics:
         ave_path_length = 2 * sum([sum(row[j + 1:]) for j, row in enumerate(distances)])/(n**2-n)
         return ave_path_length
 
-    @staticmethod
-    def calculate_rewiring_chance(graph: Graph, activities: np.ndarray) -> float:
-        """
-        Rewiring Chance: Ratio of nodes that are not connected to their most similar node in the network.
-        """
-        num_nodes = activities.shape[0]
-        activity_diff = np.abs(activities[:, np.newaxis] - activities[np.newaxis, :])
-        np.fill_diagonal(activity_diff, np.inf)
-        most_similar_node = np.argmin(activity_diff, axis=1)
-        not_connected = [not graph.edge(i, most_similar_node[i]) for i in range(num_nodes)]
-        return np.mean(not_connected)
-
     @lru_cache(maxsize=16)
     def get_cluster_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
-        # Tuples to be hashable for lru_cache
-        old_cluster_assignments = tuple(self.current_cluster_assignments) if self.current_cluster_assignments is not None else None
         cluster_assignments = self.get_cluster_assignments(graph, step)
-        cluster_assignments_tuple = tuple(cluster_assignments)
-        unique_clusters = set(cluster_assignments)
-        # TODO streamline this a bit, detect communities and then do stats by them. this feels like a lot of re-iterating over the communities in slightly different ways
-        intra_cluster_densities = self.get_cluster_densities(graph, cluster_assignments_tuple)
+        unique_clusters = np.unique(cluster_assignments)
+        
+        # Calculate cluster sizes and densities in one pass
+        cluster_sizes = {}
+        intra_cluster_densities = {}
+        total_nodes = graph.num_vertices()
+        total_density_weight = 0
 
-        cluster_membership_dict = {i: np.where(self.current_cluster_assignments == i)[0].tolist() for i in unique_clusters}
-        cluster_sizes = {k: len(v) for k, v in cluster_membership_dict.items()}
+        for cluster in unique_clusters:
+            cluster_nodes = np.where(cluster_assignments == cluster)[0]
+            size = len(cluster_nodes)
+            cluster_sizes[cluster] = size
+            density = self.get_intra_cluster_density(graph, tuple(cluster_nodes))
+            intra_cluster_densities[cluster] = density
+            total_density_weight += size * density
 
         cluster_metrics = {
-            "Cluster Membership": cluster_membership_dict,
             "Cluster Count": len(unique_clusters),
-            "Cluster Membership Stability": self.get_cluster_membership_stability(tuple(self.current_cluster_assignments), old_cluster_assignments),
             "Cluster Sizes": cluster_sizes,
-            "Average Cluster Size": np.mean(list(cluster_sizes.values())),
             "Cluster Densities": intra_cluster_densities,
-            "Average Cluster Density": np.sum([intra_cluster_densities[cluster] * cluster_sizes[cluster] for cluster in unique_clusters]) / np.sum(list(cluster_sizes.values())),   # weighted
-            "Cluster Size Variance": self.calculate_cluster_size_variance(self.current_cluster_assignments),
-            "SBM Entropy": self.block_state.entropy(),
+            "Average Cluster Density": total_density_weight / total_nodes,
+            "Cluster Size Variance": self.calculate_cluster_size_variance(cluster_assignments),
+            "SBM Entropy Normalized": self.block_state.entropy() / graph.num_edges(),
         }
-
-        # Add SBM-based metrics
-        # sbm_posterior = self.get_sbm_posterior_probabilities(graph)
-
-        # cluster_metrics.update({
-            # "SBM Mean Posterior": sbm_posterior["Mean Entropy"],
-            # "SBM StdDev Posterior": sbm_posterior["StdDev Entropy"],
-            # "SBM Best Posterior": sbm_posterior["Best Entropy"],
-        # })
 
         return cluster_metrics
 
     @lru_cache(maxsize=16)
     def get_cluster_assignments(self, graph: Graph, step: int):
-        self.block_state = minimize_blockmodel_dl(graph, state_args={"b":self.current_cluster_assignments})
-        cluster_assignments = self.block_state.get_blocks().a
-        self.current_cluster_assignments = cluster_assignments
-        return cluster_assignments
-
-    @staticmethod
-    @lru_cache(maxsize=8)
-    def get_cluster_sizes(cluster_assignments: tuple) -> Dict[int, int]:
-        counts = np.unique(cluster_assignments, return_counts=True)[1]
-        return {i: count for i, count in enumerate(counts)}
-
-    @staticmethod
-    @lru_cache(maxsize=8)
-    def get_cluster_densities(graph: Graph, cluster_assignments: tuple) -> Dict[int, float]:
-        unique_clusters = np.unique(cluster_assignments)
-        return {
-            cluster: Metrics.get_intra_cluster_density(
-                graph, tuple(np.where(cluster_assignments == cluster)[0])
-            )
-            for cluster in unique_clusters
-        }
+        self.block_state = minimize_blockmodel_dl(graph, state=PPBlockState, state_args={"b":self.current_cluster_assignments})
+        self.current_cluster_assignments = self.block_state.get_blocks().a
+        return self.current_cluster_assignments
 
     @staticmethod
     @lru_cache(maxsize=8)
@@ -150,29 +110,11 @@ class Metrics:
         return num_edges / num_possible_edges if num_possible_edges > 0 else 0
 
     @staticmethod
-    @lru_cache(maxsize=8)
-    def get_cluster_membership_stability(current_assignments: tuple, previous_assignments: tuple) -> float:
-        """Cluster Membership Stability: Similarity between cluster assignments across time steps."""
-        if previous_assignments is None:
-            return 0.0
-
-        return adjusted_rand_score(previous_assignments, current_assignments)
-
-    @staticmethod
     def calculate_cluster_size_variance(cluster_assignments: np.ndarray) -> float:
         """Cluster Size Variance: Variability in cluster sizes."""
         _, counts = np.unique(cluster_assignments, return_counts=True)
         return np.var(counts)
 
     @staticmethod
-    def get_sbm_posterior_probabilities(graph, num_runs=10):
-        """Run SBM multiple times and calculate posterior probabilities."""
-        entropies = []
-        for _ in range(num_runs):
-            state = minimize_blockmodel_dl(graph)
-            entropies.append(state.entropy())
-        return {
-            "Mean Entropy": np.mean(entropies),
-            "StdDev Entropy": np.std(entropies),
-            "Best Entropy": min(entropies),
-        }
+    def calculate_rich_club_coefficients(adjacency_matrix) -> Dict[int, float]:
+        return nx.rich_club_coefficient(nx.from_numpy_array(adjacency_matrix), normalized=False)

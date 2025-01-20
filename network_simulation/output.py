@@ -25,24 +25,19 @@ class Output:
         self.csv_writer.writerow(row)
 
     def _compute_row(self, step, network: NodeNetwork):
-        # Shared Computations
-        graph = network.graph
-        metrics = network.metrics
-        activities = network.activities.a
-
         # Compute row data
         row = {
             "Step": step,
-            "Clustering Coefficient": metrics.calculate_clustering_coefficient(graph),
-            "Average Path Length": metrics.calculate_average_path_length(graph),
-            "Rewiring Chance": metrics.calculate_rewiring_chance(graph, activities),
+            "Clustering Coefficient": network.metrics.calculate_clustering_coefficient(network.graph),
+            "Average Path Length": network.metrics.calculate_average_path_length(network.graph),
+            "Rich Club Coefficients": network.metrics.calculate_rich_club_coefficients(network.adjacency_matrix),
         }
 
         # Update with cluster metrics
-        row.update(metrics.get_cluster_metrics(graph, step))
+        row.update(network.metrics.get_cluster_metrics(network.graph, step))
 
         # Add rewiring metrics
         row.update(
-            {f"Rewirings ({key})": value for key, value in metrics.rewirings.items()}
+            {f"Rewirings ({key})": value for key, value in network.metrics.rewirings.items()}
         )
         return row
