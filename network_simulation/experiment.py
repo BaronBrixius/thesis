@@ -19,7 +19,7 @@ class Experiment:
     def monitor_input_early_termination(self):
         """Listen for 'quit' or 'exit' to terminate all runs."""
         while True:
-            user_input = input("Enter 'quit' or 'exit' to stop the experiment: ").strip().lower()
+            user_input = input("Enter 'quit' or 'exit' to stop the experiment:\n").strip().lower()
             if user_input in {"quit", "exit"}:
                 self.termination_flag.set()
                 self.logger.info("Termination signal received. Slow-stopping experiment...")

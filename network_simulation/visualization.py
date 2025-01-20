@@ -1,5 +1,5 @@
 from network_simulation.network import NodeNetwork
-from graph_tool.draw import graph_draw, arf_layout, fruchterman_reingold_layout
+from graph_tool.draw import graph_draw, arf_layout
 import numpy as np
 import logging
 from enum import Enum
@@ -23,7 +23,7 @@ class Visualization:
         self.positions = self._compute_layout(network.graph)
         self.colors = network.graph.new_vertex_property("vector<float>")
 
-    def _compute_layout(self, graph, old_positions=None, max_iter=None):
+    def _compute_layout(self, graph, old_positions=None, max_iter=0):
         try:
             return arf_layout(graph, pos=old_positions, epsilon=10000, max_iter=max_iter)
         except Exception as e:
@@ -62,14 +62,9 @@ class Visualization:
         else:
             raise ValueError(f"Unsupported color_by option: {self.color_by}")
 
-    def refresh_visual(self, network:NodeNetwork, step, max_iter=None):
-        """Recompute positions and vertex colors to reflect graph changes."""
+    def draw_visual(self, network:NodeNetwork, step, max_iter=0, ax=None):
         self.positions = self._compute_layout(network.graph, self.positions, max_iter)
         self._compute_vertex_colors(network, step)
-
-    def draw_visual(self, network:NodeNetwork, step, max_iter=None, ax=None):
-        """Save a static visual of the graph."""
-        self.refresh_visual(network, step, max_iter=max_iter)
         density = network.num_connections / (network.num_nodes * (network.num_nodes - 1) / 2)
         output_path = os.path.join(self.output_dir, f"{step}.png")
         artist = graph_draw(
@@ -86,5 +81,5 @@ class Visualization:
         )
         if ax:
             artist.fit_view()
-            ax.set_xlim(-10, 10)
-            ax.set_ylim(-10, 10)
+            ax.set_xlim(-1, 1)
+            ax.set_ylim(-1, 1)

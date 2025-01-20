@@ -28,7 +28,7 @@ if __name__ == "__main__":
     #                                     num_steps=20000, display_interval=5000, metrics_interval=1000, random_seed=42, color_by=ColorBy.ACTIVITY)
 
     # Experiment Run
-    experiment_folder = os.path.join(base_dir, "brand_new_metrics")
+    experiment_folder = os.path.join(base_dir, "bran_new_metrics")
     Experiment(experiment_folder).run_experiment(
                             seed_range=range(5),
                             nodes_range=[200],
