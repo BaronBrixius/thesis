@@ -70,28 +70,25 @@ class Metrics:
     @lru_cache(maxsize=16)
     def get_cluster_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
         cluster_assignments = self.get_cluster_assignments(graph, step)
-        unique_clusters, counts = np.unique(cluster_assignments, return_counts=True)
+        unique_clusters, cluster_sizes = np.unique(cluster_assignments, return_counts=True)
         
         # Calculate cluster sizes and densities in one pass
-        cluster_sizes = {}
         intra_cluster_densities = {}
         total_nodes = graph.num_vertices()
         total_density_weight = 0
 
-        for cluster in unique_clusters:
+        for cluster, size in zip(unique_clusters, cluster_sizes):
             cluster_nodes = np.where(cluster_assignments == cluster)[0]
-            size = len(cluster_nodes)
-            cluster_sizes[cluster] = size
             density = self.get_intra_cluster_density(graph, tuple(cluster_nodes))
             intra_cluster_densities[cluster] = density
             total_density_weight += size * density
 
         cluster_metrics = {
             "Cluster Count": len(unique_clusters),
-            "Cluster Sizes": cluster_sizes,
+            "Cluster Sizes": dict(zip(unique_clusters, cluster_sizes)),
             "Cluster Densities": intra_cluster_densities,
-            "Average Cluster Density": total_density_weight / total_nodes,
-            "Cluster Size Variance": np.var(counts),
+            "Average Cluster Density Weighted": total_density_weight / total_nodes,
+            "Cluster Size Variance": np.var(cluster_sizes),
             "SBM Entropy Normalized": self.block_state.entropy() / graph.num_edges(),
         }
 
