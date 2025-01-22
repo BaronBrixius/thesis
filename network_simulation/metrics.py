@@ -1,12 +1,12 @@
 from graph_tool.all import Graph, local_clustering, shortest_distance
-from graph_tool.inference import minimize_blockmodel_dl, PPBlockState
+from graph_tool.inference import PPBlockState
 import networkx as nx
 import numpy as np
 from typing import Optional, Dict
 from functools import lru_cache
 
 class Metrics:
-    def __init__(self, num_nodes):
+    def __init__(self, graph):
         self.breakup_count = 0
         self.rewirings = {
             "intra_cluster": 0,
@@ -15,15 +15,14 @@ class Metrics:
             "intra_to_inter": 0,
             "inter_to_intra": 0,
         }
-        self.current_cluster_assignments = np.zeros(num_nodes, dtype=int)
-        self.block_state = None
+        self.block_state = PPBlockState(graph)
 
     # Runtime Tracking
     def increment_breakup_count(self):
         self.breakup_count += 1
 
     def increment_rewiring_count(self, pivot, from_node, to_node, step: int):
-        partitions = self.current_cluster_assignments
+        partitions = self.block_state.get_blocks().a
         pivot_cluster = partitions[int(pivot)]
         from_cluster = partitions[int(from_node)]
         to_cluster = partitions[int(to_node)]
@@ -88,7 +87,7 @@ class Metrics:
             "Cluster Sizes": cluster_sizes,
             "Cluster Densities": intra_cluster_densities,
             "Average Cluster Density": total_density_weight / total_nodes,
-            "Cluster Size Variance": np.var(cluster_sizes),
+            "Cluster Size Variance": self.calculate_cluster_size_variance(cluster_assignments),
             "SBM Entropy Normalized": self.block_state.entropy() / graph.num_edges(),
         }
 
@@ -96,21 +95,14 @@ class Metrics:
 
     @lru_cache(maxsize=16)
     def get_cluster_assignments(self, graph: Graph, step: int):
-        results = []
-        for i in range(5):
-            block_state = minimize_blockmodel_dl(graph, state=PPBlockState, state_args={"b": self.current_cluster_assignments}, multilevel_mcmc_args={"B_max":10})
-            entropy = block_state.entropy()
-            assignments = block_state.get_blocks().a
-            results.append((entropy, assignments, block_state))
+        self.block_state = self.block_state.copy(graph)     # update the block state with the latest graph, preserves the previous community assignments
 
-            # print(f"Step {step} Run {i+1}: Clusters = {len(np.unique(assignments))}, Entropy = {entropy}")
-
-        print("\n")
-        # Select the state with the lowest entropy
-        best_entropy, best_assignments, best_state = min(results, key=lambda x: x[0])
-        self.block_state = best_state
-        self.current_cluster_assignments = best_assignments
-        return best_assignments
+        for _ in range(5):
+            entropy_delta, _, _ = self.block_state.multilevel_mcmc_sweep()            #TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
+            if entropy_delta == 0:
+                break
+        
+        return self.block_state.get_blocks().a
 
     @staticmethod
     @lru_cache(maxsize=8)
@@ -120,6 +112,12 @@ class Metrics:
         num_possible_edges = len(cluster_nodes) * (len(cluster_nodes) - 1) / 2
         graph.set_vertex_filter(None)
         return num_edges / num_possible_edges if num_possible_edges > 0 else 0
+
+    @staticmethod
+    def calculate_cluster_size_variance(cluster_assignments: np.ndarray) -> float:
+        """Cluster Size Variance: Variability in cluster sizes."""
+        _, counts = np.unique(cluster_assignments, return_counts=True)
+        return np.var(counts)
 
     @staticmethod
     def calculate_rich_club_coefficients(adjacency_matrix) -> Dict[int, float]:

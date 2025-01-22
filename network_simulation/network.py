@@ -32,7 +32,7 @@ class NodeNetwork:
         for edge in self.graph.get_edges():
             self.adjacency_matrix[edge[0], edge[1]] = self.adjacency_matrix[edge[1], edge[0]] = True
 
-        self.metrics = Metrics(num_nodes)
+        self.metrics = Metrics(self.graph)
 
     def add_random_connections(self, num_connections_to_add):
         """Add random connections to the graph."""
