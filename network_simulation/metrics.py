@@ -63,10 +63,14 @@ class Metrics:
         ave_path_length = 2 * sum([sum(row[j + 1:]) for j, row in enumerate(distances)])/(n**2-n)
         return ave_path_length
 
+    @staticmethod
+    def calculate_rich_club_coefficients(adjacency_matrix) -> Dict[int, float]:
+        return nx.rich_club_coefficient(nx.from_numpy_array(adjacency_matrix), normalized=False)
+
     @lru_cache(maxsize=16)
     def get_cluster_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
         cluster_assignments = self.get_cluster_assignments(graph, step)
-        unique_clusters = np.unique(cluster_assignments)
+        unique_clusters, counts = np.unique(cluster_assignments, return_counts=True)
         
         # Calculate cluster sizes and densities in one pass
         cluster_sizes = {}
@@ -87,7 +91,7 @@ class Metrics:
             "Cluster Sizes": cluster_sizes,
             "Cluster Densities": intra_cluster_densities,
             "Average Cluster Density": total_density_weight / total_nodes,
-            "Cluster Size Variance": self.calculate_cluster_size_variance(cluster_assignments),
+            "Cluster Size Variance": np.var(counts),
             "SBM Entropy Normalized": self.block_state.entropy() / graph.num_edges(),
         }
 
@@ -112,13 +116,3 @@ class Metrics:
         num_possible_edges = len(cluster_nodes) * (len(cluster_nodes) - 1) / 2
         graph.set_vertex_filter(None)
         return num_edges / num_possible_edges if num_possible_edges > 0 else 0
-
-    @staticmethod
-    def calculate_cluster_size_variance(cluster_assignments: np.ndarray) -> float:
-        """Cluster Size Variance: Variability in cluster sizes."""
-        _, counts = np.unique(cluster_assignments, return_counts=True)
-        return np.var(counts)
-
-    @staticmethod
-    def calculate_rich_club_coefficients(adjacency_matrix) -> Dict[int, float]:
-        return nx.rich_club_coefficient(nx.from_numpy_array(adjacency_matrix), normalized=False)
