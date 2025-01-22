@@ -76,10 +76,18 @@ class Metrics:
         intra_cluster_densities = {}
         total_nodes = graph.num_vertices()
         total_density_weight = 0
+        intra_cluster_edges = 0
 
         for cluster, size in zip(unique_clusters, cluster_sizes):
-            cluster_nodes = np.where(cluster_assignments == cluster)[0]
-            density = self.get_intra_cluster_density(graph, tuple(cluster_nodes))
+            cluster_nodes = tuple(np.where(cluster_assignments == cluster)[0])
+
+            graph.set_vertex_filter(graph.new_vertex_property("bool", vals=[int(v) in cluster_nodes for v in graph.vertices()]), inverted=False)
+            num_edges = graph.num_edges()
+            intra_cluster_edges += num_edges
+            num_possible_edges = len(cluster_nodes) * (len(cluster_nodes) - 1) / 2
+            graph.set_vertex_filter(None)
+
+            density = num_edges / num_possible_edges if num_possible_edges > 0 else 0
             intra_cluster_densities[cluster] = density
             total_density_weight += size * density
 
@@ -90,6 +98,7 @@ class Metrics:
             "Average Cluster Density Weighted": total_density_weight / total_nodes,
             "Cluster Size Variance": np.var(cluster_sizes),
             "SBM Entropy Normalized": self.block_state.entropy() / graph.num_edges(),
+            "Intra-cluster Edges": intra_cluster_edges,
         }
 
         return cluster_metrics
@@ -104,12 +113,3 @@ class Metrics:
                 break
         
         return self.block_state.get_blocks().a
-
-    @staticmethod
-    @lru_cache(maxsize=8)
-    def get_intra_cluster_density(graph: Graph, cluster_nodes: tuple) -> float:
-        graph.set_vertex_filter(graph.new_vertex_property("bool", vals=[int(v) in cluster_nodes for v in graph.vertices()]), inverted=False)
-        num_edges = graph.num_edges()
-        num_possible_edges = len(cluster_nodes) * (len(cluster_nodes) - 1) / 2
-        graph.set_vertex_filter(None)
-        return num_edges / num_possible_edges if num_possible_edges > 0 else 0

@@ -56,24 +56,11 @@ class PostRunAnalyzer:
         df['Ideal Edges'] = cluster_sizes.apply(lambda cluster_sizes: sum((size * (size - 1)) // 2 for size in cluster_sizes.values()))
         df['Structure'] = cluster_sizes.apply(lambda cluster_sizes: ",".join(map(str, sorted(cluster_sizes.values()))))
 
-        def calculate_intracluster_edges(row):
-            # Extract cluster membership and densities
-            cluster_membership = eval(row['Cluster Membership'])  # Cluster IDs mapped to lists of members
-            cluster_densities = eval(row['Cluster Densities'])    # Cluster IDs mapped to densities
-
-            # Calculate the number of intracluster edges
-            intracluster_edges = int(sum(
-                cluster_densities[cluster_id] * (len(members) * (len(members) - 1)) / 2
-                for cluster_id, members in cluster_membership.items()
-            ))
-
-            return intracluster_edges
-
         df['Delta Cluster Count'] = df['Cluster Count'].diff()
-        df['Intracluster Edges'] = df.apply(calculate_intracluster_edges, axis=1)
-        df['Intracluster Edge Ratio'] = df['Intracluster Edges'] / df['Edges']
-        df['Intercluster Edges'] = df['Edges'] - df['Intracluster Edges']
-        df['Intracluster Edge Ratio Delta'] = df['Intracluster Edge Ratio'].diff()
+
+        df['Intra-cluster Edge Ratio'] = df['Intra-cluster Edges'] / df['Edges']
+        df['Inter-cluster Edges'] = df['Edges'] - df['Intra-cluster Edges']
+        df['Intra-cluster Edge Ratio Delta'] = df['Intra-cluster Edge Ratio'].diff()
         df['Cluster Size Variance Delta'] = df['Cluster Size Variance'].diff()
 
         return df
@@ -100,15 +87,13 @@ class PostRunAnalyzer:
             "Edges": "first",
             "Step (Millions)": "first",
             "Cluster Count": "mean",
-            "Intracluster Edges": "mean",
-            "Intracluster Edge Ratio": "mean",
-            "Intracluster Edge Ratio Delta": "mean",
-            "Intercluster Edges": "mean",
+            "Intra-cluster Edges": "mean",
+            "Intra-cluster Edge Ratio": "mean",
+            "Intra-cluster Edge Ratio Delta": "mean",
+            "Inter-cluster Edges": "mean",
             "Clustering Coefficient": ["mean", "std"],
             "Average Path Length": ["mean", "std"],
-            "Rewiring Chance": "mean",
-            "Cluster Membership Stability": "mean",
-            "Average Cluster Density": "mean",
+            "Average Cluster Density Weighted": "mean",
             "Cluster Size Variance": "mean",
             "Cluster Size Variance Delta": "mean",
             "Rewirings (intra_cluster)": "mean",
@@ -116,7 +101,7 @@ class PostRunAnalyzer:
             "Rewirings (inter_cluster_same)": "mean",
             "Rewirings (intra_to_inter)": "mean",
             "Rewirings (inter_to_intra)": "mean",
-            "SBM Entropy": "mean",
+            "SBM Entropy Normalized": "mean",
         })
 
         # Add computed metrics
