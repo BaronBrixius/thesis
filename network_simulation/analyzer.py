@@ -77,7 +77,7 @@ class PostRunAnalyzer:
         """Compute run-level metrics and write them to the run-level output file."""
 
         # Convert step to millions and group by relevant columns
-        df["Step (Millions)"] = (df["Step"] // 1_000_000).astype(int)
+        df["Step (Millions)"] = ((df["Step"] - 1) // 1_000_000 + 1).clip(lower=0).astype(int)
         grouped = df.groupby(["Seed", "Nodes", "Edges", "Step (Millions)"])
 
         # Aggregate metrics for each group
