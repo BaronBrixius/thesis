@@ -24,7 +24,7 @@ class PostRunAnalyzer:
                 for file in filenames:
                     if file.startswith("summary_metrics") and file.endswith(".csv"):
                         file_path = os.path.join(dirpath, file)
-                        self.logger.debug(f"Processing {file_path}")
+                        self.logger.info(f"Processing {file_path}")
 
                         try:
                             # Read file
