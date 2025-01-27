@@ -8,18 +8,18 @@ class PostRunAnalyzer:
         self.logger = logging.getLogger(__name__)
         self.project_dir = project_dir
 
-    def aggregate_metrics(self, snapshot_output_filepath=None, run_level_output_filepath=None):
+    def aggregate_metrics(self, root_dir, snapshot_output_filepath=None, run_level_output_filepath=None):
         """
         Aggregates metrics from all metrics_summary_nodes_{num_nodes}_edges_{num_edges}.csv files
         in subfolders of the specified root directory into a single CSV file, processing each file one at a time.
         """
-        snapshot_output_filepath = self.prepare_file(snapshot_output_filepath, os.path.join(self.project_dir, "aggregated_snapshot_metrics.csv"))
-        run_level_output_filepath = self.prepare_file(run_level_output_filepath, os.path.join(self.project_dir, "run_level_metrics.csv"))
+        snapshot_output_filepath = self.prepare_file(snapshot_output_filepath, os.path.join(root_dir, "aggregated_snapshot_metrics.csv"))
+        run_level_output_filepath = self.prepare_file(run_level_output_filepath, os.path.join(root_dir, "run_level_metrics.csv"))
 
         # Prepare for run-level metrics
         run_writer = None
         with open(run_level_output_filepath, mode='w', newline='', encoding='utf-8') as run_level_file:
-            for dirpath, _, filenames in os.walk(self.project_dir):
+            for dirpath, _, filenames in os.walk(root_dir):
                 variables = self._extract_variables_from_path(dirpath)
                 for file in filenames:
                     if file.startswith("summary_metrics") and file.endswith(".csv"):
