@@ -62,8 +62,11 @@ class NodeNetwork:
         # Select a pivot node
         pivot = np.random.randint(self.num_nodes)
         pivot_neighbors = self.graph.get_out_neighbors(pivot)
-        while len(pivot_neighbors) == 0:            # Select another pivot if pivot has no neighbors, very rarely happens in practice
-            pivot = np.random.randint(self.num_nodes)
+        if len(pivot_neighbors) == 0:            # Select another pivot if no neighbors, very rarely happens in practice
+            nodes_with_neighbors = np.where(self.degrees.a > 0)[0]
+            if len(nodes_with_neighbors) == 0:
+                return  # No rewiring possible if no nodes have neighbors
+            pivot = np.random.choice(nodes_with_neighbors)
             pivot_neighbors = self.graph.get_out_neighbors(pivot)
 
         # 2. From all other units, select the one that is most synchronized (henceforth: candidate) and least synchronized neighbor
