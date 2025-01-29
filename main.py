@@ -24,26 +24,26 @@ if __name__ == "__main__":
     # NetworkControlApp()
 
     ## Quick Run
-    # Experiment(base_dir).run_one_simulation(num_nodes=200, num_connections=2000, simulation_dir="racing5", 
-    #                                     num_steps=100_000, display_interval=10000, metrics_interval=1000, random_seed=42, color_by=ColorBy.CLUSTER)
+    # Experiment(base_dir).run_one_simulation(num_nodes=200, num_connections=4200, simulation_dir="test", 
+    #                                     num_steps=1_000, display_interval=1_000, metrics_interval=1000, random_seed=42, color_by=ColorBy.DEGREE)
 
     # Experiment Run
-    experiment_folder = os.path.join(base_dir, "hybrid_rainbow_zero")
+    experiment_folder = os.path.join(base_dir, "weights_degree.5")
     Experiment(experiment_folder).run_experiment(
-                            seed_range=range(5),
-                            nodes_range=[200],
-                            connections_range=range(10, 19901, 10),      # [x / 100.0 for x in range(2, 40, 2)],
+                            seed_range=range(1),
+                            nodes_range=[300],
+                            connections_range=range(8000, 9501, 150),      # [x / 100.0 for x in range(2, 40, 2)],
                             num_steps=10_000_000,
-                            display_interval=100_000,
+                            display_interval=10_000,
                             metrics_interval=1_000,
-                            color_by=ColorBy.CLUSTER,
+                            color_by=ColorBy.DEGREE,
                         )
-    PostRunAnalyzer(experiment_folder).aggregate_metrics(experiment_folder)
+    # PostRunAnalyzer(experiment_folder).aggregate_metrics(experiment_folder)
 
     if profiler: profiler.disable()
 
     # Print profiler stats to sort by cumulative time
-    if profiler: pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(40)
+    if profiler: pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(20)
 
     print(get_times())   #TODO Remove for final version
     # print(Metrics.get_cluster_assignments.cache_info())

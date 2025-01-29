@@ -22,15 +22,19 @@ class NodeNetwork:
         self.activities = self.graph.new_vertex_property("float")
         self.activities.a = np.random.uniform(-0.7, 1.0, num_nodes)
 
+        self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=float)
+        edges = self.graph.get_edges()
+        lognormal = np.random.lognormal(mean=0.0, sigma=0.5, size=len(edges))
+        # normaliz the lognormal distribution to (0,1]
+        lognormal = (lognormal - np.min(lognormal)) / (np.max(lognormal) - np.min(lognormal))
+        self.adjacency_matrix[edges[:, 0], edges[:, 1]] = lognormal
+        self.adjacency_matrix[edges[:, 1], edges[:, 0]] = lognormal
+
         # Preallocate reused arrays
         self.vertices = self.graph.get_vertices()
-        self.degrees = self.graph.new_vertex_property("int")
-        self.degrees.a = self.graph.get_total_degrees(self.vertices)
+        self.weighted_degrees = self.graph.new_vertex_property("float")
+        self.weighted_degrees.a = np.sum(self.adjacency_matrix, axis=1) # self.degrees.a = self.graph.get_total_degrees(self.vertices)
         self.shuffled_indices = np.arange(num_nodes)
-
-        self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=bool)
-        for edge in self.graph.get_edges():
-            self.adjacency_matrix[edge[0], edge[1]] = self.adjacency_matrix[edge[1], edge[0]] = True
 
         self.metrics = Metrics(self.graph)
 
@@ -50,10 +54,10 @@ class NodeNetwork:
         # Sum up neighbor activities
         neighbor_sums = np.einsum("ij,j->i", self.adjacency_matrix, self.activities.a)
         # Split activity between neighbors (determined by epsilon)
-        connected_nodes = self.degrees.a > 0
+        connected_nodes = self.weighted_degrees.a > 0
         self.activities.a[connected_nodes] = (
             (1 - self.epsilon)  * self.activities.a[connected_nodes] + 
-            self.epsilon        * neighbor_sums[connected_nodes] / self.degrees.a[connected_nodes]
+            self.epsilon        * neighbor_sums[connected_nodes] / self.weighted_degrees.a[connected_nodes]
         )
         # Apply logistic map
         self.activities.a = 1 - self.alpha * (self.activities.a)**2
@@ -62,8 +66,8 @@ class NodeNetwork:
         # Select a pivot node
         pivot = np.random.randint(self.num_nodes)
         pivot_neighbors = self.graph.get_out_neighbors(pivot)
-        if len(pivot_neighbors) == 0:            # Select another pivot if no neighbors, very rarely happens in practice
-            nodes_with_neighbors = np.where(self.degrees.a > 0)[0]
+        while len(pivot_neighbors) == 0:            # Select another pivot if no neighbors, very rarely happens in practice
+            nodes_with_neighbors = np.where(self.weighted_degrees.a > 0)[0]
             if len(nodes_with_neighbors) == 0:
                 return  # No rewiring possible if no nodes have neighbors
             pivot = np.random.choice(nodes_with_neighbors)
@@ -78,7 +82,7 @@ class NodeNetwork:
         least_similar_neighbor = pivot_neighbors[np.argmax(activity_diff[pivot_neighbors])]     # least similar neighbor
 
         # 3a. If there is a connection between the pivot and the candidate already, do nothing
-        if self.graph.edge(pivot, candidate):
+        if self.adjacency_matrix[pivot, candidate] > 0:
             return
         self.swap_edge(pivot, least_similar_neighbor, candidate)
 
@@ -92,17 +96,23 @@ class NodeNetwork:
             return  # Edge doesn't exist, no need to proceed
 
         # Update adjacency matrix
-        self.adjacency_matrix[pivot, old_target] = self.adjacency_matrix[old_target, pivot] = False
-        self.adjacency_matrix[pivot, new_target] = self.adjacency_matrix[new_target, pivot] = True
+        weight = self.adjacency_matrix[pivot, old_target]
+        self.adjacency_matrix[pivot, new_target] = self.adjacency_matrix[new_target, pivot] = weight
+        self.adjacency_matrix[pivot, old_target] = self.adjacency_matrix[old_target, pivot] = 0.0
 
         # Update degrees
-        self.degrees[old_target] -= 1
-        self.degrees[new_target] += 1
+        self.weighted_degrees[old_target] -= weight
+        self.weighted_degrees[new_target] += weight
 
-        # Efficiently replace the edge
+        # Replace the edge
         self.graph.remove_edge(edge)
         self.graph.add_edge(pivot, new_target)
 
     def update_network(self, step):
-        self.update_activity()
-        self.rewire(step)
+        for _ in range(20):
+            self.update_activity()
+        try:
+            self.rewire(step)
+        except Exception as e:
+            print(e)
+            pass

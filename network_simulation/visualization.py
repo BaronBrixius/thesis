@@ -51,21 +51,31 @@ class Visualization:
                 self.colors[v] = color_map[cluster_assignments[int(v)]]
 
         elif self.color_by == ColorBy.DEGREE:
-            min_degree, max_degree = np.min(network.degrees.a), np.max(network.degrees.a)
+            min_degree, max_degree = np.min(network.weighted_degrees.a), np.max(network.weighted_degrees.a)
             if max_degree == min_degree:
-                normalized_degrees = np.zeros_like(network.degrees.a)  # All the same
+                normalized_degrees = np.zeros_like(network.weighted_degrees.a)  # All the same
             else:
-                normalized_degrees = (network.degrees.a - min_degree) / (max_degree - min_degree)
+                normalized_degrees = (network.weighted_degrees.a - min_degree) / (max_degree - min_degree)
             for v in network.graph.vertices():
                 self.colors[v] = colormap(normalized_degrees[int(v)])[:3]
-
-        else:
-            raise ValueError(f"Unsupported color_by option: {self.color_by}")
 
     def draw_visual(self, network:NodeNetwork, step, max_iter=0, ax=None):
         self.positions = self._compute_layout(network.graph, self.positions, max_iter)
         self._compute_vertex_colors(network, step)
         density = network.num_connections / (network.num_nodes * (network.num_nodes - 1) / 2)
+        # Create edge color property based on weights
+        edge_colors = network.graph.new_edge_property("vector<float>")
+        for e in network.graph.edges():
+            source, target = int(e.source()), int(e.target())
+            weight = network.adjacency_matrix[source, target]
+            # Darker color for stronger weights
+            if weight <= 0.1095: # 33rd percentile
+                edge_colors[e] = [1, 0.4, 0.4, 0.5]
+            elif weight >= 0.1856: # 66th percentile
+                edge_colors[e] = [0.4, 0.4, 1, 0.5]
+            else:
+                edge_colors[e] = [0.4, 1, 0.4, 0.5]
+
         output_path = os.path.join(self.output_dir, f"{step}.png")
         artist = graph_draw(
             network.graph,
@@ -73,13 +83,13 @@ class Visualization:
             output=output_path,
             mplfig=ax,
             vertex_size=7.0,
-            edge_pen_width=0.3 - 0.2 * (density ** 0.5),
-            edge_color=[0.4, 0.4, 0.4, 0.7 - 0.4 * (density ** 0.5)],
+            edge_pen_width=0.35 - 0.2 * (density ** 0.5),
+            edge_color=edge_colors,
             vertex_fill_color=self.colors,
             vertex_pen_width=0,
             bg_color=[1, 1, 1, 1],
         )
         if ax:
             artist.fit_view()
-            ax.set_xlim(-1, 1)
-            ax.set_ylim(-1, 1)
+            ax.set_xlim(-10, 10)
+            ax.set_ylim(-10, 10)
