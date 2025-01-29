@@ -23,6 +23,10 @@ class Visualization:
         self.positions = self._compute_layout(network.graph)
         self.colors = network.graph.new_vertex_property("vector<float>")
 
+        # array where the first 50 values are "square" and the next 250 are "circle"
+        self.vertex_shapes = network.graph.new_vertex_property("int")
+        self.vertex_shapes.a = [2 if i < 50 else 0 for i in range(network.num_nodes)]
+
     def _compute_layout(self, graph, old_positions=None, max_iter=0):
         try:
             return arf_layout(graph, pos=old_positions, epsilon=10000, max_iter=max_iter)
@@ -66,6 +70,21 @@ class Visualization:
         self.positions = self._compute_layout(network.graph, self.positions, max_iter)
         self._compute_vertex_colors(network, step)
         density = network.num_connections / (network.num_nodes * (network.num_nodes - 1) / 2)
+        # Create edge color property based on weights
+        edge_colors = network.graph.new_edge_property("vector<float>")
+        for e in network.graph.edges():
+            source, target = int(e.source()), int(e.target())
+
+            is_minority_edge = (source < 50 and target < 50)
+            is_mixed_edge = (source < 50) != (target < 50)
+
+            if is_minority_edge:
+                edge_colors[e] = [0.4, 0.4, 1, 0.5]  # blue
+            elif is_mixed_edge:
+                edge_colors[e] = [0.4, 1, 0.4, 0.5]  # green
+            else:   # majority edge
+                edge_colors[e] = [1, 0.4, 0.4, 0.5]  # red
+
         output_path = os.path.join(self.output_dir, f"{step}.png")
         artist = graph_draw(
             network.graph,
@@ -73,8 +92,9 @@ class Visualization:
             output=output_path,
             mplfig=ax,
             vertex_size=7.0,
-            edge_pen_width=0.3 - 0.2 * (density ** 0.5),
-            edge_color=[0.4, 0.4, 0.4, 0.7 - 0.4 * (density ** 0.5)],
+            vertex_shape=self.vertex_shapes,
+            edge_pen_width=0.35 - 0.2 * (density ** 0.5),
+            edge_color=edge_colors,
             vertex_fill_color=self.colors,
             vertex_pen_width=0,
             bg_color=[1, 1, 1, 1],

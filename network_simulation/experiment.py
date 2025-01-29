@@ -53,7 +53,18 @@ class Experiment:
             return f"Skipping completed scenario: {random_seed, num_nodes, num_connections}"
 
         from network_simulation.simulation import Simulation  # Import inside to ensure clean process
-        sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, output_dir=full_dir, color_by=color_by, random_seed=random_seed)
+        if num_nodes == 0:
+            alpha, epilson = 1.8, 0.4  # baseline
+        elif num_nodes == 1:
+            alpha, epilson = 1.7, 0.4  # less chaotic
+        elif num_nodes == 2:
+            alpha, epilson = 1.9, 0.4  # more chaotic
+        elif num_nodes == 3:
+            alpha, epilson = 1.8, 0.3  # sub-coupled
+        elif num_nodes == 4:
+            alpha, epilson = 1.8, 0.5  # hyper-coupled
+
+        sim = Simulation(num_nodes=300, num_connections=num_connections, output_dir=full_dir, color_by=color_by, random_seed=random_seed, alpha=alpha, epsilon=epilson)
         self.logger.info(f"Starting with {random_seed, num_nodes, num_connections}")
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
         return f"Simulation completed for {random_seed, num_nodes, num_connections}"
@@ -67,9 +78,9 @@ class Experiment:
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = []
             for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
-                if isinstance(num_connections, float):  # decimal values treated as network density percentages
-                    self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
-                    num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
+                # if isinstance(num_connections, float):  # decimal values treated as network density percentages
+                #     self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
+                #     num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
 
                 # Add simulation to queue
                 futures.append(
@@ -77,7 +88,7 @@ class Experiment:
                         self.run_one_simulation,
                         num_nodes=num_nodes,
                         num_connections=num_connections,
-                        simulation_dir=os.path.join(f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}"),
+                        simulation_dir=os.path.join(f"seed_{seed}", f"family_{num_nodes}", f"edges_{num_connections}"),
                         num_steps=num_steps,
                         display_interval=display_interval,
                         metrics_interval=metrics_interval,

@@ -3,6 +3,7 @@ import numpy as np
 from network_simulation.metrics import Metrics
 from network_simulation.utils import start_timing, stop_timing
 
+
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
         # Seed for reproducibility
@@ -10,8 +11,6 @@ class NodeNetwork:
 
         self.num_nodes = num_nodes
         self.num_connections = num_connections
-        self.alpha = alpha
-        self.epsilon = epsilon
 
         # Initialize graph
         self.graph = Graph(directed=False, fast_edge_removal=True)
@@ -21,6 +20,12 @@ class NodeNetwork:
         # Initialize node activities
         self.activities = self.graph.new_vertex_property("float")
         self.activities.a = np.random.uniform(-0.7, 1.0, num_nodes)
+
+        self.alphas = self.graph.new_vertex_property("float")
+        self.alphas.a = [alpha if i < 50 else 1.8 for i in range(self.num_nodes)]
+
+        self.epsilons = self.graph.new_vertex_property("float")
+        self.epsilons.a = [epsilon if i < 50 else 0.4 for i in range(self.num_nodes)]
 
         # Preallocate reused arrays
         self.vertices = self.graph.get_vertices()
@@ -52,11 +57,11 @@ class NodeNetwork:
         # Split activity between neighbors (determined by epsilon)
         connected_nodes = self.degrees.a > 0
         self.activities.a[connected_nodes] = (
-            (1 - self.epsilon)  * self.activities.a[connected_nodes] + 
-            self.epsilon        * neighbor_sums[connected_nodes] / self.degrees.a[connected_nodes]
+            (1 - self.epsilons.a[connected_nodes])  * self.activities.a[connected_nodes] + 
+            self.epsilons.a[connected_nodes]        * neighbor_sums[connected_nodes] / self.degrees.a[connected_nodes]
         )
         # Apply logistic map
-        self.activities.a = 1 - self.alpha * (self.activities.a)**2
+        self.activities.a = 1 - self.alphas.a * (self.activities.a)**2
 
     def rewire(self, step):
         # Select a pivot node
@@ -104,5 +109,6 @@ class NodeNetwork:
         self.graph.add_edge(pivot, new_target)
 
     def update_network(self, step):
-        self.update_activity()
+        for _ in range(20):
+            self.update_activity()
         self.rewire(step)
