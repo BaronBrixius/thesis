@@ -28,7 +28,7 @@ if __name__ == "__main__":
     #                                     num_steps=10_000, display_interval=1000, metrics_interval=1000, random_seed=42, color_by=ColorBy.DEGREE)
 
     # Experiment Run
-    experiment_folder = os.path.join(base_dir, "non-uniform")
+    experiment_folder = os.path.join(base_dir, "nonuniform")
     Experiment(experiment_folder).run_experiment(
                             seed_range=range(2),
                             nodes_range=range(5),

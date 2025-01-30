@@ -78,12 +78,12 @@ class PostRunAnalyzer:
 
         # Convert step to millions and group by relevant columns
         df["Step (Millions)"] = ((df["Step"] - 1) // 1_000_000 + 1).clip(lower=0).astype(int)
-        grouped = df.groupby(["Seed", "Nodes", "Edges", "Step (Millions)"])
+        grouped = df.groupby(["Seed", "Family", "Edges", "Step (Millions)"])
 
         # Aggregate metrics for each group
         aggregated = grouped.agg({
             "Seed": "first",
-            "Nodes": "first",
+            "Family": "first",
             "Edges": "first",
             "Step (Millions)": "first",
             "Cluster Count": "mean",
@@ -105,6 +105,7 @@ class PostRunAnalyzer:
         })
 
         # Add computed metrics
+        aggregated["Nodes"] = 300
         aggregated["Density"] = aggregated["Edges"] / (aggregated["Nodes"] * (aggregated["Nodes"] - 1) / 2)
         aggregated["Cluster Count Round"] = aggregated["Cluster Count"].round()
         aggregated["Cluster Count DeciRound"] = aggregated["Cluster Count"].round(1)
