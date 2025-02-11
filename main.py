@@ -17,28 +17,28 @@ if __name__ == "__main__":
             datefmt="%H:%M:%S"
         )
 
-    profiler = None #cProfile.Profile()
+    profiler = cProfile.Profile()
     if profiler: profiler.enable()
 
     ## Run in GUI
     # NetworkControlApp()
 
     ## Quick Run
-    # Experiment(base_dir).run_one_simulation(num_nodes=200, num_connections=2000, simulation_dir="racing5", 
-    #                                     num_steps=100_000, display_interval=10000, metrics_interval=1000, random_seed=42, color_by=ColorBy.CLUSTER)
+    Experiment(base_dir).run_one_simulation(num_nodes=200, num_connections=3000, simulation_dir="gpu", 
+                                        num_steps=20_000, display_interval=1000, metrics_interval=1000, random_seed=42, color_by=ColorBy.DEGREE)
 
     # Experiment Run
-    experiment_folder = os.path.join(base_dir, "hybrid_rainbow_zero")
-    Experiment(experiment_folder).run_experiment(
-                            seed_range=range(5),
-                            nodes_range=[200],
-                            connections_range=range(10, 19901, 10),      # [x / 100.0 for x in range(2, 40, 2)],
-                            num_steps=10_000_000,
-                            display_interval=100_000,
-                            metrics_interval=1_000,
-                            color_by=ColorBy.CLUSTER,
-                        )
-    PostRunAnalyzer(experiment_folder).aggregate_metrics(experiment_folder)
+    # experiment_folder = os.path.join(base_dir, "hybrid_rainbow_zero")
+    # Experiment(experiment_folder).run_experiment(
+    #                         seed_range=range(1),
+    #                         nodes_range=[200],
+    #                         connections_range=range(16000, 19901, 10),      # [x / 100.0 for x in range(2, 40, 2)],
+    #                         num_steps=10_000_000,
+    #                         display_interval=100_000,
+    #                         metrics_interval=1_000,
+    #                         color_by=ColorBy.CLUSTER,
+    #                     )
+    # PostRunAnalyzer(experiment_folder).aggregate_metrics(experiment_folder)
 
     if profiler: profiler.disable()
 

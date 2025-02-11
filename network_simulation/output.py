@@ -1,6 +1,8 @@
 import csv
 import os
 from network_simulation.network import NodeNetwork
+from graph_tool.all import Graph, local_clustering, shortest_distance
+from graph_tool.inference import PPBlockState
 
 class Output:
     def __init__(self, project_dir, num_nodes=None, num_connections=None):
@@ -25,19 +27,19 @@ class Output:
         self.csv_writer.writerow(row)
 
     def _compute_row(self, step, network: NodeNetwork):
+        # create graph-tool graph from network.adjacency_matrix
+        edge_list = list(zip(*network.adjacency_matrix.nonzero()))
+        graph = Graph(g=edge_list, directed=False)
+
         # Compute row data
         row = {
             "Step": step,
-            "Clustering Coefficient": network.metrics.calculate_clustering_coefficient(network.graph),
-            "Average Path Length": network.metrics.calculate_average_path_length(network.graph),
+            "Clustering Coefficient": network.metrics.calculate_clustering_coefficient(graph),
+            "Average Path Length": network.metrics.calculate_average_path_length(graph),
             "Rich Club Coefficients": network.metrics.calculate_rich_club_coefficients(network.adjacency_matrix),
         }
 
         # Update with cluster metrics
-        row.update(network.metrics.get_cluster_metrics(network.graph, step))
+        row.update(network.metrics.get_cluster_metrics(graph, step))
 
-        # Add rewiring metrics
-        row.update(
-            {f"Rewirings ({key})": value for key, value in network.metrics.rewirings.items()}
-        )
         return row

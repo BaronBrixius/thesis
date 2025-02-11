@@ -6,44 +6,10 @@ from typing import Optional, Dict
 from functools import lru_cache
 
 class Metrics:
-    def __init__(self, graph):
-        self.breakup_count = 0
-        self.rewirings = {
-            "intra_cluster": 0,
-            "inter_cluster_change": 0,
-            "inter_cluster_same": 0,
-            "intra_to_inter": 0,
-            "inter_to_intra": 0,
-        }
+    def __init__(self, network):
+        edge_list = list(zip(*network.adjacency_matrix.nonzero()))
+        graph = Graph(g=edge_list, directed=False)
         self.block_state = PPBlockState(graph)
-
-    # Runtime Tracking
-    def increment_breakup_count(self):
-        self.breakup_count += 1
-
-    def increment_rewiring_count(self, pivot, from_node, to_node, step: int):
-        partitions = self.block_state.get_blocks().a
-        pivot_cluster = partitions[int(pivot)]
-        from_cluster = partitions[int(from_node)]
-        to_cluster = partitions[int(to_node)]
-
-        if pivot_cluster == from_cluster == to_cluster:
-            self.rewirings["intra_cluster"] += 1
-        elif pivot_cluster != from_cluster and pivot_cluster != to_cluster:
-            if from_cluster == to_cluster:
-                self.rewirings["inter_cluster_same"] += 1
-            else:
-                self.rewirings["inter_cluster_change"] += 1
-        elif pivot_cluster == from_cluster and pivot_cluster != to_cluster:
-            self.rewirings["intra_to_inter"] += 1
-        elif pivot_cluster != from_cluster and pivot_cluster == to_cluster:
-            self.rewirings["inter_to_intra"] += 1
-
-    def reset_rewiring_counts(self):
-        """Reset all rewiring counts."""
-        self.rewirings = {key: 0 for key in self.rewirings}
-
-    ## Individual Metric Calculation Methods ##
 
     @staticmethod
     def calculate_clustering_coefficient(graph: Graph) -> float:
@@ -111,5 +77,5 @@ class Metrics:
             entropy_delta, _, _ = self.block_state.multilevel_mcmc_sweep()            #TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
             if entropy_delta == 0:
                 break
-        
+
         return self.block_state.get_blocks().a

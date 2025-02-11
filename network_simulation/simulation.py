@@ -20,10 +20,14 @@ class Simulation:
         """Processes a single simulation step."""
         if metrics_interval and step % metrics_interval == 0:
             self.output.write_metrics_line(step, self.network)
-            self.network.metrics.reset_rewiring_counts()
+
+            # mempool = cp.get_default_memory_pool()
+            # pinned_mempool = cp.get_default_pinned_memory_pool()
+            # print(f"Memory: {mempool.used_bytes()} used, {mempool.total_bytes()} total")
+            # print(f"Pinned blocks free: {pinned_mempool.n_free_blocks()} blocks")
 
         if display_interval and step % display_interval == 0:
-            self.visualization.draw_visual(self.network, step)
+            self.visualization.draw_visual(self.network, self.network.metrics.block_state.g, step)
 
         self.network.update_network(step)
 
@@ -31,7 +35,6 @@ class Simulation:
         """Handles final outputs after the simulation loop ends."""
         if metrics_interval:
             self.output.write_metrics_line(num_steps, self.network)
-            self.network.metrics.reset_rewiring_counts()
 
         if display_interval:
-            self.visualization.draw_visual(self.network, num_steps, display_interval)
+            self.visualization.draw_visual(self.network, self.network.metrics.block_state.g, num_steps, display_interval)
