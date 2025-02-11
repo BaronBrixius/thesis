@@ -49,15 +49,11 @@ class Visualization:
             colors = np.copy(activities)
         elif self.color_by == ColorBy.CLUSTER:
             if cluster_assignments is not None:
-                num_nodes = len(adjacency_matrix)
-                cluster_ids = np.full(num_nodes, -1, dtype=int)  # Default to -1 for unassigned nodes
-                for cluster_id, cluster in enumerate(cluster_assignments):
-                    for node in cluster:
-                        cluster_ids[node] = cluster_id
-                colors = cluster_ids / np.max(cluster_ids) * 1.75 - 0.75    # Normalize cluster IDs to [-0.75, 1] for coloring. -0.75 start makes -1.0 (red) distinct
+                unique_values = np.unique(cluster_assignments)
+                value_map = {old: new for new, old in enumerate(unique_values)}
+                colors = np.array([value_map[x] for x in cluster_assignments])
             else:
-                colors = np.zeros(len(adjacency_matrix))  # Default to zero if no assignments are available
-
+                colors = np.zeros(len(adjacency_matrix), dtype=int)  # Default to zero if no assignments are available
         elif self.color_by == ColorBy.DEGREE:
             colors = np.sum(adjacency_matrix, axis=1)
         else:
@@ -81,7 +77,7 @@ class Visualization:
         self.scatter = self.ax.scatter(
             positions[:, 0],
             positions[:, 1],
-            c=self._compute_vertex_colors(adjacency_matrix, activities, cluster_assignments=None),
+            c=self._compute_vertex_colors(adjacency_matrix, activities, None),
             cmap=self.color_by.value,
             s=10,
             zorder=2
@@ -97,12 +93,13 @@ class Visualization:
             self.line_collection = LineCollection(lines, colors=edge_color, linewidths=edge_pen_width, alpha=alpha, zorder=1)
             self.ax.add_collection(self.line_collection)
 
-    def draw_visual(self, network:NodeNetwork, graph, step, max_iter=0, ax=None):
+    def draw_visual(self, network:NodeNetwork, graph, step, max_iter=0, ax=None, title="Title"):
+        self.ax.set_title(title)
+
         self.positions = self._compute_layout(network.adjacency_matrix, max_iter=max_iter)
-        pos_array = np.array([[self.positions[v][0], self.positions[v][1]] for v in range(len(self.positions))])
 
         # Update node colors and positions
-        self.scatter.set_offsets(pos_array)
+        self.scatter.set_offsets(self.positions)
         self.scatter.set_array(self._compute_vertex_colors(network.adjacency_matrix, network.activities, network.metrics.block_state.get_blocks().a))
 
         # Update connection lines

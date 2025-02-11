@@ -78,4 +78,15 @@ class Metrics:
             if entropy_delta == 0:
                 break
 
-        return self.block_state.get_blocks().a
+        # Get the initial cluster assignments
+        cluster_assignments = self.block_state.get_blocks().a
+
+        # Create a mapping of unique values to normalized values (0, 1, 2, ...)
+        unique_values = np.unique(cluster_assignments)
+        value_map = {old: new for new, old in enumerate(unique_values)}
+        
+        # Apply the mapping to normalize cluster assignments
+        normalized_assignments = np.array([value_map[x] for x in cluster_assignments])
+        self.block_state.get_blocks().a = normalized_assignments
+
+        return normalized_assignments
