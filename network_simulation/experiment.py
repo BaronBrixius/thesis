@@ -39,8 +39,6 @@ class Experiment:
         # Start thread that checks for early termination
         threading.Thread(target=self.monitor_input_early_termination, daemon=True).start()
 
-        start = time.time()
-
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = []
             for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
