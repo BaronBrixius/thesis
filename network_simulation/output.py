@@ -11,8 +11,8 @@ class Output:
         self.csv_writer = None
 
     # Runtime Metrics Writing
-    def write_metrics_line(self, step, network: NodeNetwork):
-        row = network.metrics.compute_metrics(step, network)
+    def write_metrics_line(self, network: NodeNetwork, step):
+        row = network.metrics.compute_metrics(network.adjacency_matrix, network.activities, step)
 
         if self.csv_writer is None: # Lazy loading the writer also allows us to wait and see what headers will be needed
             self.csv_writer = csv.DictWriter(self.metrics_file, fieldnames=row.keys())

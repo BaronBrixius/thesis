@@ -19,7 +19,7 @@ class Simulation:
     def _step(self, step, display_interval, metrics_interval):
         """Processes a single simulation step."""
         if metrics_interval and step % metrics_interval == 0:
-            self.output.write_metrics_line(step, self.network)
+            self.output.write_metrics_line(self.network, step)
 
             # mempool = cp.get_default_memory_pool()
             # pinned_mempool = cp.get_default_pinned_memory_pool()
@@ -34,7 +34,7 @@ class Simulation:
     def _finalize_simulation(self, num_steps, display_interval, metrics_interval):
         """Handles final outputs after the simulation loop ends."""
         if metrics_interval:
-            self.output.write_metrics_line(num_steps, self.network)
+            self.output.write_metrics_line(self.network, num_steps)
 
         if display_interval:
             self.visualization.draw_visual(self.network, self.network.metrics.block_state.g, num_steps, display_interval)
