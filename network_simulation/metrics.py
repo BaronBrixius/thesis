@@ -4,26 +4,31 @@ import networkx as nx
 import numpy as np
 from typing import Optional, Dict
 from functools import lru_cache
+from network_simulation.utils import start_timing, stop_timing
 
 class Metrics:
-    def __init__(self, network):
-        edge_list = list(zip(*network.adjacency_matrix.nonzero()))
-        graph = Graph(g=edge_list, directed=False)
-        self.block_state = PPBlockState(graph)
+    def __init__(self, num_nodes):
+        self.community_assignments = np.zeros(num_nodes, dtype=int)
+        self.update_step = 0
 
-    def compute_metrics(self, step, network):
-        edge_list = list(zip(*network.adjacency_matrix.nonzero()))
-        graph = Graph(g=edge_list, directed=False)
+    def create_graph(self, adjacency_matrix):
+        edge_list = list(zip(*adjacency_matrix.nonzero()))
+        return Graph(g=edge_list, directed=False)
+
+    def compute_metrics(self, adjacency_matrix, activities, step):
+        graph = self.create_graph(adjacency_matrix)
+        nx_graph = nx.from_numpy_array(adjacency_matrix)
+
         # Compute row data
         row = {
             "Step": step,
-            "Clustering Coefficient": network.metrics.calculate_clustering_coefficient(graph),
-            "Average Path Length": network.metrics.calculate_average_path_length(graph),
-            "Rich Club Coefficients": network.metrics.calculate_rich_club_coefficients(network.adjacency_matrix),
+            "Clustering Coefficient": self.calculate_clustering_coefficient(graph),
+            "Average Path Length": self.calculate_average_path_length(graph),
+            "Rich Club Coefficients": self.calculate_rich_club_coefficients(nx_graph),
         }
 
         # Update with cluster metrics
-        row.update(network.metrics.get_cluster_metrics(graph, step))
+        row.update(self.get_community_metrics(graph, step))
 
         return row
 
@@ -46,63 +51,59 @@ class Metrics:
         return ave_path_length
 
     @staticmethod
-    def calculate_rich_club_coefficients(adjacency_matrix) -> Dict[int, float]:
-        return nx.rich_club_coefficient(nx.from_numpy_array(adjacency_matrix), normalized=False)
+    def calculate_rich_club_coefficients(nx_graph) -> Dict[int, float]:
+        return nx.rich_club_coefficient(nx_graph, normalized=False)
 
     @lru_cache(maxsize=16)
-    def get_cluster_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
-        cluster_assignments = self.get_cluster_assignments(graph, step)
-        unique_clusters, cluster_sizes = np.unique(cluster_assignments, return_counts=True)
-        
+    def get_community_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
+        block_state = self.get_block_state(graph)
+        unique_communities, community_sizes = np.unique(block_state.get_blocks().a, return_counts=True)
+
         # Calculate cluster sizes and densities in one pass
-        intra_cluster_densities = {}
+        intra_community_densities = {}
         total_nodes = graph.num_vertices()
         total_density_weight = 0
-        intra_cluster_edges = 0
+        intra_community_edges = 0
 
-        for cluster, size in zip(unique_clusters, cluster_sizes):
-            cluster_nodes = tuple(np.where(cluster_assignments == cluster)[0])
+        for community, size in zip(unique_communities, community_sizes):
+            community_nodes = tuple(np.where(block_state.get_blocks().a == community)[0])
 
-            graph.set_vertex_filter(graph.new_vertex_property("bool", vals=[int(v) in cluster_nodes for v in graph.vertices()]), inverted=False)
-            num_cluster_edges = graph.num_edges()
-            intra_cluster_edges += num_cluster_edges
-            num_possible_cluster_edges = len(cluster_nodes) * (len(cluster_nodes) - 1) / 2
+            graph.set_vertex_filter(graph.new_vertex_property("bool", vals=[int(v) in community_nodes for v in graph.vertices()]), inverted=False)
+            num_community_edges = graph.num_edges()
+            intra_community_edges += num_community_edges
+            num_possible_community_edges = len(community_nodes) * (len(community_nodes) - 1) / 2
             graph.set_vertex_filter(None)
 
-            density = num_cluster_edges / num_possible_cluster_edges if num_possible_cluster_edges > 0 else 0
-            intra_cluster_densities[cluster] = density
+            density = num_community_edges / num_possible_community_edges if num_possible_community_edges > 0 else 0
+            intra_community_densities[community] = density
             total_density_weight += size * density
 
-        cluster_metrics = {
-            "Cluster Count": len(unique_clusters),
-            "Cluster Sizes": dict(zip(unique_clusters, cluster_sizes)),
-            "Cluster Densities": intra_cluster_densities,
-            "Average Cluster Density Weighted": total_density_weight / total_nodes,
-            "Cluster Size Variance": np.var(cluster_sizes),
-            "SBM Entropy Normalized": self.block_state.entropy() / graph.num_edges() if graph.num_edges() > 0 else 0,
-            "Intra-cluster Edges": intra_cluster_edges,
+        community_metrics = {
+            "Community Count": len(unique_communities),
+            "Community Sizes": dict(zip(unique_communities, community_sizes)),
+            "Community Densities": intra_community_densities,
+            "Average Community Density Weighted": total_density_weight / total_nodes,
+            "Community Size Variance": np.var(community_sizes),
+            "SBM Entropy Normalized": block_state.entropy() / graph.num_edges() if graph.num_edges() > 0 else 0,
+            "Intra-community Edges": intra_community_edges,
         }
 
-        return cluster_metrics
+        return community_metrics
 
-    @lru_cache(maxsize=16)
-    def get_cluster_assignments(self, graph: Graph, step: int):
-        self.block_state = self.block_state.copy(graph)     # update the block state with the latest graph, preserves the previous community assignments
+    def get_block_state(self, graph: Graph):
+        block_state = PPBlockState(graph, b=self.community_assignments) # block state with the latest graph, preserves the previous community assignments
 
         for _ in range(5):
-            entropy_delta, _, _ = self.block_state.multilevel_mcmc_sweep()            #TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
+            entropy_delta, _, _ = block_state.multilevel_mcmc_sweep()            #TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
             if entropy_delta == 0:
                 break
 
         # Get the initial cluster assignments
-        cluster_assignments = self.block_state.get_blocks().a
+        # TODO See if this does anything useful
+        # community_assignments = block_state.get_blocks().a
+        # unique_values = np.unique(community_assignments)  # Map community assignments to normalized ids (0, 1, 2, ...) instead of arbitrary values
+        # value_map = {old: new for new, old in enumerate(unique_values)}
+        # normalized_assignments = np.array([value_map[x] for x in community_assignments])
+        # block_state.get_blocks().a = normalized_assignments 
 
-        # Create a mapping of unique values to normalized values (0, 1, 2, ...)
-        unique_values = np.unique(cluster_assignments)
-        value_map = {old: new for new, old in enumerate(unique_values)}
-        
-        # Apply the mapping to normalize cluster assignments
-        normalized_assignments = np.array([value_map[x] for x in cluster_assignments])
-        self.block_state.get_blocks().a = normalized_assignments
-
-        return normalized_assignments
+        return block_state

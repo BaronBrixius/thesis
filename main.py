@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     ## Quick Run
     Experiment(base_dir).run_one_simulation(num_nodes=200, num_connections=2000, simulation_dir="gpu", 
-                                        num_steps=25_000, display_interval=1000, metrics_interval=1000, random_seed=42, color_by=ColorBy.DEGREE)
+                                        num_steps=30_000, display_interval=0, metrics_interval=1000, random_seed=0, color_by=ColorBy.DEGREE)
 
     # Experiment Run
     # experiment_folder = os.path.join(base_dir, "hybrid_rainbow_zero")

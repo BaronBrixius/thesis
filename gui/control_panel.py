@@ -94,7 +94,7 @@ class ControlPanel:
 
     def update_metrics(self, network:NodeNetwork, step, colormap:ListedColormap):
         # Detect communities with optional previous assignments
-        cluster_assignments = network.metrics.get_cluster_assignments(network.graph, step)
+        cluster_assignments = network.metrics.get_block_state(network.graph, step)
 
         # Calculate metrics
         cluster_membership_dict = {i: np.where(cluster_assignments == i)[0].tolist() for i in set(cluster_assignments)}
