@@ -125,7 +125,7 @@ class ControlPanel:
 
         metrics_text = (
             f"Step: {step}\n"
-            f"Clustering Coefficient: {network.metrics.calculate_clustering_coefficient(network.graph):.3f}\n"
+            f"Clustering Coefficient: {network.metrics._calculate_clustering_coefficient(network.graph):.3f}\n"
             # f"Rewiring Chance: {network.metrics.calculate_rewiring_chance(network.graph, network.activities):.3f}\n"
             f"Cluster Count: {num_clusters}\n"
         )

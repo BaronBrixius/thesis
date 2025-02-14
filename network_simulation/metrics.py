@@ -11,7 +11,7 @@ class Metrics:
         self.last_entropy = None
         self.last_update_step = -1
 
-    def compute_metrics(self, adjacency_matrix, activities, step):
+    def compute_metrics(self, adjacency_matrix, step):
         edge_list = list(zip(*adjacency_matrix.nonzero()))
         graph = Graph(g=edge_list, directed=False)
         nx_graph = nx.from_numpy_array(adjacency_matrix)
@@ -19,25 +19,25 @@ class Metrics:
         # Compute row data
         row = {
             "Step": step,
-            "Clustering Coefficient": self.calculate_clustering_coefficient(graph),
-            "Average Path Length": self.calculate_average_path_length(graph),
-            "Rich Club Coefficients": self.calculate_rich_club_coefficients(nx_graph),
+            "Clustering Coefficient": self._calculate_clustering_coefficient(graph),
+            "Average Path Length": self._calculate_average_path_length(graph),
+            "Rich Club Coefficients": self._calculate_rich_club_coefficients(nx_graph),
         }
 
-        # Update with community metrics
-        row.update(self.get_community_metrics(graph, step))
+        # Add community metrics
+        row.update(self._calculate_community_metrics(graph, step))
 
         return row
 
     @staticmethod
-    def calculate_clustering_coefficient(graph: Graph) -> float:
+    def _calculate_clustering_coefficient(graph: Graph) -> float:
         """
         Clustering Coefficient (CC): Tendency of nodes to form tightly knit groups (triangles).
         """
         return local_clustering(graph).get_array().mean()
 
     @staticmethod
-    def calculate_average_path_length(graph: Graph) -> Optional[float]:
+    def _calculate_average_path_length(graph: Graph) -> Optional[float]:
         """
         Average Path Length (APL): Average shortest path length between all pairs of nodes in the network.
         """
@@ -47,13 +47,13 @@ class Metrics:
         return ave_path_length
 
     @staticmethod
-    def calculate_rich_club_coefficients(nx_graph) -> Dict[int, float]:
+    def _calculate_rich_club_coefficients(nx_graph) -> Dict[int, float]:
         return nx.rich_club_coefficient(nx_graph, normalized=False)
 
-    def get_community_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
+    def _calculate_community_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
         community_assignments, entropy = self.get_community_assignments(graph, step)
         unique_communities, community_sizes = np.unique(community_assignments, return_counts=True)
-        intra_community_densities, intra_community_edges = self.calculate_community_densities(graph, community_assignments, unique_communities)
+        intra_community_densities, intra_community_edges = self._calculate_community_densities(graph, community_assignments, unique_communities)
 
         return {
             "Community Count": len(unique_communities),
@@ -64,7 +64,7 @@ class Metrics:
             "Intra-Community Edges": intra_community_edges,
         }
 
-    def calculate_community_densities(self, graph, community_assignments, unique_communities):
+    def _calculate_community_densities(self, graph, community_assignments, unique_communities):
         intra_community_densities = {}
         intra_community_edges = 0
 
