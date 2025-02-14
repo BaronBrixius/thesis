@@ -4,14 +4,10 @@ from network_simulation.network import NodeNetwork
 
 class Output:
     def __init__(self, project_dir, num_nodes=None, num_connections=None):
-        self.num_nodes = num_nodes
-        self.num_connections = num_connections
-
-        self.project_dir = project_dir
         os.makedirs(project_dir, exist_ok=True)
-
-        metrics_file_path = os.path.join(self.project_dir, f"summary_metrics_nodes_{self.num_nodes}_edges_{self.num_connections}.csv")
+        metrics_file_path = os.path.join(project_dir, f"summary_metrics_nodes_{num_nodes}_edges_{num_connections}.csv")
         self.metrics_file = open(metrics_file_path, mode="w", newline="")
+
         self.csv_writer = None
 
     # Runtime Metrics Writing
