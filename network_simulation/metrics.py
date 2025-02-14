@@ -6,17 +6,13 @@ from typing import Optional, Dict
 from network_simulation.utils import start_timing, stop_timing
 
 class Metrics:
-    def __init__(self, num_nodes):
-        self.last_community_assignments = np.zeros(num_nodes, dtype=int)
-        self.last_entropy = 0
-        self.last_update_step = 0
-
-    def create_graph(self, adjacency_matrix):
-        edge_list = list(zip(*adjacency_matrix.nonzero()))
-        return Graph(g=edge_list, directed=False)
+    def __init__(self):
+        self.last_community_assignments, self.last_entropy = None, None
+        self.last_update_step = -1
 
     def compute_metrics(self, adjacency_matrix, activities, step):
-        graph = self.create_graph(adjacency_matrix)
+        edge_list = list(zip(*adjacency_matrix.nonzero()))
+        graph = Graph(g=edge_list, directed=False)
         nx_graph = nx.from_numpy_array(adjacency_matrix)
 
         # Compute row data
@@ -27,7 +23,7 @@ class Metrics:
             "Rich Club Coefficients": self.calculate_rich_club_coefficients(nx_graph),
         }
 
-        # Update with cluster metrics
+        # Update with community metrics
         row.update(self.get_community_metrics(graph, step))
 
         return row
@@ -45,9 +41,8 @@ class Metrics:
         Average Path Length (APL): Average shortest path length between all pairs of nodes in the network.
         """
         distances = shortest_distance(graph, directed=False)
-        n = graph.num_vertices()
-        # Only sum the upper triangle of the distance matrix, and double it
-        ave_path_length = 2 * sum([sum(row[j + 1:]) for j, row in enumerate(distances)])/(n**2-n)
+        num_vertex_pairs = (graph.num_vertices()**2-graph.num_vertices())
+        ave_path_length = 2 * sum([sum(row[j + 1:]) for j, row in enumerate(distances)])/num_vertex_pairs   # Only sum the upper triangle of the distance matrix, and double it
         return ave_path_length
 
     @staticmethod
@@ -57,28 +52,23 @@ class Metrics:
     def get_community_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
         community_assignments, entropy = self.get_community_assignments(graph, step)
         unique_communities, community_sizes = np.unique(community_assignments, return_counts=True)
-        
-        intra_community_densities, total_density_weight, intra_community_edges = self.calculate_community_densities(graph, community_assignments, unique_communities, community_sizes)
+        intra_community_densities, intra_community_edges = self.calculate_community_densities(graph, community_assignments, unique_communities)
 
-        community_metrics = {
+        return {
             "Community Count": len(unique_communities),
             "Community Sizes": dict(zip(unique_communities, community_sizes)),
             "Community Densities": intra_community_densities,
-            "Average Community Density Weighted": total_density_weight / graph.num_vertices(),
             "Community Size Variance": np.var(community_sizes),
             "SBM Entropy Normalized": entropy / graph.num_edges() if graph.num_edges() > 0 else 0,
-            "Intra-community Edges": intra_community_edges,
+            "Intra-Community Edges": intra_community_edges,
         }
 
-        return community_metrics
-
-    def calculate_community_densities(self, graph, community_assignments, unique_communities, community_sizes):
+    def calculate_community_densities(self, graph, community_assignments, unique_communities):
         intra_community_densities = {}
-        total_density_weight = 0
         intra_community_edges = 0
 
-        for community, size in zip(unique_communities, community_sizes):
-            community_nodes = tuple(np.where(community_assignments == community)[0])
+        for community in unique_communities:
+            community_nodes = np.where(community_assignments == community)[0]
 
             graph.set_vertex_filter(graph.new_vertex_property("bool", vals=[int(v) in community_nodes for v in graph.vertices()]), inverted=False)
             num_community_edges = graph.num_edges()
@@ -88,25 +78,22 @@ class Metrics:
 
             density = num_community_edges / num_possible_community_edges if num_possible_community_edges > 0 else 0
             intra_community_densities[community] = density
-            total_density_weight += size * density
 
-        return intra_community_densities, total_density_weight, intra_community_edges
+        return intra_community_densities, intra_community_edges
 
     def get_community_assignments(self, graph: Graph, step: int):
-        if step == self.last_update_step:
-            return self.last_community_assignments, self.last_entropy
+        if step > self.last_update_step:
+            self.last_community_assignments, self.last_entropy = self._calculate_community_assignments(graph)
+            self.last_update_step = step
 
-        block_state = PPBlockState(graph, b=self.last_community_assignments) # block state with the latest graph, preserves the previous community assignments
+        return self.last_community_assignments, self.last_entropy
+
+    def _calculate_community_assignments(self, graph: Graph):
+        block_state = PPBlockState(graph, b=self.last_community_assignments)    # block state with the latest graph, b preserves the current community assignments as a starting point
 
         for _ in range(5):
-            entropy_delta, _, _ = block_state.multilevel_mcmc_sweep()            #TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
+            entropy_delta, _, _ = block_state.multilevel_mcmc_sweep()           #TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
             if entropy_delta == 0:
                 break
 
-        # Get the initial cluster assignments
-        community_assignments = block_state.get_blocks().a
-        value_map = {old: new for new, old in enumerate(np.unique(community_assignments))}  # Map community assignments to normalized ids (0, 1, 2, ...) instead of arbitrary values
-        normalized_assignments = np.array([value_map[x] for x in community_assignments])
-        # block_state.get_blocks().a = normalized_assignments # TODO See if this does anything useful
-
-        return normalized_assignments, block_state.entropy()
+        return block_state.get_blocks().a, block_state.entropy()

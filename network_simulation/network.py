@@ -7,7 +7,7 @@ class NodeNetwork:
         # Seed for reproducibility
         np.random.seed(random_seed)
 
-        # Params to track
+        # Params to store
         self.num_nodes = num_nodes
         self.num_connections = num_connections
         self.alpha = alpha
@@ -23,15 +23,14 @@ class NodeNetwork:
         self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=bool)
         self.add_random_connections(num_connections)
 
-        self.metrics = Metrics(self.num_nodes)
+        self.metrics = Metrics()
 
     def add_random_connections(self, num_connections_to_add):
         """Add random connections to the graph."""
-        num_nodes = self.num_nodes
         edges = set()
         while len(edges) < num_connections_to_add:
-            v1 = np.random.randint(0, num_nodes)
-            v2 = np.random.randint(0, num_nodes)
+            v1 = np.random.randint(0, self.num_nodes)
+            v2 = np.random.randint(0, self.num_nodes)
             if v1 != v2 and (v1, v2) not in edges and (v2, v1) not in edges:
                 edges.add((v1, v2))
 
@@ -52,7 +51,7 @@ class NodeNetwork:
         # Apply logistic map
         self.activities = 1 - self.alpha * (self.activities)**2
 
-    def rewire(self, step):
+    def rewire(self):
         # Select a pivot node
         pivot = np.random.randint(self.num_nodes)
         pivot_neighbors = np.where(self.adjacency_matrix[pivot])[0]
@@ -85,6 +84,6 @@ class NodeNetwork:
         self.degrees[old_target] -= 1
         self.degrees[new_target] += 1
 
-    def update_network(self, step):
+    def update_network(self):
         self.update_activity()
-        self.rewire(step)
+        self.rewire()

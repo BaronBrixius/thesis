@@ -24,7 +24,7 @@ if __name__ == "__main__":
     # NetworkControlApp()
 
     ## Quick Run
-    Experiment(base_dir).run_one_simulation(num_nodes=200, num_connections=2000, simulation_dir="gpu", 
+    Experiment(base_dir).run_one_simulation(num_nodes=200, num_connections=4000, simulation_dir="gpu", 
                                         num_steps=30_000, display_interval=0, metrics_interval=1000, random_seed=0, color_by=ColorBy.DEGREE)
 
     # Experiment Run

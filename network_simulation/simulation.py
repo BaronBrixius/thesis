@@ -29,7 +29,7 @@ class Simulation:
         if display_interval and step % display_interval == 0:
             self.visualization.draw_visual(self.network, self.network.metrics.block_state.g, step)
 
-        self.network.update_network(step)
+        self.network.update_network()
 
     def _finalize_simulation(self, num_steps, display_interval, metrics_interval):
         """Handles final outputs after the simulation loop ends."""
