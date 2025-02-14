@@ -3,17 +3,13 @@ from itertools import product
 from network_simulation.visualization import ColorBy
 import logging
 import os
-from pandas import read_csv
-import shutil
 import threading
 import multiprocessing
-import time
 
 class Experiment:
     def __init__(self, experiment_folder):
         self.experiment_folder = experiment_folder
-        manager = multiprocessing.Manager()
-        self.termination_flag = manager.Event()
+        self.termination_flag = multiprocessing.Manager().Event()
         self.logger = logging.getLogger(__name__)
 
     def monitor_input_early_termination(self):

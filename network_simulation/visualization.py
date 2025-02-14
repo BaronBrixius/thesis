@@ -93,14 +93,14 @@ class Visualization:
             self.line_collection = LineCollection(lines, colors=edge_color, linewidths=edge_pen_width, alpha=alpha, zorder=1)
             self.ax.add_collection(self.line_collection)
 
-    def draw_visual(self, network:NodeNetwork, graph, step, max_iter=0, ax=None, title="Title"):
+    def draw_visual(self, network:NodeNetwork, step, max_iter=0, title="Title"):
         self.ax.set_title(title)
 
         self.positions = self._compute_layout(network.adjacency_matrix, max_iter=max_iter)
 
         # Update node colors and positions
         self.scatter.set_offsets(self.positions)
-        self.scatter.set_array(self._compute_vertex_colors(network.adjacency_matrix, network.activities, network.metrics.block_state.get_blocks().a))
+        self.scatter.set_array(self._compute_vertex_colors(network.adjacency_matrix, network.activities, network.metrics.last_community_assignments))
 
         # Update connection lines
         lines = self._compute_lines(self.positions, network.adjacency_matrix)
