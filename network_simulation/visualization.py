@@ -1,9 +1,8 @@
 from network_simulation.network import NodeNetwork
 from network_simulation.physics import Physics
-from graph_tool.draw import graph_draw, arf_layout
+from graph_tool.draw import arf_layout
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-from matplotlib.colors import ListedColormap
 import numpy as np
 import logging
 from enum import Enum
@@ -100,7 +99,7 @@ class Visualization:
 
         # Update node colors and positions
         self.scatter.set_offsets(self.positions)
-        self.scatter.set_array(self._compute_vertex_colors(network.adjacency_matrix, network.activities, network.metrics.last_community_assignments))
+        self.scatter.set_array(self._compute_vertex_colors(network.adjacency_matrix, network.activities, network.metrics.block_state.get_blocks().a))
 
         # Update connection lines
         lines = self._compute_lines(self.positions, network.adjacency_matrix)

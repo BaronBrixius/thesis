@@ -23,7 +23,7 @@ class NodeNetwork:
         self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=bool)
         self.add_random_connections(num_connections)
 
-        self.metrics = Metrics()
+        self.metrics = Metrics(self.adjacency_matrix)
 
     def add_random_connections(self, num_connections_to_add):
         """Add random connections to the graph."""

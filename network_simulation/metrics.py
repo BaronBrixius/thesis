@@ -3,12 +3,12 @@ from graph_tool.inference import PPBlockState
 import networkx as nx
 import numpy as np
 from typing import Optional, Dict
-from network_simulation.utils import start_timing, stop_timing
 
 class Metrics:
-    def __init__(self):
-        self.last_community_assignments = None
-        self.last_entropy = None
+    def __init__(self, adjacency_matrix):
+        edge_list = list(zip(*adjacency_matrix.nonzero()))
+        graph = Graph(g=edge_list, directed=False)
+        self.block_state = PPBlockState(graph)
         self.last_update_step = -1
 
     def compute_metrics(self, adjacency_matrix, step):
@@ -51,7 +51,8 @@ class Metrics:
         return nx.rich_club_coefficient(nx_graph, normalized=False)
 
     def _calculate_community_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
-        community_assignments, entropy = self.get_community_assignments(graph, step)
+        self._update_community_assignments(graph, step)
+        community_assignments = self.block_state.get_blocks().a
         unique_communities, community_sizes = np.unique(community_assignments, return_counts=True)
         intra_community_densities, intra_community_edges = self._calculate_community_densities(graph, community_assignments, unique_communities)
 
@@ -60,7 +61,7 @@ class Metrics:
             "Community Sizes": dict(zip(unique_communities, community_sizes)),
             "Community Densities": intra_community_densities,
             "Community Size Variance": np.var(community_sizes),
-            "SBM Entropy Normalized": entropy / graph.num_edges() if graph.num_edges() > 0 else 0,
+            "SBM Entropy Normalized": self.block_state.entropy() / graph.num_edges() if graph.num_edges() > 0 else 0,
             "Intra-Community Edges": intra_community_edges,
         }
 
@@ -85,19 +86,15 @@ class Metrics:
 
         return intra_community_densities, intra_community_edges
 
-    def get_community_assignments(self, graph: Graph, step: int):
+    def _update_community_assignments(self, graph: Graph, step: int):
         if step > self.last_update_step:
-            self.last_community_assignments, self.last_entropy = self._calculate_community_assignments(graph)
+            self._update_community_assignments(graph)
             self.last_update_step = step
 
-        return self.last_community_assignments, self.last_entropy
+    def _update_community_assignments(self, graph: Graph, max_sweeps=5):
+        self.block_state = self.block_state.copy(g=graph)  # block state with the latest graph, preserves the current community assignments
 
-    def _calculate_community_assignments(self, graph: Graph):
-        block_state = PPBlockState(graph, b=self.last_community_assignments)  # block state with the latest graph, b preserves the current community assignments as a starting point
-
-        for _ in range(5):
-            entropy_delta, _, _ = block_state.multilevel_mcmc_sweep()  # TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
+        for _ in range(max_sweeps):
+            entropy_delta, _, _ = self.block_state.multilevel_mcmc_sweep()  # TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
             if entropy_delta == 0:
                 break
-
-        return block_state.get_blocks().a, block_state.entropy()
