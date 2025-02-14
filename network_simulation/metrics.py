@@ -7,7 +7,8 @@ from network_simulation.utils import start_timing, stop_timing
 
 class Metrics:
     def __init__(self):
-        self.last_community_assignments, self.last_entropy = None, None
+        self.last_community_assignments = None
+        self.last_entropy = None
         self.last_update_step = -1
 
     def compute_metrics(self, adjacency_matrix, activities, step):
@@ -41,8 +42,8 @@ class Metrics:
         Average Path Length (APL): Average shortest path length between all pairs of nodes in the network.
         """
         distances = shortest_distance(graph, directed=False)
-        num_vertex_pairs = (graph.num_vertices()**2-graph.num_vertices())
-        ave_path_length = 2 * sum([sum(row[j + 1:]) for j, row in enumerate(distances)])/num_vertex_pairs   # Only sum the upper triangle of the distance matrix, and double it
+        num_vertex_pairs = (graph.num_vertices()**2 - graph.num_vertices())
+        ave_path_length = 2 * sum([sum(row[j + 1:]) for j, row in enumerate(distances)]) / num_vertex_pairs  # Only sum the upper triangle of the distance matrix, and double it
         return ave_path_length
 
     @staticmethod
@@ -68,16 +69,19 @@ class Metrics:
         intra_community_edges = 0
 
         for community in unique_communities:
+            # Filter to only see the current community
             community_nodes = np.where(community_assignments == community)[0]
-
             graph.set_vertex_filter(graph.new_vertex_property("bool", vals=[int(v) in community_nodes for v in graph.vertices()]), inverted=False)
-            num_community_edges = graph.num_edges()
-            intra_community_edges += num_community_edges
-            num_possible_community_edges = len(community_nodes) * (len(community_nodes) - 1) / 2
-            graph.set_vertex_filter(None)
 
-            density = num_community_edges / num_possible_community_edges if num_possible_community_edges > 0 else 0
-            intra_community_densities[community] = density
+            # Calculate density
+            num_community_edges = graph.num_edges()
+            num_possible_community_edges = len(community_nodes) * (len(community_nodes) - 1) / 2
+            intra_community_densities[community] = num_community_edges / num_possible_community_edges
+
+            # Update total intra-community edges
+            intra_community_edges += num_community_edges
+
+            graph.set_vertex_filter(None)
 
         return intra_community_densities, intra_community_edges
 
@@ -89,10 +93,10 @@ class Metrics:
         return self.last_community_assignments, self.last_entropy
 
     def _calculate_community_assignments(self, graph: Graph):
-        block_state = PPBlockState(graph, b=self.last_community_assignments)    # block state with the latest graph, b preserves the current community assignments as a starting point
+        block_state = PPBlockState(graph, b=self.last_community_assignments)  # block state with the latest graph, b preserves the current community assignments as a starting point
 
         for _ in range(5):
-            entropy_delta, _, _ = block_state.multilevel_mcmc_sweep()           #TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
+            entropy_delta, _, _ = block_state.multilevel_mcmc_sweep()  # TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
             if entropy_delta == 0:
                 break
 
