@@ -11,6 +11,22 @@ class Metrics:
         graph = Graph(g=edge_list, directed=False)
         self.block_state = PPBlockState(graph)
 
+    def compute_metrics(self, step, network):
+        edge_list = list(zip(*network.adjacency_matrix.nonzero()))
+        graph = Graph(g=edge_list, directed=False)
+        # Compute row data
+        row = {
+            "Step": step,
+            "Clustering Coefficient": network.metrics.calculate_clustering_coefficient(graph),
+            "Average Path Length": network.metrics.calculate_average_path_length(graph),
+            "Rich Club Coefficients": network.metrics.calculate_rich_club_coefficients(network.adjacency_matrix),
+        }
+
+        # Update with cluster metrics
+        row.update(network.metrics.get_cluster_metrics(graph, step))
+
+        return row
+
     @staticmethod
     def calculate_clustering_coefficient(graph: Graph) -> float:
         """
