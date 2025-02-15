@@ -16,7 +16,7 @@ class ColorBy(Enum):
     DEGREE = "inferno"
 
 class Visualization:
-    def __init__(self, network, output_dir="foo", color_by=ColorBy.ACTIVITY):
+    def __init__(self, network, graph, output_dir="foo", color_by=ColorBy.ACTIVITY):
         self.logger = logging.getLogger(__name__)
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
@@ -25,22 +25,14 @@ class Visualization:
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir, exist_ok=True)
 
-        self.positions = np.random.uniform([0.1, 0.1], [0.9, 0.9], (network.num_nodes, 2))
-        self.physics = Physics(normal_distance=(0.5 * np.sqrt(network.num_connections + network.num_nodes) / network.num_nodes))
+        self._compute_layout(graph)
+        self._initialize_plot(network.activities, network.adjacency_matrix)
 
-        self.initialize_plot(self.positions, network.activities, network.adjacency_matrix)
-
-    def _compute_layout(self, graph, max_iter=0):
+    def _compute_layout(self, graph, old_positions=None, max_iter=0):
         start_timing("arf_layout")
-        pos = graph.vertex_properties.get("pos", graph.new_vertex_property("vector<double>"))
-        for v in graph.vertices():
-            pos[v] = self.positions[int(v)]
-        pos = arf_layout(graph, pos=pos, epsilon=10000, max_iter=max_iter)
-        positions = np.array([pos[v] for v in graph.vertices()])
-        self.positions = positions
+        self.positions = arf_layout(graph, pos=old_positions, epsilon=10000, max_iter=max_iter)
         stop_timing("arf_layout")
-        return self.positions
-
+    
     def _compute_vertex_colors(self, adjacency_matrix, activities, cluster_assignments=None):
         if self.color_by == ColorBy.ACTIVITY:
             colors = np.copy(activities)
@@ -63,7 +55,7 @@ class Visualization:
         connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
         return connections
 
-    def initialize_plot(self, positions, activities, adjacency_matrix):
+    def _initialize_plot(self, activities, adjacency_matrix):
         self.ax.set_xlim(-5, 5)
         self.ax.set_ylim(-5, 5)
         self.ax.set_aspect('equal')
@@ -72,8 +64,8 @@ class Visualization:
 
         # Initialize scatter plot for nodes
         self.scatter = self.ax.scatter(
-            positions[:, 0],
-            positions[:, 1],
+            self.positions.get_2d_array().T[:, 0],
+            self.positions.get_2d_array().T[:, 1],
             c=self._compute_vertex_colors(adjacency_matrix, activities, None),
             cmap=self.color_by.value,
             s=10,
@@ -81,7 +73,7 @@ class Visualization:
         )
 
         # Initialize lines (connections)
-        lines = self._compute_lines(positions, adjacency_matrix)
+        lines = self._compute_lines(self.positions.get_2d_array().T, adjacency_matrix)
         if len(lines) > 0:
             density = len(lines) / (len(activities) * (len(activities) - 1) / 2)
             edge_pen_width=0.3 - 0.2 * (density ** 0.5)
@@ -93,14 +85,14 @@ class Visualization:
     def draw_visual(self, adjacency_matrix, activities, community_assignments, graph, step, max_iter=0, title=None):
         self.ax.set_title(title)
 
-        self.positions = self._compute_layout(graph, max_iter=max_iter)
+        self._compute_layout(graph, max_iter=max_iter)
 
         # Update node colors and positions
-        self.scatter.set_offsets(self.positions)
+        self.scatter.set_offsets(self.positions.get_2d_array().T)
         self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
 
         # Update connection lines
-        lines = self._compute_lines(self.positions, adjacency_matrix)
+        lines = self._compute_lines(self.positions.get_2d_array().T, adjacency_matrix)
         self.line_collection.set_segments(lines)
 
         # Redraw the canvas
