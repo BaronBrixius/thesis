@@ -2,7 +2,7 @@ import csv
 import os
 
 class CSVWriter:
-    def __init__(self, project_dir, file_name="summary_metrics.csv"):
+    def __init__(self, project_dir, file_name="metrics.csv"):
         os.makedirs(project_dir, exist_ok=True)
         metrics_file_path = os.path.join(project_dir, file_name)
         metrics_file = open(metrics_file_path, mode="w", newline="")
