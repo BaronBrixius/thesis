@@ -54,7 +54,7 @@ class Experiment:
                         self.run_one_simulation,
                         num_nodes=num_nodes,
                         num_connections=num_connections,
-                        output_dir=simulation_dir,
+                        simulation_dir=simulation_dir,
                         num_steps=num_steps,
                         display_interval=display_interval,
                         metrics_interval=metrics_interval,
