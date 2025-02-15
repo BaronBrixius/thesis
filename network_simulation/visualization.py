@@ -16,7 +16,7 @@ class ColorBy(Enum):
     DEGREE = "inferno"
 
 class Visualization:
-    def __init__(self, network, graph, output_dir="foo", color_by=ColorBy.ACTIVITY):
+    def __init__(self, network, graph, community_assignments, output_dir="foo", color_by=ColorBy.ACTIVITY):
         self.logger = logging.getLogger(__name__)
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
@@ -27,21 +27,18 @@ class Visualization:
             os.makedirs(self.output_dir, exist_ok=True)
 
         positions_array = self._compute_layout(graph)
-        self._initialize_plot(network.activities, network.adjacency_matrix, positions_array)
+        self._initialize_plot(network.activities, network.adjacency_matrix, positions_array, community_assignments)
 
     def _compute_layout(self, graph, max_iter=0):
         self.positions = arf_layout(graph, pos=self.positions, epsilon=10000, max_iter=max_iter)
         return self.positions.get_2d_array().T
 
-    def _compute_vertex_colors(self, adjacency_matrix, activities, cluster_assignments=None):
+    def _compute_vertex_colors(self, adjacency_matrix, activities, cluster_assignments):
         if self.color_by == ColorBy.ACTIVITY:
             colors = np.copy(activities)
         elif self.color_by == ColorBy.CLUSTER:
-            if cluster_assignments is not None:
-                value_map = {old: new for new, old in enumerate(np.unique(cluster_assignments))}
-                colors = np.array([value_map[x] for x in cluster_assignments])
-            else:
-                colors = np.zeros(len(adjacency_matrix), dtype=int)  # Default to zero if no assignments are available
+            value_map = {old: new for new, old in enumerate(np.unique(cluster_assignments))}
+            colors = np.array([value_map[x] for x in cluster_assignments])
         elif self.color_by == ColorBy.DEGREE:
             colors = np.sum(adjacency_matrix, axis=1)
         else:
@@ -54,7 +51,7 @@ class Visualization:
         connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
         return connections
 
-    def _initialize_plot(self, activities, adjacency_matrix, positions_array):
+    def _initialize_plot(self, activities, adjacency_matrix, positions_array, community_assignments):
         self.ax.set_xlim(-5, 5)
         self.ax.set_ylim(-5, 5)
         self.ax.set_aspect('equal')
@@ -65,7 +62,7 @@ class Visualization:
         self.scatter = self.ax.scatter(
             positions_array[:, 0],
             positions_array[:, 1],
-            c=self._compute_vertex_colors(adjacency_matrix, activities, None),
+            c=self._compute_vertex_colors(adjacency_matrix, activities, community_assignments),
             cmap=self.color_by.value,
             s=10,
             zorder=2

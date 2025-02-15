@@ -59,6 +59,8 @@ class Metrics:
             "Community Size Variance": np.var(community_sizes),
             "SBM Entropy Normalized": (entropy / graph.num_edges()) if graph.num_edges() > 0 else 0,
             "Intra-Community Edges": intra_community_edges,
+            "Community Membership": community_assignments,
+            "Node Degrees": graph.get_total_degrees(graph.get_vertices()),
         }
 
     @staticmethod
