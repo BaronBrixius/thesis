@@ -10,19 +10,21 @@ class Metrics:
         self.last_update_step = -1
 
     def compute_metrics(self, adjacency_matrix, step):
-        graph = Graph(g=np.transpose(np.nonzero(adjacency_matrix)), directed=False)
+        # TODO move this
+        community_metrics = self._calculate_community_metrics(adjacency_matrix, step)
+
         nx_graph = nx.from_numpy_array(adjacency_matrix)
 
         # Compute row data
         row = {
             "Step": step,
-            "Clustering Coefficient": self._calculate_clustering_coefficient(graph),
-            "Average Path Length": self._calculate_average_path_length(graph),
+            "Clustering Coefficient": self._calculate_clustering_coefficient(self.block_state.g),
+            "Average Path Length": self._calculate_average_path_length(self.block_state.g),
             "Rich Club Coefficients": self._calculate_rich_club_coefficients(nx_graph),
         }
 
         # Add community metrics
-        row.update(self._calculate_community_metrics(graph, step))
+        row.update(community_metrics)
 
         return row
 
@@ -47,18 +49,18 @@ class Metrics:
     def _calculate_rich_club_coefficients(nx_graph) -> Dict[int, float]:
         return nx.rich_club_coefficient(nx_graph, normalized=False)
 
-    def _calculate_community_metrics(self, graph: Graph, step: int) -> Dict[str, object]:
-        self._update_community_assignments(graph, step)
+    def _calculate_community_metrics(self, adjacency_matrix, step: int) -> Dict[str, object]:
+        self._update_block_model(adjacency_matrix, step)
         community_assignments = self.block_state.get_blocks().a
         unique_communities, community_sizes = np.unique(community_assignments, return_counts=True)
-        intra_community_densities, intra_community_edges = self._calculate_community_densities(graph, community_assignments, unique_communities)
+        intra_community_densities, intra_community_edges = self._calculate_community_densities(self.block_state.g, community_assignments, unique_communities)
 
         return {
             "Community Count": len(unique_communities),
             "Community Sizes": dict(zip(unique_communities, community_sizes)),
             "Community Densities": intra_community_densities,
             "Community Size Variance": np.var(community_sizes),
-            "SBM Entropy Normalized": self.block_state.entropy() / graph.num_edges() if graph.num_edges() > 0 else 0,
+            "SBM Entropy Normalized": (self.block_state.entropy() / self.block_state.g.num_edges()) if self.block_state.g.num_edges() > 0 else 0,
             "Intra-Community Edges": intra_community_edges,
         }
 
@@ -84,15 +86,20 @@ class Metrics:
 
         return intra_community_densities, intra_community_edges
 
-    def _update_community_assignments(self, graph: Graph, step: int):
-        if step > self.last_update_step:
-            self._update_community_assignments(graph)
+    def _update_block_model(self, adjacency_matrix, step: int, max_sweeps=5):
+        if step > self.last_update_step:    # Only update if the adjacency matrix has changed
+            # Update the graph with the latest adjacency matrix
+            graph = self.block_state.g
+            graph.clear_edges()
+            graph.add_edge_list(np.transpose(np.nonzero(adjacency_matrix)))  
+
+            # Recreate the block state to reflect the new graph
+            self.block_state = PPBlockState(g=graph, b=self.block_state.b) 
+
+            # MCMC sweeps to update the community assignments
+            for _ in range(max_sweeps):
+                entropy_delta, _, _ = self.block_state.multilevel_mcmc_sweep()  # TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
+                if entropy_delta == 0:
+                    break
+
             self.last_update_step = step
-
-    def _update_community_assignments(self, graph: Graph, max_sweeps=5):
-        self.block_state = self.block_state.copy(g=graph)  # block state with the latest graph, preserves the current community assignments
-
-        for _ in range(max_sweeps):
-            entropy_delta, _, _ = self.block_state.multilevel_mcmc_sweep()  # TODO multilevel isn't really needed for us, but the regular multiflip keeps hanging. change?
-            if entropy_delta == 0:
-                break

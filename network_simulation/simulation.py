@@ -31,4 +31,4 @@ class Simulation:
             # print(f"Pinned blocks free: {pinned_mempool.n_free_blocks()} blocks")
 
         if display_interval and step % display_interval == 0:
-            self.visualization.draw_visual(self.network, step)
+            self.visualization.draw_visual(self.network.adjacency_matrix, self.network.activities, self.network.metrics.block_state.get_blocks().a, self.network.metrics.block_state.g, step)

@@ -9,6 +9,7 @@ from enum import Enum
 import os
 from matplotlib import cm
 from graph_tool.all import Graph
+from network_simulation.utils import start_timing, stop_timing
 class ColorBy(Enum):
     ACTIVITY = "cividis"
     CLUSTER = "Set1"
@@ -29,18 +30,15 @@ class Visualization:
 
         self.initialize_plot(self.positions, network.activities, network.adjacency_matrix)
 
-    def _compute_layout(self, adjacency_matrix, max_iter=0):
-        # try:
-        # if "pos" not in graph.vertex_properties:
-        #     print('pos not in v properties')
-        #     graph.vp["pos"] = graph.new_vertex_property("vector<double>")
-        # self.positions = arf_layout(graph, pos=graph.vp["pos"], epsilon=10000, max_iter=max_iter)
-        # print('pos', self.positions.a)
-        # return self.positions
-        # except Exception as e:
-        #     self.logger.error(f"Layout computation failed: {e}")
-        #     return None
-        self.positions = self.physics.apply_forces(adjacency_matrix, self.positions, 50)
+    def _compute_layout(self, graph, max_iter=0):
+        start_timing("arf_layout")
+        pos = graph.vertex_properties.get("pos", graph.new_vertex_property("vector<double>"))
+        for v in graph.vertices():
+            pos[v] = self.positions[int(v)]
+        pos = arf_layout(graph, pos=pos, epsilon=10000, max_iter=max_iter)
+        positions = np.array([pos[v] for v in graph.vertices()])
+        self.positions = positions
+        stop_timing("arf_layout")
         return self.positions
 
     def _compute_vertex_colors(self, adjacency_matrix, activities, cluster_assignments=None):
@@ -66,8 +64,8 @@ class Visualization:
         return connections
 
     def initialize_plot(self, positions, activities, adjacency_matrix):
-        self.ax.set_xlim(-0.05, 1.05)
-        self.ax.set_ylim(-0.05, 1.05)
+        self.ax.set_xlim(-5, 5)
+        self.ax.set_ylim(-5, 5)
         self.ax.set_aspect('equal')
         self.ax.set_xticks([])
         self.ax.set_yticks([])
@@ -92,17 +90,17 @@ class Visualization:
             self.line_collection = LineCollection(lines, colors=edge_color, linewidths=edge_pen_width, alpha=alpha, zorder=1)
             self.ax.add_collection(self.line_collection)
 
-    def draw_visual(self, network:NodeNetwork, step, max_iter=0, title="Title"):
+    def draw_visual(self, adjacency_matrix, activities, community_assignments, graph, step, max_iter=0, title=None):
         self.ax.set_title(title)
 
-        self.positions = self._compute_layout(network.adjacency_matrix, max_iter=max_iter)
+        self.positions = self._compute_layout(graph, max_iter=max_iter)
 
         # Update node colors and positions
         self.scatter.set_offsets(self.positions)
-        self.scatter.set_array(self._compute_vertex_colors(network.adjacency_matrix, network.activities, network.metrics.block_state.get_blocks().a))
+        self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
 
         # Update connection lines
-        lines = self._compute_lines(self.positions, network.adjacency_matrix)
+        lines = self._compute_lines(self.positions, adjacency_matrix)
         self.line_collection.set_segments(lines)
 
         # Redraw the canvas
