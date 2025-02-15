@@ -8,8 +8,8 @@ class Simulation:
     def __init__(self, num_nodes, num_connections, color_by=ColorBy.ACTIVITY, output_dir=None, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
         self.output = CSVWriter(output_dir)
-        self.visualization = Visualization(network=self.network, output_dir=output_dir, color_by=color_by)
         self.block_model = BlockModel(self.network.adjacency_matrix)
+        self.visualization = Visualization(network=self.network, output_dir=output_dir, color_by=color_by, graph=self.block_model.get_graph())
 
     def run(self, num_steps, display_interval=1000, metrics_interval=1000):
         # Main Loop
