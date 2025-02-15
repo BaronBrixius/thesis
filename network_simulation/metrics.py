@@ -6,11 +6,11 @@ from typing import Optional, Dict
 
 class Metrics:
     def __init__(self, adjacency_matrix):
-        self.block_state = PPBlockState(Graph(g=list(zip(*adjacency_matrix.nonzero())), directed=False))
+        self.block_state = PPBlockState(Graph(g=np.transpose(np.nonzero(adjacency_matrix)), directed=False))
         self.last_update_step = -1
 
-    def compute_metrics(self, adjacency_matrix, step):    
-        graph = Graph(g=list(zip(*adjacency_matrix.nonzero())), directed=False)
+    def compute_metrics(self, adjacency_matrix, step):
+        graph = Graph(g=np.transpose(np.nonzero(adjacency_matrix)), directed=False)
         nx_graph = nx.from_numpy_array(adjacency_matrix)
 
         # Compute row data
