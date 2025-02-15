@@ -20,26 +20,25 @@ class Visualization:
         self.logger = logging.getLogger(__name__)
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
+        self.positions = None
 
         self.output_dir = os.path.join(output_dir, "images")
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir, exist_ok=True)
 
-        self._compute_layout(graph)
-        self._initialize_plot(network.activities, network.adjacency_matrix)
+        positions_array = self._compute_layout(graph)
+        self._initialize_plot(network.activities, network.adjacency_matrix, positions_array)
 
-    def _compute_layout(self, graph, old_positions=None, max_iter=0):
-        start_timing("arf_layout")
-        self.positions = arf_layout(graph, pos=old_positions, epsilon=10000, max_iter=max_iter)
-        stop_timing("arf_layout")
-    
+    def _compute_layout(self, graph, max_iter=0):
+        self.positions = arf_layout(graph, pos=self.positions, epsilon=10000, max_iter=max_iter)
+        return self.positions.get_2d_array().T
+
     def _compute_vertex_colors(self, adjacency_matrix, activities, cluster_assignments=None):
         if self.color_by == ColorBy.ACTIVITY:
             colors = np.copy(activities)
         elif self.color_by == ColorBy.CLUSTER:
             if cluster_assignments is not None:
-                unique_values = np.unique(cluster_assignments)
-                value_map = {old: new for new, old in enumerate(unique_values)}
+                value_map = {old: new for new, old in enumerate(np.unique(cluster_assignments))}
                 colors = np.array([value_map[x] for x in cluster_assignments])
             else:
                 colors = np.zeros(len(adjacency_matrix), dtype=int)  # Default to zero if no assignments are available
@@ -55,7 +54,7 @@ class Visualization:
         connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
         return connections
 
-    def _initialize_plot(self, activities, adjacency_matrix):
+    def _initialize_plot(self, activities, adjacency_matrix, positions_array):
         self.ax.set_xlim(-5, 5)
         self.ax.set_ylim(-5, 5)
         self.ax.set_aspect('equal')
@@ -64,8 +63,8 @@ class Visualization:
 
         # Initialize scatter plot for nodes
         self.scatter = self.ax.scatter(
-            self.positions.get_2d_array().T[:, 0],
-            self.positions.get_2d_array().T[:, 1],
+            positions_array[:, 0],
+            positions_array[:, 1],
             c=self._compute_vertex_colors(adjacency_matrix, activities, None),
             cmap=self.color_by.value,
             s=10,
@@ -73,9 +72,9 @@ class Visualization:
         )
 
         # Initialize lines (connections)
-        lines = self._compute_lines(self.positions.get_2d_array().T, adjacency_matrix)
+        lines = self._compute_lines(positions_array, adjacency_matrix)
         if len(lines) > 0:
-            density = len(lines) / (len(activities) * (len(activities) - 1) / 2)
+            density = len(lines) / (len(adjacency_matrix) * (len(adjacency_matrix) - 1) / 2)
             edge_pen_width=0.3 - 0.2 * (density ** 0.5)
             edge_color=[0.4, 0.4, 0.4]
             alpha = 0.7 - 0.4 * (density ** 0.5)
@@ -83,16 +82,16 @@ class Visualization:
             self.ax.add_collection(self.line_collection)
 
     def draw_visual(self, adjacency_matrix, activities, community_assignments, graph, step, max_iter=0, title=None):
-        self.ax.set_title(title)
+        # self.ax.set_title(title)
 
-        self._compute_layout(graph, max_iter=max_iter)
+        positions_array = self._compute_layout(graph, max_iter=max_iter)
 
         # Update node colors and positions
-        self.scatter.set_offsets(self.positions.get_2d_array().T)
+        self.scatter.set_offsets(positions_array)
         self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
 
         # Update connection lines
-        lines = self._compute_lines(self.positions.get_2d_array().T, adjacency_matrix)
+        lines = self._compute_lines(positions_array, adjacency_matrix)
         self.line_collection.set_segments(lines)
 
         # Redraw the canvas
