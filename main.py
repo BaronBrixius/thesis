@@ -24,12 +24,12 @@ if __name__ == "__main__":
     # NetworkControlApp()
 
     ## Quick Run
-    Experiment(base_dir).run_one_simulation(num_nodes=200, num_connections=4000, output_dir="gpu", 
-                                        num_steps=30_000, display_interval=0, metrics_interval=1000, random_seed=0, color_by=ColorBy.DEGREE)
+    Experiment().run_one_simulation(num_nodes=200, num_connections=4000, simulation_dir=os.path.join(base_dir, "gpu"), 
+                                        num_steps=30_000, display_interval=1000, metrics_interval=1000, random_seed=0, color_by=ColorBy.DEGREE)
 
     # Experiment Run
-    # experiment_folder = os.path.join(base_dir, "testexp")
-    # Experiment(experiment_folder).run_experiment(
+    # experiment_folder = os.path.join(base_dir, "hybrid_rainbow_zero")
+    # Experiment().run_experiment(
     #                         seed_range=range(1),
     #                         nodes_range=[200],
     #                         connections_range=range(2000, 4001, 1000),      # [x / 100.0 for x in range(2, 40, 2)],
@@ -37,6 +37,7 @@ if __name__ == "__main__":
     #                         display_interval=0,
     #                         metrics_interval=1_000,
     #                         color_by=ColorBy.CLUSTER,
+    #                         experiment_folder=experiment_folder
     #                     )
     # PostRunAnalyzer(experiment_folder).aggregate_metrics(experiment_folder)
 
