@@ -6,14 +6,11 @@ from typing import Optional, Dict
 
 class Metrics:
     def __init__(self, adjacency_matrix):
-        edge_list = list(zip(*adjacency_matrix.nonzero()))
-        graph = Graph(g=edge_list, directed=False)
-        self.block_state = PPBlockState(graph)
+        self.block_state = PPBlockState(Graph(g=list(zip(*adjacency_matrix.nonzero())), directed=False))
         self.last_update_step = -1
 
-    def compute_metrics(self, adjacency_matrix, step):
-        edge_list = list(zip(*adjacency_matrix.nonzero()))
-        graph = Graph(g=edge_list, directed=False)
+    def compute_metrics(self, adjacency_matrix, step):    
+        graph = Graph(g=list(zip(*adjacency_matrix.nonzero())), directed=False)
         nx_graph = nx.from_numpy_array(adjacency_matrix)
 
         # Compute row data
@@ -65,7 +62,8 @@ class Metrics:
             "Intra-Community Edges": intra_community_edges,
         }
 
-    def _calculate_community_densities(self, graph, community_assignments, unique_communities):
+    @staticmethod
+    def _calculate_community_densities(graph, community_assignments, unique_communities):
         intra_community_densities = {}
         intra_community_edges = 0
 
