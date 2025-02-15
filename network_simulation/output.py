@@ -1,21 +1,17 @@
 import csv
 import os
-from network_simulation.network import NodeNetwork
 
-class Output:
-    def __init__(self, project_dir, num_nodes=None, num_connections=None):
+class CSVWriter:
+    def __init__(self, project_dir, file_name="summary_metrics.csv"):
         os.makedirs(project_dir, exist_ok=True)
-        metrics_file_path = os.path.join(project_dir, f"summary_metrics_nodes_{num_nodes}_edges_{num_connections}.csv")
-        self.metrics_file = open(metrics_file_path, mode="w", newline="")
-
-        self.csv_writer = None
+        metrics_file_path = os.path.join(project_dir, file_name)
+        metrics_file = open(metrics_file_path, mode="w", newline="")
+        self.csv_writer = csv.DictWriter(metrics_file, fieldnames=[])  # Fieldnames will be set on first write
 
     # Runtime Metrics Writing
-    def write_metrics_line(self, network: NodeNetwork, step):
-        row = network.metrics.compute_metrics(network.adjacency_matrix, step)
-
-        if self.csv_writer is None: # Lazy loading the writer also allows us to wait and see what headers will be needed
-            self.csv_writer = csv.DictWriter(self.metrics_file, fieldnames=row.keys())
+    def write_metrics_line(self, row):
+        if not self.csv_writer.fieldnames:  # Set fieldnames on first write
+            self.csv_writer.fieldnames = row.keys()
             self.csv_writer.writeheader()
 
         self.csv_writer.writerow(row)
