@@ -1,11 +1,11 @@
-import numpy as np
+import cupy as cp
 from network_simulation.metrics import Metrics
 from network_simulation.utils import start_timing, stop_timing
 
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
         # Seed for reproducibility
-        np.random.seed(random_seed)
+        cp.random.seed(random_seed)
 
         # Params to store
         self.num_nodes = num_nodes
@@ -14,21 +14,21 @@ class NodeNetwork:
         self.epsilon = epsilon
 
         # Preallocate reused arrays
-        self.vertices = np.arange(num_nodes)
-        self.degrees = np.zeros(num_nodes, dtype=int)
-        self.shuffled_indices = np.arange(num_nodes)
+        self.vertices = cp.arange(num_nodes)
+        self.degrees = cp.zeros(num_nodes, dtype=int)
+        self.shuffled_indices = cp.arange(num_nodes)
 
         # Construct network
-        self.activities = np.random.uniform(-0.7, 1.0, num_nodes)
-        self.adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=bool)
+        self.activities = cp.random.uniform(-0.7, 1.0, num_nodes)
+        self.adjacency_matrix = cp.zeros((num_nodes, num_nodes), dtype=bool)
         self.add_random_connections(num_connections)
 
     def add_random_connections(self, num_connections_to_add):
         """Add random connections to the graph."""
         edges = set()
         while len(edges) < num_connections_to_add:
-            v1 = np.random.randint(0, self.num_nodes)
-            v2 = np.random.randint(0, self.num_nodes)
+            v1 = cp.random.randint(0, self.num_nodes).item()
+            v2 = cp.random.randint(0, self.num_nodes).item()
             if v1 != v2 and (v1, v2) not in edges and (v2, v1) not in edges:
                 edges.add((v1, v2))
 
@@ -39,7 +39,7 @@ class NodeNetwork:
 
     def update_activity(self):
         # Sum up neighbor activities
-        neighbor_sums = np.einsum("ij,j->i", self.adjacency_matrix, self.activities)
+        neighbor_sums = cp.einsum("ij,j->i", self.adjacency_matrix, self.activities)
         # Split activity between neighbors (determined by epsilon)
         connected_nodes = self.degrees > 0
         self.activities[connected_nodes] = (
@@ -51,22 +51,22 @@ class NodeNetwork:
 
     def rewire(self):
         # Select a pivot node
-        pivot = np.random.randint(self.num_nodes)
-        pivot_neighbors = np.where(self.adjacency_matrix[pivot])[0]
+        pivot = cp.random.randint(self.num_nodes)
+        pivot_neighbors = cp.where(self.adjacency_matrix[pivot])[0]
         while len(pivot_neighbors) == 0:            # Select another pivot if no neighbors, very rarely happens in practice
-            nodes_with_neighbors = np.where(self.degrees > 0)[0]
+            nodes_with_neighbors = cp.where(self.degrees > 0)[0]
             if len(nodes_with_neighbors) == 0:
                 return  # No rewiring possible if no nodes have neighbors
-            pivot = np.random.choice(nodes_with_neighbors, 1)
-            pivot_neighbors = np.where(self.adjacency_matrix[pivot])[0]
+            pivot = cp.random.choice(nodes_with_neighbors, 1)
+            pivot_neighbors = cp.where(self.adjacency_matrix[pivot])[0]
 
         # 2. From all other units, select the one that is most synchronized (henceforth: candidate) and least synchronized neighbor
-        activity_diff = np.abs(self.activities - self.activities[pivot])
-        activity_diff[pivot] = np.inf                                   # stop the pivot from connecting to itself
-        np.random.shuffle(self.shuffled_indices)
-        shuffled_candidate = np.argmin(activity_diff[self.shuffled_indices])        # Find the index of the minimum in the shuffled array
+        activity_diff = cp.abs(self.activities - self.activities[pivot])
+        activity_diff[pivot] = cp.inf                                   # stop the pivot from connecting to itself
+        cp.random.shuffle(self.shuffled_indices)
+        shuffled_candidate = cp.argmin(activity_diff[self.shuffled_indices])        # Find the index of the minimum in the shuffled array
         candidate = self.shuffled_indices[shuffled_candidate]                       # Randomly chosen among most similar nodes
-        least_similar_neighbor = pivot_neighbors[np.argmax(activity_diff[pivot_neighbors])]     # least similar neighbor
+        least_similar_neighbor = pivot_neighbors[cp.argmax(activity_diff[pivot_neighbors])]     # least similar neighbor
 
         # 3a. If there is a connection between the pivot and the candidate already, do nothing
         if self.adjacency_matrix[pivot, candidate]:
@@ -82,6 +82,13 @@ class NodeNetwork:
         self.degrees[old_target] -= 1
         self.degrees[new_target] += 1
 
-    def update_network(self):
-        self.update_activity()
-        self.rewire()
+    def update_network(self, iterations):
+        for _ in range(iterations):
+            self.update_activity()
+            self.rewire()
+
+    def get_adjacency_matrix(self):
+        return cp.asnumpy(self.adjacency_matrix)
+
+    def get_activities(self):
+        return cp.asnumpy(self.activities)

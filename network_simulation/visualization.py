@@ -27,7 +27,7 @@ class Visualization:
             os.makedirs(self.output_dir, exist_ok=True)
 
         positions_array = self._compute_layout(graph)
-        self._initialize_plot(network.activities, network.adjacency_matrix, positions_array, community_assignments)
+        self._initialize_plot(network.get_activities(), network.get_adjacency_matrix(), positions_array, community_assignments)
 
     def _compute_layout(self, graph, max_iter=0):
         self.positions = arf_layout(graph, pos=self.positions, epsilon=10000, max_iter=max_iter)
