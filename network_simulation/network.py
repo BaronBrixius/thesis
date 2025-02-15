@@ -15,7 +15,6 @@ class NodeNetwork:
 
         # Preallocate reused arrays
         self.vertices = cp.arange(num_nodes)
-        self.degrees = cp.zeros(num_nodes, dtype=int)
         self.shuffled_indices = cp.arange(num_nodes)
 
         # Construct network
@@ -34,58 +33,67 @@ class NodeNetwork:
 
         for edge in edges:
             self.adjacency_matrix[edge[0], edge[1]] = self.adjacency_matrix[edge[1], edge[0]] = True
-            self.degrees[edge[0]] += 1
-            self.degrees[edge[1]] += 1
 
     def update_activity(self):
+        start_timing("update_activity1")
         # Sum up neighbor activities
-        neighbor_sums = cp.einsum("ij,j->i", self.adjacency_matrix, self.activities)
-        # Split activity between neighbors (determined by epsilon)
-        connected_nodes = self.degrees > 0
+        neighbor_sums = cp.dot(self.adjacency_matrix, self.activities)
+        stop_timing("update_activity1")
+
+        start_timing("update_activity2")
+        # Calculate connected nodes and normalized neighbor sums
+        degrees = cp.sum(self.adjacency_matrix, axis=1)
+        connected_nodes = degrees > 0
         self.activities[connected_nodes] = (
-            (1 - self.epsilon)  * self.activities[connected_nodes] + 
-            self.epsilon        * neighbor_sums[connected_nodes] / self.degrees[connected_nodes]
+            (1 - self.epsilon) * self.activities[connected_nodes] + 
+            self.epsilon * (neighbor_sums[connected_nodes] / degrees[connected_nodes])
         )
+        stop_timing("update_activity2")
+
+        start_timing("update_activity3")
         # Apply logistic map
         self.activities = 1 - self.alpha * (self.activities)**2
+        stop_timing("update_activity3")
 
-    def rewire(self):
-        # Select a pivot node
-        pivot = cp.random.randint(self.num_nodes)
+    def rewire(self, pivot):
+        start_timing("rewire1b")
         pivot_neighbors = cp.where(self.adjacency_matrix[pivot])[0]
+        stop_timing("rewire1b")
+        start_timing("rewire1c")
         while len(pivot_neighbors) == 0:            # Select another pivot if no neighbors, very rarely happens in practice
-            nodes_with_neighbors = cp.where(self.degrees > 0)[0]
+            nodes_with_neighbors = cp.where(cp.sum(self.adjacency_matrix, axis=1) > 0)[0]
             if len(nodes_with_neighbors) == 0:
                 return  # No rewiring possible if no nodes have neighbors
             pivot = cp.random.choice(nodes_with_neighbors, 1)
             pivot_neighbors = cp.where(self.adjacency_matrix[pivot])[0]
-
+        stop_timing("rewire1c")
         # 2. From all other units, select the one that is most synchronized (henceforth: candidate) and least synchronized neighbor
+        start_timing("rewire2")
         activity_diff = cp.abs(self.activities - self.activities[pivot])
         activity_diff[pivot] = cp.inf                                   # stop the pivot from connecting to itself
-        cp.random.shuffle(self.shuffled_indices)
-        shuffled_candidate = cp.argmin(activity_diff[self.shuffled_indices])        # Find the index of the minimum in the shuffled array
-        candidate = self.shuffled_indices[shuffled_candidate]                       # Randomly chosen among most similar nodes
+        stop_timing("rewire2")
+        start_timing("rewire3")
+        candidate = cp.argmin(activity_diff)    # TODO ties? (currently first one is selected)
+        stop_timing("rewire3")
+        start_timing("rewire4")
         least_similar_neighbor = pivot_neighbors[cp.argmax(activity_diff[pivot_neighbors])]     # least similar neighbor
-
+        stop_timing("rewire4")
         # 3a. If there is a connection between the pivot and the candidate already, do nothing
         if self.adjacency_matrix[pivot, candidate]:
             return
-        self.swap_edge(pivot, least_similar_neighbor, candidate)
-
-    def swap_edge(self, pivot, old_target, new_target):
+        start_timing("rewire5")
         # Update adjacency matrix
-        self.adjacency_matrix[pivot, old_target] = self.adjacency_matrix[old_target, pivot] = False
-        self.adjacency_matrix[pivot, new_target] = self.adjacency_matrix[new_target, pivot] = True
-
-        # Update degrees
-        self.degrees[old_target] -= 1
-        self.degrees[new_target] += 1
+        self.adjacency_matrix[pivot, least_similar_neighbor] = self.adjacency_matrix[least_similar_neighbor, pivot] = False
+        self.adjacency_matrix[pivot, candidate] = self.adjacency_matrix[candidate, pivot] = True
+        stop_timing("rewire5")
 
     def update_network(self, iterations):
-        for _ in range(iterations):
-            self.update_activity()
-            self.rewire()
+        start_timing("random_indices")
+        random_indices = cp.random.randint(0, self.num_nodes, size=iterations)  # Pre-generate random indices
+        stop_timing("random_indices")
+        for i in range(iterations):
+            self.update_activity() 
+            self.rewire(random_indices[i])
 
     def get_adjacency_matrix(self):
         return cp.asnumpy(self.adjacency_matrix)
