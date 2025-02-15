@@ -35,7 +35,7 @@ class Visualization:
 
     def _compute_vertex_colors(self, adjacency_matrix, activities, cluster_assignments):
         if self.color_by == ColorBy.ACTIVITY:
-            colors = np.copy(activities)
+            return activities
         elif self.color_by == ColorBy.CLUSTER:
             value_map = {old: new for new, old in enumerate(np.unique(cluster_assignments))}
             colors = np.array([value_map[x] for x in cluster_assignments])
