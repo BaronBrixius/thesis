@@ -4,8 +4,9 @@ import numpy as np
 
 class BlockModel:
     def __init__(self, adjacency_matrix):
-        self.block_state = PPBlockState(Graph(g=np.transpose(np.nonzero(adjacency_matrix)), directed=False))
+        self.block_state = PPBlockState(Graph(directed=False))
         self.last_update_step = -1
+        self.update_block_model(adjacency_matrix, step=0, max_sweeps=50)
 
     def update_block_model(self, adjacency_matrix, step: int, max_sweeps=5):
         if step > self.last_update_step:    # Only update if the adjacency matrix has changed
