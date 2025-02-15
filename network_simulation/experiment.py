@@ -1,14 +1,13 @@
-from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import Process, Manager
 from itertools import product
 from network_simulation.visualization import ColorBy
 import logging
 import os
 import threading
-import multiprocessing
 
 class Experiment:
     def __init__(self):
-        self.termination_flag = multiprocessing.Manager().Event()
+        self.termination_flag = Manager().Event()
         self.logger = logging.getLogger(__name__)
 
     def monitor_input_early_termination(self):
@@ -30,42 +29,46 @@ class Experiment:
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
         return f"Simulation completed for {random_seed, num_nodes, num_connections}"
 
+    def run_simulation_process(self, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by, queue):
+        try:
+            result = self.run_one_simulation(num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by)
+            queue.put(result)
+        except Exception as e:
+            queue.put(f"Error: {repr(e)}")
+
     def run_experiment(self, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval, color_by=ColorBy.ACTIVITY, experiment_dir="/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output"):
         # Start thread that checks for early termination
         threading.Thread(target=self.monitor_input_early_termination, daemon=True).start()
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
-            futures = []
-            for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
-                # Decimal values are treated as density percentages
-                if isinstance(num_connections, float):  
-                    self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
-                    num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
+        processes = []
+        manager = Manager()
+        queue = manager.Queue()
 
-                # Skip if scenario is already completed
-                simulation_dir = os.path.join(experiment_dir, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
-                if os.path.exists(simulation_dir):
-                    self.logger.info(f"Skipping completed scenario: {seed, num_nodes, num_connections}")
-                    continue
+        for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
+            # Decimal values are treated as density percentages
+            if isinstance(num_connections, float):  
+                self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
+                num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
 
-                # Add simulation to queue
-                futures.append(
-                    executor.submit(
-                        self.run_one_simulation,
-                        num_nodes=num_nodes,
-                        num_connections=num_connections,
-                        simulation_dir=simulation_dir,
-                        num_steps=num_steps,
-                        display_interval=display_interval,
-                        metrics_interval=metrics_interval,
-                        random_seed=seed,
-                        color_by=color_by,
-                    )
-                )
+            # Skip if scenario is already completed
+            simulation_dir = os.path.join(experiment_dir, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
+            if os.path.exists(simulation_dir):
+                self.logger.info(f"Skipping completed scenario: {seed, num_nodes, num_connections}")
+                continue
 
-            # Monitor progress and handle exceptions
-            for future in futures:
-                try:
-                    self.logger.info(future.result())
-                except Exception as e:
-                    self.logger.error(f"Error in simulation: {repr(e)}")
+            # Create and start a new process for each simulation
+            process = Process(
+                target=self.run_simulation_process,
+                args=(num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, seed, color_by, queue)
+            )
+            processes.append(process)
+            process.start()
+
+        # Monitor progress and handle exceptions
+        for process in processes:
+            process.join()
+            result = queue.get()
+            if "Error" in result:
+                self.logger.error(result)
+            else:
+                self.logger.info(result)

@@ -1,15 +1,15 @@
-from network_simulation.network import NodeNetwork
-from network_simulation.physics import Physics
+import matplotlib
 from graph_tool.draw import arf_layout
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np
-import logging
+# import logging
 from enum import Enum
 import os
-from matplotlib import cm
 from graph_tool.all import Graph
 from network_simulation.utils import start_timing, stop_timing
+matplotlib.use('Agg')
+
 class ColorBy(Enum):
     ACTIVITY = "cividis"
     CLUSTER = "Set1"
@@ -17,7 +17,7 @@ class ColorBy(Enum):
 
 class Visualization:
     def __init__(self, network, graph, community_assignments, output_dir="foo", color_by=ColorBy.ACTIVITY):
-        self.logger = logging.getLogger(__name__)
+        # self.logger = logging.getLogger(__name__)
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
         self.positions = None
@@ -97,7 +97,7 @@ class Visualization:
 
         image_path = os.path.join(self.output_dir, f"{step}.png")
         self.fig.savefig(image_path)
-        self.logger.info(f"Saved network visualization for step {step} to {image_path}")
+        # self.logger.info(f"Saved network visualization for step {step} to {image_path}")
 
         # artist = graph_draw(
         #     network.graph,
