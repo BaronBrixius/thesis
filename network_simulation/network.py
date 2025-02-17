@@ -14,6 +14,7 @@ class NodeNetwork:
         # Preallocate reused arrays
         self.degrees = np.zeros(num_nodes, dtype=int)
         self.neighbor_sums = np.zeros(num_nodes, dtype=float)
+        self.activity_diff = np.zeros(num_nodes, dtype=float)
 
         # Construct network
         self.activities = np.random.uniform(-0.7, 1.0, num_nodes)
@@ -60,10 +61,10 @@ class NodeNetwork:
             pivot_neighbors = np.where(self.adjacency_matrix[pivot])[0]
 
         # 2. From all other units, select the one that is most synchronized (henceforth: candidate) and least synchronized neighbor
-        activity_diff = np.abs(self.activities - self.activities[pivot])
-        activity_diff[pivot] = np.inf                                   # stop the pivot from connecting to itself
-        candidate = np.argmin(activity_diff)        # Find the index of the minimum in the shuffled array
-        least_similar_neighbor = pivot_neighbors[np.argmax(activity_diff[pivot_neighbors])]     # least similar neighbor
+        self.activity_diff = np.abs(self.activities - self.activities[pivot])
+        self.activity_diff[pivot] = np.inf                                   # stop the pivot from connecting to itself
+        candidate = np.argmin(self.activity_diff)        # Find the index of the minimum in the shuffled array
+        least_similar_neighbor = pivot_neighbors[np.argmax(self.activity_diff[pivot_neighbors])]     # least similar neighbor
 
         # 3a. If there is a connection between the pivot and the candidate already, do nothing
         if self.adjacency_matrix[pivot, candidate]:
