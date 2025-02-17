@@ -13,7 +13,7 @@ class NodeNetwork:
 
         # Preallocate reused arrays
         self.degrees = np.zeros(num_nodes, dtype=int)
-        self.shuffled_indices = np.arange(num_nodes)
+        self.neighbor_sums = np.zeros(num_nodes, dtype=float)
 
         # Construct network
         self.activities = np.random.uniform(-0.7, 1.0, num_nodes)
@@ -36,13 +36,13 @@ class NodeNetwork:
 
     def update_activity(self):
         # Sum up neighbor activities
-        neighbor_sums = np.einsum("ij,j->i", self.adjacency_matrix, self.activities)
+        self.neighbor_sums = np.einsum("ij,j->i", self.adjacency_matrix, self.activities)
 
         # Split activity between neighbors (determined by epsilon)
         connected_nodes = self.degrees > 0
         self.activities[connected_nodes] = (
             (1 - self.epsilon)  * self.activities[connected_nodes] + 
-            self.epsilon        * neighbor_sums[connected_nodes] / self.degrees[connected_nodes]
+            self.epsilon        * self.neighbor_sums[connected_nodes] / self.degrees[connected_nodes]
         )
 
         # Apply logistic map

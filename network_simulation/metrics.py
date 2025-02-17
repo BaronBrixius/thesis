@@ -13,6 +13,7 @@ def compute_metrics(adjacency_matrix, graph, entropy, step, community_assignment
         "Step": step,
         "Clustering Coefficient": calculate_clustering_coefficient(graph),
         "Average Path Length": calculate_average_path_length(graph),
+        "Node Degrees": graph.get_total_degrees(graph.get_vertices()),
         "Rich Club Coefficients": calculate_rich_club_coefficients(nx_graph),
     }
 
@@ -51,7 +52,6 @@ def calculate_community_metrics(community_assignments, graph, entropy) -> Dict[s
         "SBM Entropy Normalized": (entropy / graph.num_edges()) if graph.num_edges() > 0 else 0,
         "Intra-Community Edges": intra_community_edges,
         "Community Membership": community_assignments,
-        "Node Degrees": graph.get_total_degrees(graph.get_vertices()),
     }
 
 def calculate_community_densities(graph, community_assignments, unique_communities):
