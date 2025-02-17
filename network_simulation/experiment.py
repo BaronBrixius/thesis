@@ -49,7 +49,7 @@ class Experiment:
             if isinstance(num_connections, float):  
                 self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
                 num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
-
+ 
             # Skip if scenario is already completed
             simulation_dir = os.path.join(experiment_dir, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
             if os.path.exists(simulation_dir):

@@ -1,5 +1,4 @@
 import numpy as np
-from network_simulation.utils import start_timing, stop_timing
 
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
