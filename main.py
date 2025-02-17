@@ -17,15 +17,15 @@ if __name__ == "__main__":
             datefmt="%H:%M:%S"
         )
 
-    profiler = cProfile.Profile()
+    profiler = None #cProfile.Profile()
     if profiler: profiler.enable()
 
     ## Run in GUI
     # NetworkControlApp()
 
     ## Quick Run
-    Experiment().run_one_simulation(num_nodes=200, num_connections=4000, simulation_dir=os.path.join(base_dir, "gpu"), 
-                                        num_steps=5_000, display_interval=1000, metrics_interval=1000, random_seed=0, color_by=ColorBy.DEGREE)
+    Experiment().run_one_simulation(num_nodes=20, num_connections=30, simulation_dir=os.path.join(base_dir, "notgpumaxsad"), 
+                                        num_steps=3_000, display_interval=1_000, metrics_interval=1000, random_seed=0, color_by=ColorBy.DEGREE)
 
     # Experiment Run
     # experiment_folder = os.path.join(base_dir, "gpu_parallel")
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     if profiler: profiler.disable()
 
     # Print profiler stats to sort by cumulative time
-    if profiler: pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(40)
+    if profiler: pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(10)
 
     print(get_times())   #TODO Remove for final version
     # print(Metrics.get_cluster_assignments.cache_info())
