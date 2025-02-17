@@ -17,11 +17,11 @@ class Simulation:
         while step < num_steps:
             iterations = min(num_steps - step, display_interval - step % display_interval, metrics_interval - step % metrics_interval)
             self.network.update_network(iterations)
-            # self._handle_output(step, display_interval, metrics_interval)
+            self._handle_output(step, display_interval, metrics_interval)
             step += iterations
 
         # Final Metrics
-        # self._handle_output(num_steps, display_interval, metrics_interval)        
+        self._handle_output(num_steps, display_interval, metrics_interval)        
 
     def _handle_output(self, step, display_interval, metrics_interval):
         """Checks and handles display and metrics intervals."""
@@ -30,7 +30,7 @@ class Simulation:
 
         if metrics_interval and step % metrics_interval == 0:
             self.block_model.update_block_model(adjacency_matrix, step)
-            self.output.write_metrics_line(Metrics.compute_metrics(adjacency_matrix, self.block_model.get_graph(), self.block_model.get_entropy(), step, self.block_model.get_community_assignments()))
+            # self.output.write_metrics_line(Metrics.compute_metrics(adjacency_matrix, self.block_model.get_graph(), self.block_model.get_entropy(), step, self.block_model.get_community_assignments()))
 
         if display_interval and step % display_interval == 0:
             self.block_model.update_block_model(adjacency_matrix, step)

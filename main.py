@@ -17,15 +17,15 @@ if __name__ == "__main__":
             datefmt="%H:%M:%S"
         )
 
-    profiler = None #cProfile.Profile()
+    profiler = cProfile.Profile()
     if profiler: profiler.enable()
 
     ## Run in GUI
     # NetworkControlApp()
 
     ## Quick Run
-    Experiment().run_one_simulation(num_nodes=20, num_connections=30, simulation_dir=os.path.join(base_dir, "notgpumaxsad"), 
-                                        num_steps=3_000, display_interval=1_000, metrics_interval=1000, random_seed=0, color_by=ColorBy.DEGREE)
+    Experiment().run_one_simulation(num_nodes=200, num_connections=2000, simulation_dir=os.path.join(base_dir, "maybegpu"), 
+                                        num_steps=10_000, display_interval=1_000, metrics_interval=1000, random_seed=0, color_by=ColorBy.DEGREE)
 
     # Experiment Run
     # experiment_folder = os.path.join(base_dir, "gpu_parallel")

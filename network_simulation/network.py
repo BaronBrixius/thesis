@@ -10,7 +10,8 @@ class NodeNetwork:
         self.activities = cp.random.uniform(-0.7, 1.0, num_nodes, dtype=cp.float32)
         self.adjacency_matrix = cp.zeros((num_nodes, num_nodes), dtype=cp.int8)
         self._initialize_network(num_connections)
-        print(cp.asnumpy(self.activities))
+        # print(cp.asnumpy(self.activities))
+        # print(cp.asnumpy(self.adjacency_matrix))
 
     def _initialize_network(self, num_connections):
         edges = cp.random.choice(self.num_nodes * self.num_nodes, num_connections)
@@ -24,61 +25,62 @@ class NodeNetwork:
     def _kernel_code(self):
         return """
         extern "C" __global__ void network_update(
-            int* adj, float* act, int* rand_idx, int iterations, int n) {
+            char* adj, float* act, int* rand_idx, int iterations, int n) {
 
             int idx = blockIdx.x * blockDim.x + threadIdx.x;
-            if (idx >= 200) return;
+            if (idx >= n) return;
+
             for (int iter = 0; iter < iterations; ++iter) {
-                // Update activity
-                float sum_neighbors = 0.0;
-                int degree = 0;
+            // Update activity
+            float sum_neighbors = 0.0;
+            int degree = 0;
+            for (int j = 0; j < n; ++j) {
+                if (adj[idx * n + j] == 1) {
+                sum_neighbors += act[j];
+                degree++;
+                }
+            }
+            float avg_activity = (degree > 0) ? sum_neighbors / degree : act[idx];
+            act[idx] = (1 - 0.4) * act[idx] + 0.4 * avg_activity;
+            act[idx] = 1.0 - 1.7 * (act[idx] * act[idx]);
+
+            __syncthreads();
+            
+            // Rewire step
+            int pivot = rand_idx[iter];
+            if (idx == pivot) {
+                int max_diff_idx = -1;
+                float max_diff = -1.0;
                 for (int j = 0; j < n; ++j) {
-                    if (adj[idx * n + j]) {
-                        sum_neighbors += act[j];
-                        degree++;
+                if (j != pivot && adj[pivot * n + j]) {
+                    float diff = fabsf(act[pivot] - act[j]);
+                    if (diff > max_diff) {
+                    max_diff = diff;
+                    max_diff_idx = j;
                     }
                 }
-                float avg_activity = (degree > 0) ? sum_neighbors / degree : act[idx];
-                act[idx] = 0.6 * act[idx] + 0.4 * avg_activity;
-                act[idx] = 1.0 - 1.7 * (act[idx] * act[idx]);
+                }
 
-                __syncthreads();
-
-                // Rewire step
-                int pivot = rand_idx[iter];
-                if (idx == pivot) {
-                    int max_diff_idx = -1;
-                    float max_diff = -1.0;
-                    for (int j = 0; j < n; ++j) {
-                        if (adj[pivot * n + j]) {
-                            float diff = fabsf(act[pivot] - act[j]);
-                            if (diff > max_diff) {
-                                max_diff = diff;
-                                max_diff_idx = j;
-                            }
-                        }
-                    }
-
-                    int min_diff_idx = -1;
-                    float min_diff = 1e9;
-                    for (int j = 0; j < n; ++j) {
-                        if (!adj[pivot * n + j]) {
-                            float diff = fabsf(act[pivot] - act[j]);
-                            if (diff < min_diff) {
-                                min_diff = diff;
-                                min_diff_idx = j;
-                            }
-                        }
-                    }
-
-                    if (max_diff_idx != -1 && min_diff_idx != -1) {
-                        adj[pivot * n + max_diff_idx] = 0;
-                        adj[max_diff_idx * n + pivot] = 0;
-                        adj[pivot * n + min_diff_idx] = 1;
-                        adj[min_diff_idx * n + pivot] = 1;
+                int min_diff_idx = -1;
+                float min_diff = 1e9;
+                for (int j = 0; j < n; ++j) {
+                if (j != pivot && !adj[pivot * n + j]) {
+                    float diff = fabsf(act[pivot] - act[j]);
+                    if (diff < min_diff) {
+                    min_diff = diff;
+                    min_diff_idx = j;
                     }
                 }
-                __syncthreads();
+                }
+
+                if (max_diff_idx != -1 && min_diff_idx != -1) {
+                adj[pivot * n + max_diff_idx] = 0;
+                adj[max_diff_idx * n + pivot] = 0;
+                adj[pivot * n + min_diff_idx] = 1;
+                adj[min_diff_idx * n + pivot] = 1;
+                }
+            }
+            __syncthreads();
             }
 
         }
@@ -91,15 +93,16 @@ class NodeNetwork:
 
         random_indices = cp.random.randint(0, self.num_nodes, size=iterations)
 
-        block_size = 200
+        block_size = self.num_nodes
         grid_size = 1
 
         network_update(
             (grid_size,), (block_size,),
-            (self.adjacency_matrix, self.activities, random_indices, 1, 200)
+            (self.adjacency_matrix, self.activities, random_indices, iterations, self.num_nodes)
         )
         cp.cuda.Device(0).synchronize()
         print(cp.asnumpy(self.activities))
+        print(cp.asnumpy(self.adjacency_matrix))
 
     def get_adjacency_matrix(self):
         return cp.asnumpy(self.adjacency_matrix)
