@@ -81,7 +81,7 @@ class NodeNetwork:
             (grid_size,), (block_size,),
             (self.adjacency_matrix.data, self.activities.data, random_indices.data, iterations)
         )
-        cp.cuda.Device(0).synchronize()
+        return self.get_adjacency_matrix(), self.get_activities()
 
     def get_adjacency_matrix(self):
         return cp.asnumpy(self.adjacency_matrix)

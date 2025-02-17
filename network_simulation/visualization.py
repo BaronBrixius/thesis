@@ -16,7 +16,7 @@ class ColorBy(Enum):
     DEGREE = "inferno"
 
 class Visualization:
-    def __init__(self, network, graph, community_assignments, output_dir="foo", color_by=ColorBy.ACTIVITY):
+    def __init__(self, adjacency_matrix, activities, graph, community_assignments, output_dir="foo", color_by=ColorBy.ACTIVITY):
         # self.logger = logging.getLogger(__name__)
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
@@ -27,7 +27,7 @@ class Visualization:
             os.makedirs(self.output_dir, exist_ok=True)
 
         positions_array = self._compute_layout(graph)
-        self._initialize_plot(network.get_activities(), network.get_adjacency_matrix(), positions_array, community_assignments)
+        self._initialize_plot(adjacency_matrix, activities, positions_array, community_assignments)
 
     def _compute_layout(self, graph, max_iter=0):
         self.positions = arf_layout(graph, pos=self.positions, epsilon=10000, max_iter=max_iter)
@@ -51,7 +51,7 @@ class Visualization:
         connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
         return connections
 
-    def _initialize_plot(self, activities, adjacency_matrix, positions_array, community_assignments):
+    def _initialize_plot(self, adjacency_matrix, activities, positions_array, community_assignments):
         self.ax.set_xlim(-5, 5)
         self.ax.set_ylim(-5, 5)
         self.ax.set_aspect('equal')
