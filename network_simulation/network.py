@@ -49,35 +49,28 @@ class NodeNetwork:
             // Rewire step
             int pivot = rand_idx[iter];
             if (idx == pivot) {
-                int max_diff_idx = -1;
+                int max_diff_idx = 0;
+                int min_diff_idx = 0;
                 float max_diff = -1.0;
-                for (int j = 0; j < n; ++j) {
-                if (j != pivot && adj[pivot * n + j]) {
-                    float diff = fabsf(act[pivot] - act[j]);
-                    if (diff > max_diff) {
-                    max_diff = diff;
-                    max_diff_idx = j;
-                    }
-                }
-                }
-
-                int min_diff_idx = -1;
                 float min_diff = 1e9;
+
                 for (int j = 0; j < n; ++j) {
-                if (j != pivot && !adj[pivot * n + j]) {
                     float diff = fabsf(act[pivot] - act[j]);
-                    if (diff < min_diff) {
-                    min_diff = diff;
-                    min_diff_idx = j;
+                    if (adj[pivot * n + j] && diff > max_diff) {
+                        max_diff = diff;
+                        max_diff_idx = j;
+                    }
+                    if (j != pivot && !adj[pivot * n + j] && diff < min_diff) {
+                        min_diff = diff;
+                        min_diff_idx = j;
                     }
                 }
-                }
 
-                if (max_diff_idx != -1 && min_diff_idx != -1) {
-                adj[pivot * n + max_diff_idx] = 0;
-                adj[max_diff_idx * n + pivot] = 0;
-                adj[pivot * n + min_diff_idx] = 1;
-                adj[min_diff_idx * n + pivot] = 1;
+                if (max_diff_idx != min_diff_idx) {
+                    adj[pivot * n + max_diff_idx] = 0;
+                    adj[max_diff_idx * n + pivot] = 0;
+                    adj[pivot * n + min_diff_idx] = 1;
+                    adj[min_diff_idx * n + pivot] = 1;
                 }
             }
             __syncthreads();
