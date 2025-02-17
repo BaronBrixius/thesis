@@ -30,7 +30,7 @@ class Simulation:
 
         if metrics_interval and step % metrics_interval == 0:
             self.block_model.update_block_model(adjacency_matrix, step)
-            # self.output.write_metrics_line(Metrics.compute_metrics(adjacency_matrix, self.block_model.get_graph(), self.block_model.get_entropy(), step, self.block_model.get_community_assignments()))
+            self.output.write_metrics_line(Metrics.compute_metrics(adjacency_matrix, self.block_model.get_graph(), self.block_model.get_entropy(), step, self.block_model.get_community_assignments()))
 
         if display_interval and step % display_interval == 0:
             self.block_model.update_block_model(adjacency_matrix, step)
