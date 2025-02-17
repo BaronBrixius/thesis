@@ -10,8 +10,58 @@ class NodeNetwork:
         self.activities = cp.random.uniform(-0.7, 1.0, num_nodes, dtype=cp.float32)
         self.adjacency_matrix = cp.zeros((num_nodes, num_nodes), dtype=cp.int8)
         self._initialize_network(num_connections)
-        # print(cp.asnumpy(self.activities))
-        # print(cp.asnumpy(self.adjacency_matrix))
+
+        self.module = cp.RawModule(code=f"""
+        extern "C" __global__ void network_update(char* adj, float* act, int* rand_idx, int iterations) {{
+            int idx = blockIdx.x * blockDim.x + threadIdx.x;
+            if (idx >= {num_nodes}) return;
+
+            for (int iter = 0; iter < iterations; ++iter) {{
+                float sum_neighbors = 0.0;
+                int degree = 0;
+                for (int j = 0; j < {num_nodes}; ++j) {{
+                    if (adj[idx * {num_nodes} + j] == 1) {{
+                        sum_neighbors += act[j];
+                        degree++;
+                    }}
+                }}
+                float avg_activity = (degree > 0) ? sum_neighbors / degree : act[idx];
+                act[idx] = {1 - epsilon} * act[idx] + {epsilon} * avg_activity;
+                act[idx] = 1.0 - {alpha} * (act[idx] * act[idx]);
+
+                __syncthreads();
+
+                int pivot = rand_idx[iter];
+                if (idx == pivot) {{
+                    int max_diff_idx = 0;
+                    int min_diff_idx = 0;
+                    float max_diff = -1.0;
+                    float min_diff = 1e9;
+
+                    for (int j = 0; j < {num_nodes}; ++j) {{
+                        float diff = fabsf(act[pivot] - act[j]);
+                        if (adj[pivot * {num_nodes} + j] && diff > max_diff) {{
+                            max_diff = diff;
+                            max_diff_idx = j;
+                        }}
+                        if (j != pivot && !adj[pivot * {num_nodes} + j] && diff < min_diff) {{
+                            min_diff = diff;
+                            min_diff_idx = j;
+                        }}
+                    }}
+
+                    if (max_diff_idx != min_diff_idx) {{
+                        adj[pivot * {num_nodes} + max_diff_idx] = 0;
+                        adj[max_diff_idx * {num_nodes} + pivot] = 0;
+                        adj[pivot * {num_nodes} + min_diff_idx] = 1;
+                        adj[min_diff_idx * {num_nodes} + pivot] = 1;
+                    }}
+                }}
+                __syncthreads();
+            }}
+        }}
+        """)
+        self.network_update = self.module.get_function('network_update')
 
     def _initialize_network(self, num_connections):
         edges = cp.random.choice(self.num_nodes * self.num_nodes, num_connections)
@@ -22,76 +72,14 @@ class NodeNetwork:
         self.adjacency_matrix[row, col] = 1
         self.adjacency_matrix[col, row] = 1
 
-    def _kernel_code(self):
-        return """
-        extern "C" __global__ void network_update(
-            char* adj, float* act, int* rand_idx, int iterations, int n) {
-
-            int idx = blockIdx.x * blockDim.x + threadIdx.x;
-            if (idx >= n) return;
-
-            for (int iter = 0; iter < iterations; ++iter) {
-            // Update activity
-            float sum_neighbors = 0.0;
-            int degree = 0;
-            for (int j = 0; j < n; ++j) {
-                if (adj[idx * n + j] == 1) {
-                sum_neighbors += act[j];
-                degree++;
-                }
-            }
-            float avg_activity = (degree > 0) ? sum_neighbors / degree : act[idx];
-            act[idx] = (1 - 0.4) * act[idx] + 0.4 * avg_activity;
-            act[idx] = 1.0 - 1.7 * (act[idx] * act[idx]);
-
-            __syncthreads();
-            
-            // Rewire step
-            int pivot = rand_idx[iter];
-            if (idx == pivot) {
-                int max_diff_idx = 0;
-                int min_diff_idx = 0;
-                float max_diff = -1.0;
-                float min_diff = 1e9;
-
-                for (int j = 0; j < n; ++j) {
-                    float diff = fabsf(act[pivot] - act[j]);
-                    if (adj[pivot * n + j] && diff > max_diff) {
-                        max_diff = diff;
-                        max_diff_idx = j;
-                    }
-                    if (j != pivot && !adj[pivot * n + j] && diff < min_diff) {
-                        min_diff = diff;
-                        min_diff_idx = j;
-                    }
-                }
-
-                if (max_diff_idx != min_diff_idx) {
-                    adj[pivot * n + max_diff_idx] = 0;
-                    adj[max_diff_idx * n + pivot] = 0;
-                    adj[pivot * n + min_diff_idx] = 1;
-                    adj[min_diff_idx * n + pivot] = 1;
-                }
-            }
-            __syncthreads();
-            }
-
-        }
-        """
-
     def update_network(self, iterations=1000):
-        kernel_code = self._kernel_code()
-        module = cp.RawModule(code=kernel_code)
-        network_update = module.get_function('network_update')
-
         random_indices = cp.random.randint(0, self.num_nodes, size=iterations)
-
         block_size = self.num_nodes
         grid_size = 1
 
-        network_update(
+        self.network_update(
             (grid_size,), (block_size,),
-            (self.adjacency_matrix, self.activities, random_indices, iterations, self.num_nodes)
+            (self.adjacency_matrix.data, self.activities.data, random_indices.data, iterations)
         )
         cp.cuda.Device(0).synchronize()
 
