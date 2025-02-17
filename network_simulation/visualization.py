@@ -3,11 +3,8 @@ from graph_tool.draw import arf_layout
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np
-# import logging
 from enum import Enum
 import os
-from graph_tool.all import Graph
-from network_simulation.utils import start_timing, stop_timing
 matplotlib.use('Agg')
 
 class ColorBy(Enum):
@@ -17,7 +14,6 @@ class ColorBy(Enum):
 
 class Visualization:
     def __init__(self, network, graph, community_assignments, output_dir="foo", color_by=ColorBy.ACTIVITY):
-        # self.logger = logging.getLogger(__name__)
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
         self.positions = None
@@ -27,7 +23,7 @@ class Visualization:
             os.makedirs(self.output_dir, exist_ok=True)
 
         positions_array = self._compute_layout(graph)
-        self._initialize_plot(network.get_activities(), network.get_adjacency_matrix(), positions_array, community_assignments)
+        self._initialize_plot(network.activities, network.adjacency_matrix, positions_array, community_assignments)
 
     def _compute_layout(self, graph, max_iter=0):
         self.positions = arf_layout(graph, pos=self.positions, epsilon=10000, max_iter=max_iter)
@@ -72,46 +68,27 @@ class Visualization:
         lines = self._compute_lines(positions_array, adjacency_matrix)
         if len(lines) > 0:
             density = len(lines) / (len(adjacency_matrix) * (len(adjacency_matrix) - 1) / 2)
-            edge_pen_width=0.3 - 0.2 * (density ** 0.5)
-            edge_color=[0.4, 0.4, 0.4]
+            edge_pen_width = 0.3 - 0.2 * (density ** 0.5)
+            edge_color = [0.4, 0.4, 0.4]
             alpha = 0.7 - 0.4 * (density ** 0.5)
             self.line_collection = LineCollection(lines, colors=edge_color, linewidths=edge_pen_width, alpha=alpha, zorder=1)
             self.ax.add_collection(self.line_collection)
 
-    def draw_visual(self, adjacency_matrix, activities, community_assignments, graph, step, max_iter=0, title=None):
-        # self.ax.set_title(title)
-
+    def draw_visual(self, adjacency_matrix, activities, community_assignments, graph, step, max_iter=0):
+        # Update node positions
         positions_array = self._compute_layout(graph, max_iter=max_iter)
-
-        # Update node colors and positions
         self.scatter.set_offsets(positions_array)
+
+        # Update node colors
         self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
 
         # Update connection lines
-        lines = self._compute_lines(positions_array, adjacency_matrix)
-        self.line_collection.set_segments(lines)
+        self.line_collection.set_segments(self._compute_lines(positions_array, adjacency_matrix))
 
         # Redraw the canvas
         self.fig.canvas.draw_idle()
         self.ax.figure.canvas.flush_events()
 
+        # Save the image
         image_path = os.path.join(self.output_dir, f"{step}.png")
         self.fig.savefig(image_path)
-        # self.logger.info(f"Saved network visualization for step {step} to {image_path}")
-
-        # artist = graph_draw(
-        #     network.graph,
-        #     pos=self.positions,
-        #     output=output_path,
-        #     mplfig=ax,
-        #     vertex_size=7.0,
-        #     edge_pen_width=0.3 - 0.2 * (density ** 0.5),
-        #     edge_color=[0.4, 0.4, 0.4, 0.7 - 0.4 * (density ** 0.5)],
-        #     vertex_fill_color=self.colors,
-        #     vertex_pen_width=0,
-        #     bg_color=[1, 1, 1, 1],
-        # )
-        # if ax:
-        #     artist.fit_view()
-        #     ax.set_xlim(-1, 1)
-        #     ax.set_ylim(-1, 1)

@@ -24,8 +24,8 @@ if __name__ == "__main__":
     # NetworkControlApp()
 
     ## Quick Run
-    Experiment().run_one_simulation(num_nodes=200, num_connections=4000, simulation_dir=os.path.join(base_dir, "gpu"), 
-                                        num_steps=5_000, display_interval=1000, metrics_interval=1000, random_seed=0, color_by=ColorBy.DEGREE)
+    Experiment().run_one_simulation(num_nodes=200, num_connections=3300, simulation_dir=os.path.join(base_dir, "notgpumaxsad"), 
+                                        num_steps=100_000, display_interval=10_000, metrics_interval=1000, random_seed=0, color_by=ColorBy.DEGREE)
 
     # Experiment Run
     # experiment_folder = os.path.join(base_dir, "gpu_parallel")
