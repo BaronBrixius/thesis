@@ -2,7 +2,7 @@ from network_simulation.network import NodeNetwork
 from network_simulation.csvwriter import CSVWriter
 from network_simulation.visualization import ColorBy, Visualization
 from network_simulation.blockmodel import BlockModel
-from network_simulation.metrics import Metrics
+import network_simulation.metrics as Metrics
 
 class Simulation:
     def __init__(self, num_nodes, num_connections, color_by=ColorBy.ACTIVITY, output_dir=None, alpha=1.7, epsilon=0.4, random_seed=None):
