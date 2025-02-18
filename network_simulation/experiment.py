@@ -29,13 +29,6 @@ class Experiment:
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
         return f"Simulation completed for {random_seed, num_nodes, num_connections}"
 
-    def run_simulation_process(self, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by, queue):
-        try:
-            result = self.run_one_simulation(num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by)
-            queue.put(result)
-        except Exception as e:
-            queue.put(f"Error: {repr(e)}")
-
     def run_experiment(self, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval, color_by=ColorBy.ACTIVITY, experiment_dir="/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output"):
         # Start thread that checks for early termination
         threading.Thread(target=self.monitor_input_early_termination, daemon=True).start()
@@ -58,8 +51,8 @@ class Experiment:
 
             # Create and start a new process for each simulation
             process = Process(
-                target=self.run_simulation_process,
-                args=(num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, seed, color_by, queue)
+                target=lambda q, *args: q.put(self.run_one_simulation(*args)),
+                args=(queue, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, seed, color_by)
             )
             processes.append(process)
             process.start()
