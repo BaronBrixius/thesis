@@ -1,4 +1,4 @@
-from multiprocessing import Process, Manager
+from multiprocessing import Process, Manager, Semaphore
 from itertools import product
 from network_simulation.visualization import ColorBy
 import logging
@@ -9,6 +9,7 @@ class Experiment:
     def __init__(self):
         self.termination_flag = Manager().Event()
         self.logger = logging.getLogger(__name__)
+        self.semaphore = Semaphore(os.cpu_count())
 
     def monitor_input_early_termination(self):
         """Listen for 'quit' or 'exit' to terminate all runs."""
@@ -50,6 +51,7 @@ class Experiment:
                 continue
 
             # Create and start a new process for each simulation
+            self.semaphore.acquire()
             process = Process(
                 target=lambda q, *args: q.put(self.run_one_simulation(*args)),
                 args=(queue, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, seed, color_by)
@@ -65,3 +67,4 @@ class Experiment:
                 self.logger.error(result)
             else:
                 self.logger.info(result)
+            self.semaphore.release()
