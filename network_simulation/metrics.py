@@ -12,7 +12,7 @@ def compute_metrics(adjacency_matrix, graph, entropy, step, community_assignment
         "Step": step,
         "Clustering Coefficient": calculate_clustering_coefficient(graph),
         "Average Path Length": calculate_average_path_length(graph),
-        "Rich Club Coefficients": _calculate_rich_club_coefficients(nx_graph),
+        "Rich Club Coefficients": calculate_rich_club_coefficients(nx_graph),
     }
 
     # Add community metrics
@@ -34,7 +34,7 @@ def calculate_average_path_length(graph: Graph) -> Optional[float]:
     ave_path_length = 2 * sum([sum(row[j + 1:]) for j, row in enumerate(distances)]) / num_vertex_pairs  # Only sum the upper triangle of the distance matrix, and double it
     return ave_path_length
 
-def _calculate_rich_club_coefficients(nx_graph) -> Dict[int, float]:
+def calculate_rich_club_coefficients(nx_graph) -> Dict[int, float]:
     return nx.rich_club_coefficient(nx_graph, normalized=False)
 
 def calculate_community_metrics(community_assignments, graph, entropy) -> Dict[str, object]:
