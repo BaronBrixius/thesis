@@ -6,11 +6,11 @@ from network_simulation.metrics import Metrics
 
 class Simulation:
     def __init__(self, num_nodes, num_connections, color_by=ColorBy.ACTIVITY, output_dir=None, alpha=1.7, epsilon=0.4, random_seed=None):
-        self.network = NodeNetwork(num_nodes=num_nodes, num_connections=num_connections, alpha=alpha, epsilon=epsilon, random_seed=random_seed)
+        self.network = NodeNetwork(num_nodes, num_connections, alpha, epsilon, random_seed)
         adjacency_matrix, activities = self.network.get_adjacency_matrix(), self.network.get_activities()
         self.output = CSVWriter(output_dir)
         self.block_model = BlockModel(adjacency_matrix)
-        self.visualization = Visualization(adjacency_matrix, activities, output_dir=output_dir, color_by=color_by, graph=self.block_model.get_graph(), community_assignments=self.block_model.get_community_assignments())
+        self.visualization = Visualization(adjacency_matrix, activities, self.block_model.get_graph(), self.block_model.get_community_assignments(), output_dir, color_by)
 
     def run(self, num_steps, display_interval=1000, metrics_interval=1000):
         # Main Loop
@@ -32,4 +32,4 @@ class Simulation:
 
         if display_interval and step % display_interval == 0:
             self.block_model.update_block_model(adjacency_matrix, step)
-            self.visualization.draw_visual(adjacency_matrix, activities, self.block_model.get_community_assignments(), self.block_model.get_graph(), step)
+            self.visualization.draw_visual(adjacency_matrix, activities, self.block_model.get_community_assignments(), self.block_model.get_graph(), step, max_iter=display_interval)
