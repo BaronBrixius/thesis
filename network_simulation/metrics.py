@@ -76,7 +76,7 @@ class Metrics:
             # Calculate density
             num_community_edges = graph.num_edges()
             num_possible_community_edges = len(community_nodes) * (len(community_nodes) - 1) / 2
-            intra_community_densities[community] = num_community_edges / num_possible_community_edges
+            intra_community_densities[community] = num_community_edges / num_possible_community_edges if num_possible_community_edges > 0 else 0
 
             # Update total intra-community edges
             intra_community_edges += num_community_edges
