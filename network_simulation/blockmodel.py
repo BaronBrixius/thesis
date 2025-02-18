@@ -9,7 +9,7 @@ class BlockModel:
         self.update_block_model(adjacency_matrix, step=0, max_sweeps=50)
 
     def update_block_model(self, adjacency_matrix, step: int, max_sweeps=5):
-        if step > self.last_update_step:    # Only update if the adjacency matrix has changed
+        if step > self.last_update_step:
             # Update the graph with the latest adjacency matrix
             graph = self.block_state.g
             graph.clear_edges()
