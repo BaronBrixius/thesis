@@ -10,7 +10,7 @@ class VisualizationPanel:
         matplotlib.use("TkAgg")
         self.root = root
         self.network = network
-        self.visualizer = Visualization(network, output_dir=output_dir, color_by=ColorBy.CLUSTER)
+        self.visualizer = Visualization(network, output_dir=output_dir, color_by=ColorBy.COMMUNITY)
 
         self.create_canvas()
         self.update(step=0, max_iter=1)

@@ -12,12 +12,11 @@ matplotlib.use('Agg')
 
 class ColorBy(Enum):
     ACTIVITY = "cividis"
-    CLUSTER = "Set1"
+    COMMUNITY = "Set1"
     DEGREE = "inferno"
 
 class Visualization:
     def __init__(self, adjacency_matrix, activities, graph, community_assignments, output_dir="foo", color_by=ColorBy.ACTIVITY):
-        # self.logger = logging.getLogger(__name__)
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
         self.positions = None
@@ -36,7 +35,7 @@ class Visualization:
     def _compute_vertex_colors(self, adjacency_matrix, activities, cluster_assignments):
         if self.color_by == ColorBy.ACTIVITY:
             return activities
-        elif self.color_by == ColorBy.CLUSTER:
+        elif self.color_by == ColorBy.COMMUNITY:
             value_map = {old: new for new, old in enumerate(np.unique(cluster_assignments))}
             colors = np.array([value_map[x] for x in cluster_assignments])
         elif self.color_by == ColorBy.DEGREE:
