@@ -1,4 +1,5 @@
-from multiprocessing import Process, Manager, Semaphore
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import Manager
 from itertools import product
 from network_simulation.visualization import ColorBy
 import logging
@@ -9,7 +10,6 @@ class Experiment:
     def __init__(self):
         self.termination_flag = Manager().Event()
         self.logger = logging.getLogger(__name__)
-        self.semaphore = Semaphore(os.cpu_count())
 
     def monitor_input_early_termination(self):
         """Listen for 'quit' or 'exit' to terminate all runs."""
@@ -34,37 +34,23 @@ class Experiment:
         # Start thread that checks for early termination
         threading.Thread(target=self.monitor_input_early_termination, daemon=True).start()
 
-        processes = []
-        manager = Manager()
-        queue = manager.Queue()
+        with ProcessPoolExecutor(max_workers=7) as executor:
+            futures = []
+            for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
+                # Decimal values are treated as density percentages
+                if isinstance(num_connections, float):
+                    self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
+                    num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
 
-        for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
-            # Decimal values are treated as density percentages
-            if isinstance(num_connections, float):  
-                self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
-                num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
+                # Skip if scenario is already completed
+                simulation_dir = os.path.join(experiment_dir, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
+                if os.path.exists(simulation_dir):
+                    self.logger.info(f"Skipping completed scenario: {seed, num_nodes, num_connections}")
+                    continue
 
-            # Skip if scenario is already completed
-            simulation_dir = os.path.join(experiment_dir, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
-            if os.path.exists(simulation_dir):
-                self.logger.info(f"Skipping completed scenario: {seed, num_nodes, num_connections}")
-                continue
+                # Submit the simulation task to the executor
+                futures.append(executor.submit(self.run_one_simulation, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, seed, color_by))
 
-            # Create and start a new process for each simulation
-            self.semaphore.acquire()
-            process = Process(
-                target=lambda q, *args: q.put(self.run_one_simulation(*args)),
-                args=(queue, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, seed, color_by)
-            )
-            processes.append(process)
-            process.start()
-
-        # Monitor progress and handle exceptions
-        for process in processes:
-            process.join()
-            result = queue.get()
-            if "Error" in result:
-                self.logger.error(result)
-            else:
-                self.logger.info(result)
-            self.semaphore.release()
+            # Wait for all simulations to complete
+            for future in futures:
+                self.logger.info(future.result())
