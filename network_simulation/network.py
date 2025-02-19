@@ -1,18 +1,21 @@
 import cupy as cp
+import numpy as np
 import os
 os.environ["CUPY_CUDA_PER_THREAD_DEFAULT_STREAM"] = "1"
 os.environ["CUPY_GPU_MEMORY_LIMIT"] = "95%"
 
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
+        # Store params
+        np.random.seed(random_seed) # FIXME numpy shouldn't also be needed
         cp.random.seed(random_seed)
         self.num_nodes = num_nodes
         self.num_connections = num_connections
-        self.alpha = alpha
-        self.epsilon = epsilon
+
+        # Initialize network
         self.activities = cp.random.uniform(-0.7, 1.0, num_nodes, dtype=cp.float32)
-        self.adjacency_matrix = cp.zeros((num_nodes, num_nodes), dtype=cp.int8)
-        self._initialize_network(num_connections)
+        self.adjacency_matrix = cp.asarray(self._generate_random_edges(self.num_connections), dtype=cp.int8)
+        self.degrees = cp.sum(self.adjacency_matrix, axis=1, dtype=cp.int32)    # Store degrees for faster computation
 
         self.module = cp.RawModule(code=f"""
         extern "C" __global__ void network_update(
@@ -21,7 +24,7 @@ class NodeNetwork:
             int idx = blockIdx.x * blockDim.x + threadIdx.x;
             if (idx >= {num_nodes}) return;
 
-            for (int iter = 0; iter < iterations; ++iter) {{
+            for (int i = 0; i < iterations; ++i) {{
                 float sum_neighbors = 0.0;
                 for (int j = 0; j < {num_nodes}; ++j) {{
                     if (adj[idx * {num_nodes} + j] == 1) {{
@@ -33,7 +36,7 @@ class NodeNetwork:
                 act[idx] = 1.0 - {alpha} * (act[idx] * act[idx]);
                 __syncthreads();
 
-                int pivot = rand_idx[iter];
+                int pivot = rand_idx[i];
                 if (idx == pivot) {{
                     int max_diff_idx = 0, min_diff_idx = 0;
                     float max_diff = -1.0, min_diff = 1e9;
@@ -63,15 +66,15 @@ class NodeNetwork:
         """)
         self.network_update = self.module.get_function('network_update')
 
-    def _initialize_network(self, num_connections):
-        edges = cp.random.choice(self.num_nodes * self.num_nodes, num_connections)
-        row = edges // self.num_nodes
-        col = edges % self.num_nodes
-        mask = row != col
-        row, col = row[mask], col[mask]
-        self.adjacency_matrix[row, col] = 1
-        self.adjacency_matrix[col, row] = 1
-        self.degrees = cp.sum(self.adjacency_matrix, axis=1, dtype=cp.int32)
+    def _generate_random_edges(self, num_connections):
+        np_adjacency_matrix = np.zeros((self.num_nodes, self.num_nodes), dtype=np.int8)
+        possible_edges = [(i, j) for i in range(self.num_nodes) for j in range(i + 1, self.num_nodes)]
+        selected_edges = np.random.choice(len(possible_edges), size=num_connections, replace=False)
+        for idx in selected_edges:
+            i, j = possible_edges[idx]
+            np_adjacency_matrix[i][j] = np_adjacency_matrix[j][i] = 1
+
+        return np_adjacency_matrix
 
     def update_network(self, iterations=1000):
         random_indices = cp.random.randint(0, self.num_nodes, size=iterations)
