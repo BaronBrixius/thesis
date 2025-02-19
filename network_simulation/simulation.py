@@ -31,6 +31,7 @@ class Simulation:
 
         # Final Output
         self._handle_output(adjacency_matrix, activities, self.block_model, step, display_interval, metrics_interval)
+        self.output.close()
 
     def _handle_output(self, adjacency_matrix, activities, block_model, step, display_interval, metrics_interval):
         """Checks and handles display and metrics intervals."""
