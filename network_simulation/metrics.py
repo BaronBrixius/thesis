@@ -3,8 +3,8 @@ import networkx as nx
 import numpy as np
 from typing import Optional, Dict
 
-def compute_metrics(adjacency_matrix, graph, entropy, step, community_assignments):
-    community_metrics = calculate_community_metrics(community_assignments, graph, entropy)
+def compute_metrics(adjacency_matrix, graph, entropy, community_assignments, step):
+    community_metrics = calculate_community_metrics(graph, entropy, community_assignments)
     nx_graph = nx.from_numpy_array(adjacency_matrix)
 
     # Compute row data
@@ -37,7 +37,7 @@ def calculate_average_path_length(graph: Graph) -> Optional[float]:
 def calculate_rich_club_coefficients(nx_graph) -> Dict[int, float]:
     return nx.rich_club_coefficient(nx_graph, normalized=False)
 
-def calculate_community_metrics(community_assignments, graph, entropy) -> Dict[str, object]:
+def calculate_community_metrics(graph, entropy, community_assignments) -> Dict[str, object]:
     unique_communities, community_sizes = np.unique(community_assignments, return_counts=True)
     intra_community_densities, intra_community_edges = calculate_community_densities(graph, community_assignments, unique_communities)
 

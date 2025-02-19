@@ -44,7 +44,7 @@ class Visualization:
 
     def _initialize_plot(self, adjacency_matrix, activities, positions_array, community_assignments):
         # Set up axes
-        self.ax.set(xlim=(-5, 5), ylim=(-5, 5), aspect='equal', xticks=[], yticks=[])
+        self.ax.set(xlim=(-6, 6), ylim=(-6, 6), aspect='equal', xticks=[], yticks=[])
 
         # Initialize scatter plot for nodes
         self.scatter = self.ax.scatter(
@@ -65,7 +65,7 @@ class Visualization:
                                             alpha=0.7 - 0.4 * (network_density ** 0.5), zorder=1)
         self.ax.add_collection(self.lines)
 
-    def draw_visual(self, adjacency_matrix, activities, community_assignments, graph, step, max_iter=0):
+    def draw_visual(self, adjacency_matrix, activities, graph, community_assignments, step, max_iter=0):
         # Update positions, colors, lines
         positions_array = self._compute_layout(graph, max_iter=max_iter)
         self.scatter.set_offsets(positions_array)
