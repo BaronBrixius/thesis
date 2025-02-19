@@ -1,6 +1,7 @@
 import cupy as cp
 import os
 os.environ["CUPY_CUDA_PER_THREAD_DEFAULT_STREAM"] = "1"
+os.environ["CUPY_GPU_MEMORY_LIMIT"] = "95%"
 
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
