@@ -5,12 +5,12 @@ from network_simulation.blockmodel import BlockModel
 import network_simulation.metrics as Metrics
 
 class Simulation:
-    def __init__(self, num_nodes, num_connections, color_by=ColorBy.ACTIVITY, output_dir=None, alpha=1.7, epsilon=0.4, random_seed=None):
+    def __init__(self, num_nodes, num_connections, color_by=ColorBy.ACTIVITY, simulation_dir=None, alpha=1.7, epsilon=0.4, random_seed=None):
         self.network = NodeNetwork(num_nodes, num_connections, alpha, epsilon, random_seed)
         adjacency_matrix, activities = self.network.get_adjacency_matrix(), self.network.get_activities()
-        self.output = CSVWriter(output_dir)
+        self.output = CSVWriter(simulation_dir)
         self.block_model = BlockModel(adjacency_matrix)
-        self.visualization = Visualization(adjacency_matrix, activities, self.block_model.get_graph(), self.block_model.get_community_assignments(), output_dir, color_by)
+        self.visualization = Visualization(adjacency_matrix, activities, self.block_model.get_graph(), self.block_model.get_community_assignments(), simulation_dir, color_by)
 
     def run(self, num_steps, display_interval=1000, metrics_interval=1000):
         adjacency_matrix, activities = self.network.get_adjacency_matrix(), self.network.get_activities()
