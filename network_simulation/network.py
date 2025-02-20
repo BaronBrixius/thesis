@@ -32,7 +32,7 @@ class NodeNetwork:
                     }}
                 }}
                 float avg_activity = (degrees[idx] > 0) ? sum_neighbors / degrees[idx] : act[idx];
-                act[idx] = (1 - {epsilon}) * act[idx] + {epsilon} * avg_activity;
+                act[idx] = (1.0 - {epsilon}) * act[idx] + {epsilon} * avg_activity;
                 act[idx] = 1.0 - {alpha} * (act[idx] * act[idx]);
                 __syncthreads();
 
