@@ -26,7 +26,11 @@ class Visualization:
 
     def _compute_layout(self, graph, max_iter=0):
         self.positions = arf_layout(graph, pos=self.positions, epsilon=10_000, max_iter=max_iter)
-        return self.positions.get_2d_array().T
+        positions_array = self.positions.get_2d_array().T
+        # Normalize positions to be within (-0.9, 0.9)
+        normalized_positions_array = -0.9 + 1.8 * (positions_array - positions_array.min()) / (positions_array.max() - positions_array.min())
+        normalized_positions_array -= (normalized_positions_array.max(axis=0) + normalized_positions_array.min(axis=0)) / 2
+        return normalized_positions_array
 
     def _compute_vertex_colors(self, adjacency_matrix, activities, cluster_assignments):
         if self.color_by == ColorBy.ACTIVITY:
@@ -44,7 +48,7 @@ class Visualization:
 
     def _initialize_plot(self, adjacency_matrix, activities, positions_array, community_assignments):
         # Set up axes
-        self.ax.set(xlim=(-6, 6), ylim=(-6, 6), aspect='equal', xticks=[], yticks=[])
+        self.ax.set(xlim=(-1, 1), ylim=(-1, 1), aspect='equal', xticks=[], yticks=[])
 
         # Initialize scatter plot for nodes
         self.scatter = self.ax.scatter(
