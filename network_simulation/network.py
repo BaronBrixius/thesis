@@ -14,7 +14,7 @@ class NodeNetwork:
 
         # Initialize network
         self.activities = cp.random.uniform(-0.7, 1.0, num_nodes, dtype=cp.float32)
-        self.adjacency_matrix = cp.asarray(self._generate_random_edges(self.num_connections), dtype=cp.int8)
+        self.adjacency_matrix = cp.asarray(self._generate_adjacency_matrix(self.num_connections), dtype=cp.int8)
         self.degrees = cp.sum(self.adjacency_matrix, axis=1, dtype=cp.int32)    # Store degrees for faster computation
 
         self.module = cp.RawModule(code=f"""
@@ -66,7 +66,7 @@ class NodeNetwork:
         """)
         self.network_update = self.module.get_function('network_update')
 
-    def _generate_random_edges(self, num_connections):
+    def _generate_adjacency_matrix(self, num_connections):
         np_adjacency_matrix = np.zeros((self.num_nodes, self.num_nodes), dtype=np.int8)
         possible_edges = [(i, j) for i in range(self.num_nodes) for j in range(i + 1, self.num_nodes)]
         selected_edges = np.random.choice(len(possible_edges), size=num_connections, replace=False)
