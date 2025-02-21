@@ -22,7 +22,7 @@ class Simulation:
             self._handle_output(adjacency_matrix, activities, self.block_model, step, display_interval, metrics_interval)
 
             # Update Network
-            iterations_to_next_interval = min(num_steps - step, display_interval - step % display_interval, metrics_interval - step % metrics_interval)
+            iterations_to_next_interval = min(num_steps - step, display_interval - step % display_interval if display_interval else float('inf'), metrics_interval - step % metrics_interval if metrics_interval else float('inf'))
             adjacency_matrix, activities = self.network.update_network(iterations_to_next_interval)
             step += iterations_to_next_interval
 
