@@ -22,21 +22,16 @@ class PostRunAnalyzer:
             for dirpath, _, filenames in os.walk(root_dir):
                 variables = self._extract_variables_from_path(dirpath)
                 for file in filenames:
-                    if file.startswith("summary_metrics") and file.endswith(".csv"):
+                    if file == "metrics.csv":
                         file_path = os.path.join(dirpath, file)
                         self.logger.info(f"Processing {file_path}")
 
-                        try:
-                            # Read file
-                            df = self.parse_file_to_df(file_path, variables)
-                            # Write snapshot-level metrics
-                            self._write_snapshot_metrics(df, snapshot_output_filepath)
-                            # Write run-level metrics
-                            run_writer = self._write_run_metrics(df, run_writer, run_level_file)
-
-                        except Exception as e:
-                            self.logger.error(f"Error processing file {file_path}: {e}")
-                            continue
+                        # Read file
+                        df = self.parse_file_to_df(file_path, variables)
+                        # Write snapshot-level metrics
+                        self._write_snapshot_metrics(df, snapshot_output_filepath)
+                        # Write run-level metrics
+                        run_writer = self._write_run_metrics(df, run_writer, run_level_file)
 
     def prepare_file(self, filepath, default_filepath):
         if filepath is None:
@@ -52,16 +47,16 @@ class PostRunAnalyzer:
             df[var] = val  # Add extracted variables as columns
 
         # Computed columns
-        cluster_sizes = df['Cluster Sizes'].apply(eval)
-        df['Ideal Edges'] = cluster_sizes.apply(lambda cluster_sizes: sum((size * (size - 1)) // 2 for size in cluster_sizes.values()))
-        df['Structure'] = cluster_sizes.apply(lambda cluster_sizes: ",".join(map(str, sorted(cluster_sizes.values()))))
+        # community_sizes = df['Community Sizes'].apply(eval)
+        # df['Ideal Edges'] = community_sizes.apply(lambda community_sizes: sum((size * (size - 1)) // 2 for size in community_sizes.values()))
+        # df['Structure'] = community_sizes.apply(lambda community_sizes: ",".join(map(str, sorted(community_sizes.values()))))
 
-        df['Delta Cluster Count'] = df['Cluster Count'].diff()
+        df['Delta Community Count'] = df['Community Count'].diff()
 
-        df['Intra-cluster Edge Ratio'] = df['Intra-cluster Edges'] / df['Edges']
-        df['Inter-cluster Edges'] = df['Edges'] - df['Intra-cluster Edges']
-        df['Intra-cluster Edge Ratio Delta'] = df['Intra-cluster Edge Ratio'].diff()
-        df['Cluster Size Variance Delta'] = df['Cluster Size Variance'].diff()
+        df['Intra-Community Edge Ratio'] = df['Intra-Community Edges'] / df['Edges']
+        df['Inter-Community Edges'] = df['Edges'] - df['Intra-Community Edges']
+        df['Intra-Community Edge Ratio Delta'] = df['Intra-Community Edge Ratio'].diff()
+        df['Community Size Variance Delta'] = df['Community Size Variance'].diff()
 
         return df
 
@@ -77,7 +72,7 @@ class PostRunAnalyzer:
         """Compute run-level metrics and write them to the run-level output file."""
 
         # Convert step to millions and group by relevant columns
-        df["Step (Millions)"] = ((df["Step"] - 1) // 1_000_000 + 1).clip(lower=0).astype(int)
+        df["Step (Millions)"] = ((df["Step"] - 1) // 1_000_000 + 1).clip(lower=0)
         grouped = df.groupby(["Seed", "Nodes", "Edges", "Step (Millions)"])
 
         # Aggregate metrics for each group
@@ -86,28 +81,22 @@ class PostRunAnalyzer:
             "Nodes": "first",
             "Edges": "first",
             "Step (Millions)": "first",
-            "Cluster Count": "mean",
-            "Intra-cluster Edges": "mean",
-            "Intra-cluster Edge Ratio": "mean",
-            "Intra-cluster Edge Ratio Delta": "mean",
-            "Inter-cluster Edges": "mean",
             "Clustering Coefficient": ["mean", "std"],
             "Average Path Length": ["mean", "std"],
-            "Average Cluster Density Weighted": "mean",
-            "Cluster Size Variance": "mean",
-            "Cluster Size Variance Delta": "mean",
-            "Rewirings (intra_cluster)": "mean",
-            "Rewirings (inter_cluster_change)": "mean",
-            "Rewirings (inter_cluster_same)": "mean",
-            "Rewirings (intra_to_inter)": "mean",
-            "Rewirings (inter_to_intra)": "mean",
+            "Community Count": "mean",
+            "Intra-Community Edges": "mean",
+            "Intra-Community Edge Ratio": "mean",
+            "Intra-Community Edge Ratio Delta": "mean",
+            "Inter-Community Edges": "mean",
+            "Community Size Variance": "mean",
+            "Community Size Variance Delta": "mean",
             "SBM Entropy Normalized": "mean",
         })
 
         # Add computed metrics
         aggregated["Density"] = aggregated["Edges"] / (aggregated["Nodes"] * (aggregated["Nodes"] - 1) / 2)
-        aggregated["Cluster Count Round"] = aggregated["Cluster Count"].round()
-        aggregated["Cluster Count DeciRound"] = aggregated["Cluster Count"].round(1)
+        aggregated["Community Count Round"] = aggregated["Community Count"].round()
+        aggregated["Community Count DeciRound"] = aggregated["Community Count"].round(1)
 
         # Flatten the aggregated data into a dictionary
         for idx, row in aggregated.iterrows():
