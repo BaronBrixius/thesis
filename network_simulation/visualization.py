@@ -25,7 +25,7 @@ class Visualization:
         self._initialize_plot(adjacency_matrix, activities, positions_array, community_assignments)
 
     def _compute_layout(self, graph, max_iter=0):
-        self.positions = arf_layout(graph, pos=self.positions, epsilon=10_000, max_iter=max_iter)
+        self.positions = arf_layout(g=graph, dt=1e-4, epsilon=10_000, max_iter=min(max_iter, 1000), pos=self.positions)
         positions_array = self.positions.get_2d_array().T
         # Normalize positions to be within (-0.9, 0.9)
         normalized_positions_array = -0.9 + 1.8 * (positions_array - positions_array.min()) / (positions_array.max() - positions_array.min())
