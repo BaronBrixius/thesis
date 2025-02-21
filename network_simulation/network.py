@@ -7,6 +7,9 @@ os.environ["CUPY_GPU_MEMORY_LIMIT"] = "95%"
 class NodeNetwork:
     def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
         # Store params
+        np.random.seed(num_connections)
+        cp.cuda.Device(0 if np.random.rand() < 0.5 else 1).use()
+
         np.random.seed(random_seed) # FIXME numpy shouldn't also be needed
         cp.random.seed(random_seed)
         self.num_nodes = num_nodes
