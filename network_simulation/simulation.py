@@ -5,8 +5,8 @@ from network_simulation.blockmodel import BlockModel
 import network_simulation.metrics as Metrics
 
 class Simulation:
-    def __init__(self, num_nodes, num_connections, color_by=ColorBy.ACTIVITY, simulation_dir=None, alpha=1.7, epsilon=0.4, random_seed=None):
-        self.network = NodeNetwork(num_nodes, num_connections, alpha, epsilon, random_seed)
+    def __init__(self, num_nodes, num_connections, color_by=ColorBy.ACTIVITY, simulation_dir=None, alpha=1.7, epsilon=0.4, random_seed=None, process_num=0):
+        self.network = NodeNetwork(num_nodes, num_connections, alpha, epsilon, random_seed, process_num)
         adjacency_matrix, activities = self.network.get_adjacency_matrix(), self.network.get_activities()
         self.output = CSVWriter(simulation_dir)
         self.block_model = BlockModel(adjacency_matrix)

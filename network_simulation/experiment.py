@@ -4,6 +4,7 @@ from itertools import product
 from network_simulation.visualization import ColorBy
 import logging
 import os
+import time
 import threading
 
 class Experiment:
@@ -17,24 +18,25 @@ class Experiment:
             user_input = input("Enter 'quit' or 'exit' to stop the experiment:\n").strip().lower()
             if user_input in {"quit", "exit"}:
                 self.termination_flag.set()
-                self.logger.info("Termination signal received. Slow-stopping experiment...")
+                self.logger.info("Termination signal received. Finishing running simulations before exiting...")
                 break
 
-    def run_one_simulation(self, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by=ColorBy.ACTIVITY):
+    def run_one_simulation(self, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by=ColorBy.ACTIVITY, process_num=0):
         if self.termination_flag.is_set():
-            return f"Simulation {random_seed, num_nodes, num_connections} terminated by user"
+            self.logger.info(f"Simulation {random_seed, num_nodes, num_connections} terminated by user")
+            return
 
         from network_simulation.simulation import Simulation  # Import inside to ensure clean process
-        self.logger.info(f"Starting with {random_seed, num_nodes, num_connections}")
+        self.logger.info(f"Starting simulation {random_seed, num_nodes, num_connections}")
         sim = Simulation(num_nodes=num_nodes, num_connections=num_connections, simulation_dir=simulation_dir, color_by=color_by, random_seed=random_seed)
         sim.run(num_steps=num_steps, display_interval=display_interval, metrics_interval=metrics_interval)
-        return f"Simulation completed for {random_seed, num_nodes, num_connections}"
+        self.logger.info(f"Completed simulation {random_seed, num_nodes, num_connections}")
 
     def run_experiment(self, seed_range, nodes_range, connections_range, num_steps, display_interval, metrics_interval, color_by=ColorBy.ACTIVITY, experiment_dir="/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output"):
         # Start thread that checks for early termination
         threading.Thread(target=self.monitor_input_early_termination, daemon=True).start()
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ProcessPoolExecutor(max_tasks_per_child=1) as executor:
             futures = []
             for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
                 # Decimal values are treated as density percentages
@@ -49,8 +51,14 @@ class Experiment:
                     continue
 
                 # Submit the simulation task to the executor
-                futures.append(executor.submit(self.run_one_simulation, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, seed, color_by))
+                futures.append(executor.submit(self.run_one_simulation, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, seed, color_by, len(futures)))
 
             # Wait for all simulations to complete
             for future in futures:
-                self.logger.info(future.result())
+                try:
+                    if self.termination_flag.is_set():
+                        future.cancel()
+                    else:
+                        self.logger.info(future.result())
+                except Exception as e:
+                    self.logger.error(f"Simulation failed: {e}")

@@ -5,13 +5,13 @@ os.environ["CUPY_CUDA_PER_THREAD_DEFAULT_STREAM"] = "1"
 os.environ["CUPY_GPU_MEMORY_LIMIT"] = "95%"
 
 class NodeNetwork:
-    def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None):
-        # Store params
-        np.random.seed(num_connections)
-        cp.cuda.Device(0 if np.random.rand() < 0.5 else 1).use()
-
-        np.random.seed(random_seed) # FIXME numpy shouldn't also be needed
+    def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None, process_num = 0):
+        # Cuda setup
+        cp.cuda.Device(process_num % cp.cuda.runtime.getDeviceCount()).use()
         cp.random.seed(random_seed)
+        np.random.seed(random_seed) # FIXME numpy shouldn't also be needed, but is used in _generate_adjacency_matrix for now
+
+        # Store params
         self.num_nodes = num_nodes
         self.num_connections = num_connections
 
@@ -20,7 +20,7 @@ class NodeNetwork:
         self.adjacency_matrix = cp.asarray(self._generate_adjacency_matrix(self.num_connections), dtype=cp.int8)
         self.degrees = cp.sum(self.adjacency_matrix, axis=1, dtype=cp.int32)    # Store degrees for faster computation
 
-        self.module = cp.RawModule(code=f"""
+        self.network_update = cp.RawKernel(f"""
         extern "C" __global__ void network_update(
             char* adj, float* act, int* rand_idx, int iterations, int* degrees) {{
 
@@ -66,8 +66,7 @@ class NodeNetwork:
                 __syncthreads();
             }}
         }}
-        """)
-        self.network_update = self.module.get_function('network_update')
+        """, 'network_update')
 
     def _generate_adjacency_matrix(self, num_connections):
         np_adjacency_matrix = np.zeros((self.num_nodes, self.num_nodes), dtype=np.int8)
