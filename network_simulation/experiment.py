@@ -1,5 +1,4 @@
-from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import Manager
+from multiprocessing import Process, Manager
 from itertools import product
 from network_simulation.visualization import ColorBy
 import logging
@@ -36,29 +35,46 @@ class Experiment:
         # Start thread that checks for early termination
         threading.Thread(target=self.monitor_input_early_termination, daemon=True).start()
 
-        with ProcessPoolExecutor(max_tasks_per_child=1) as executor:
-            futures = []
-            for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
-                # Decimal values are treated as density percentages
-                if isinstance(num_connections, float):
-                    self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
-                    num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
+        max_processes = 11  # Maximum allowed concurrent processes
+        processes = []
+        manager = Manager()
+        queue = manager.Queue()
 
-                # Skip if scenario is already completed
-                simulation_dir = os.path.join(experiment_dir, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
-                if os.path.exists(simulation_dir):
-                    self.logger.info(f"Skipping completed scenario: {seed, num_nodes, num_connections}")
-                    continue
+        for num_nodes, num_connections, seed in product(nodes_range, connections_range, seed_range):
+            # Decimal values are treated as density percentages
+            if isinstance(num_connections, float):  
+                self.logger.debug(f"Converting density {num_connections} to connections for {num_nodes} nodes")
+                num_connections = int(num_connections * (num_nodes * (num_nodes - 1) / 2))
+ 
+            # Skip if scenario is already completed
+            simulation_dir = os.path.join(experiment_dir, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_connections}")
+            if os.path.exists(simulation_dir):
+                self.logger.info(f"Skipping completed scenario: {seed, num_nodes, num_connections}")
+                continue
 
-                # Submit the simulation task to the executor
-                futures.append(executor.submit(self.run_one_simulation, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, seed, color_by, len(futures)))
+            # Wait for available slots if max processes are running
+            while len(processes) >= max_processes:
+                for process in processes:
+                    if not process.is_alive():  # Remove completed processes
+                        processes.remove(process)
+                time.sleep(5)  # Short delay to prevent busy waiting
 
-            # Wait for all simulations to complete
-            for future in futures:
-                try:
-                    if self.termination_flag.is_set():
-                        future.cancel()
-                    else:
-                        self.logger.info(future.result())
-                except Exception as e:
-                    self.logger.error(f"Simulation failed: {e}")
+            # Start a new process
+            process = Process(
+                target=self.run_one_simulation,
+                args=(num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, seed, color_by, queue)
+            )
+            process.start()
+            processes.append(process)
+
+        # Wait for all remaining processes to finish
+        for process in processes:
+            process.join()
+
+        # Collect results
+        while not queue.empty():
+            result = queue.get()
+            if "Error" in result:
+                self.logger.error(result)
+            else:
+                self.logger.info(result)
