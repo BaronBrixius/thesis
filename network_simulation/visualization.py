@@ -70,16 +70,18 @@ class Visualization:
         self.ax.add_collection(self.lines)
 
     def draw_visual(self, adjacency_matrix, activities, graph, community_assignments, step, max_iter=0):
-        # Update positions, colors, lines
-        positions_array = self._compute_layout(graph, max_iter=max_iter)
-        self.scatter.set_offsets(positions_array)
-        self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
-        self.lines.set_segments(self._compute_lines(positions_array, adjacency_matrix))
+        try:    # Update positions, colors, lines
+            positions_array = self._compute_layout(graph, max_iter=max_iter)
+            self.scatter.set_offsets(positions_array)
+            self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
+            self.lines.set_segments(self._compute_lines(positions_array, adjacency_matrix))
 
-        # Redraw the canvas
-        self.fig.canvas.draw_idle()
-        self.ax.figure.canvas.flush_events()
+            # Redraw the canvas
+            self.fig.canvas.draw_idle()
+            self.ax.figure.canvas.flush_events()
 
-        # Save the figure
-        image_path = os.path.join(self.output_dir, f"{step}.png")
-        self.fig.savefig(image_path)
+            # Save the figure
+            image_path = os.path.join(self.output_dir, f"{step}.png")
+            self.fig.savefig(image_path)
+        except Exception as e:
+            print(f"Error drawing visual: {e}") # We often don't mind if the image breaks, so just print the error for checking
