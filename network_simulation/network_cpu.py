@@ -40,8 +40,8 @@ class NodeNetwork:
     def rewire(self):
         # 1. Pick a unit at random (henceforth: pivot)
         pivot = np.random.randint(self.num_nodes)
-        while not np.any(self.adjacency_matrix[pivot]): # zero-connection nodes cannot be pivots
-            pivot = np.random.randint(self.num_nodes)
+        if self.degrees[pivot] == 0:                                    # Rare edge case: picked node has no neighbors
+            pivot = np.random.choice(np.flatnonzero(self.degrees))      # Fallback: explicitly choose from nodes with neighbors
 
         # 2. From all other units, select the one that is most synchronized (henceforth: candidate) and least synchronized neighbor
         activity_diff = np.abs(self.activities - self.activities[pivot])
