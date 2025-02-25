@@ -1,6 +1,6 @@
 import tkinter as tk
 from threading import Thread, Event
-from network_simulation.network import NodeNetwork
+from network_simulation.network_gpu import NodeNetwork
 from gui.visualization_panel import VisualizationPanel
 from gui.control_panel import ControlPanel
 import networkx as nx

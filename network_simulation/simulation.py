@@ -1,4 +1,4 @@
-from network_simulation.network_cpu import NodeNetwork
+from network_simulation.network_gpu import NodeNetwork
 from network_simulation.csvwriter import CSVWriter
 from network_simulation.visualization import ColorBy, Visualization
 from network_simulation.blockmodel import BlockModel
