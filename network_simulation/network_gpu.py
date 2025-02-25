@@ -1,5 +1,4 @@
 import cupy as cp
-import numpy as np
 import os
 os.environ["CUPY_CUDA_PER_THREAD_DEFAULT_STREAM"] = "1"
 os.environ["CUPY_GPU_MEMORY_LIMIT"] = "95%"
@@ -9,15 +8,15 @@ class NodeNetwork:
         # Cuda setup
         cp.cuda.Device(process_num % cp.cuda.runtime.getDeviceCount()).use()
         cp.random.seed(random_seed)
-        np.random.seed(random_seed) # FIXME numpy shouldn't also be needed, but is used in _generate_adjacency_matrix for now
 
         # Store params
         self.num_nodes = num_nodes
         self.num_connections = num_connections
 
         # Initialize network
-        self.activities = cp.random.uniform(-0.7, 1.0, num_nodes, dtype=cp.float32)
-        self.adjacency_matrix = cp.asarray(self._generate_adjacency_matrix(self.num_connections), dtype=cp.int8)
+        self.activities = cp.random.uniform(1.0 - alpha, 1.0, num_nodes, dtype=cp.float32)
+        self.adjacency_matrix = cp.zeros((self.num_nodes, self.num_nodes), dtype=cp.int8)
+        self._add_random_edges(num_connections)
         self.degrees = cp.sum(self.adjacency_matrix, axis=1, dtype=cp.int32)    # Store degrees for faster computation
 
         self.network_update = cp.RawKernel(f"""
@@ -68,15 +67,13 @@ class NodeNetwork:
         }}
         """, 'network_update')
 
-    def _generate_adjacency_matrix(self, num_connections):
-        np_adjacency_matrix = np.zeros((self.num_nodes, self.num_nodes), dtype=np.int8)
-        possible_edges = [(i, j) for i in range(self.num_nodes) for j in range(i + 1, self.num_nodes)]
-        selected_edges = np.random.choice(len(possible_edges), size=num_connections, replace=False)
-        for idx in selected_edges:
-            i, j = possible_edges[idx]
-            np_adjacency_matrix[i][j] = np_adjacency_matrix[j][i] = 1
+    def _add_random_edges(self, num_connections):
+        possible_edges = cp.array(cp.triu_indices(self.num_nodes, k=1)).T
+        selected_edges = possible_edges[cp.random.choice(len(possible_edges), size=num_connections, replace=False)]
 
-        return np_adjacency_matrix
+        # Create adjacency matrix and set selected edges to 1
+        self.adjacency_matrix[selected_edges[:, 0], selected_edges[:, 1]] = 1
+        self.adjacency_matrix[selected_edges[:, 1], selected_edges[:, 0]] = 1  # Symmetric
 
     def update_network(self, iterations=1000):
         random_indices = cp.random.randint(0, self.num_nodes, size=iterations)
