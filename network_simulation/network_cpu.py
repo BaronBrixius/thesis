@@ -17,12 +17,12 @@ class NodeNetwork:
 
     def add_random_connections(self, num_connections_to_add):
         """Add random connections to the network."""
-        possible_edges = np.array(np.triu_indices(self.num_nodes, k=1)).T
-        available_edges = possible_edges[~self.adjacency_matrix[possible_edges[:, 0], possible_edges[:, 1]]]
-        selected_edges = available_edges[np.random.choice(len(available_edges), size=num_connections_to_add, replace=False)]
+        all_possible_edges = np.array(np.triu_indices(self.num_nodes, k=1)).T
+        available_edges = all_possible_edges[~self.adjacency_matrix[all_possible_edges[:, 0], all_possible_edges[:, 1]]]
+        edges_to_add = available_edges[np.random.choice(len(available_edges), size=num_connections_to_add, replace=False)]
 
-        self.adjacency_matrix[selected_edges[:, 0], selected_edges[:, 1]] = True
-        self.adjacency_matrix[selected_edges[:, 1], selected_edges[:, 0]] = True
+        self.adjacency_matrix[edges_to_add[:, 0], edges_to_add[:, 1]] = True
+        self.adjacency_matrix[edges_to_add[:, 1], edges_to_add[:, 0]] = True
 
     def update_activity(self):
         # Sum up neighbor activities
