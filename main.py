@@ -30,11 +30,11 @@ if __name__ == "__main__":
     # Experiment Run
     experiment_folder = os.path.join(base_dir, "little_buster")
     Experiment().run_experiment(
-                            seed_range=range(1,2),
+                            seed_range=range(5),
                             nodes_range=[200],
-                            connections_range=range(50, 19901, 100),      # [x / 100.0 for x in range(2, 40, 2)],
+                            connections_range=range(10, 19901, 10),      # [x / 100.0 for x in range(2, 40, 2)],
                             num_steps=10_000_000,
-                            display_interval=100_000,
+                            display_interval=1_000_000,
                             metrics_interval=1_000,
                             color_by=ColorBy.DEGREE,
                             experiment_dir=experiment_folder
