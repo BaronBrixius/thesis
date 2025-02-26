@@ -1,5 +1,8 @@
-from graph_tool.all import Graph
-from graph_tool.inference import PPBlockState
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", RuntimeWarning)
+    from graph_tool.all import Graph
+    from graph_tool.inference import PPBlockState
 import numpy as np
 
 class BlockModel:

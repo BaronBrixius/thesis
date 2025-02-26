@@ -4,7 +4,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np
-from graph_tool.draw import arf_layout
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", RuntimeWarning)
+    from graph_tool.draw import arf_layout
 matplotlib.use('Agg')
 
 class ColorBy(Enum):

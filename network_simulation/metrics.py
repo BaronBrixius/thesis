@@ -1,4 +1,7 @@
-from graph_tool.all import Graph, local_clustering, shortest_distance
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", RuntimeWarning)
+    from graph_tool.all import Graph, local_clustering, shortest_distance
 import networkx as nx
 import numpy as np
 from typing import Optional, Dict
