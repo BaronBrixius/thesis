@@ -1,113 +1,90 @@
+import os
 from enum import Enum
-import logging
+import matplotlib
+from matplotlib.colors import Normalize
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-from matplotlib.colors import ListedColormap
 import numpy as np
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", RuntimeWarning)
+    from graph_tool.draw import arf_layout
+matplotlib.use('Agg')
 
 class ColorBy(Enum):
     ACTIVITY = "cividis"
-    CLUSTER = "Set1"
-    CONNECTIONS = "inferno"
+    COMMUNITY = "Set1"
+    DEGREE = "inferno"
 
 class Visualization:
-    def __init__(self, positions, activities, adjacency_matrix, cluster_assignments, draw_lines=True, show=False, color_by:ColorBy=ColorBy.ACTIVITY):
-        self.logger = logging.getLogger(__name__)
+    def __init__(self, adjacency_matrix, activities, graph, community_assignments, output_dir="foo", color_by=ColorBy.ACTIVITY):
+        self.output_dir = os.path.join(output_dir, "images")
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir, exist_ok=True)
+
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
+        self.positions = None
+        positions_array = self._compute_layout(graph)
+        self._initialize_plot(adjacency_matrix, activities, positions_array, community_assignments)
 
-        # Initialize marked nodes
-        self.marked = np.zeros(len(positions), dtype=bool)
+    def _compute_layout(self, graph, max_iter=0):
+        self.positions = arf_layout(g=graph, dt=1e-4, epsilon=10_000, max_iter=min(max_iter, 1000), pos=self.positions)
+        positions_array = self.positions.get_2d_array().T
+        # Normalize positions to be within (-0.9, 0.9)
+        normalized_positions_array = -0.9 + 1.8 * (positions_array - positions_array.min()) / (positions_array.max() - positions_array.min())
+        normalized_positions_array -= (normalized_positions_array.max(axis=0) + normalized_positions_array.min(axis=0)) / 2 # TODO this centers, but maybe only on one axis?
+        return normalized_positions_array
 
-        self.custom_colormap = self.create_custom_colormap(self.color_by.value)
+    def _compute_vertex_colors(self, adjacency_matrix, activities, community_assignments):
+        if self.color_by == ColorBy.ACTIVITY:
+            return activities
+        elif self.color_by == ColorBy.COMMUNITY:
+            unique_communities, community_indices = np.unique(community_assignments, return_inverse=True)
+            return community_indices
+        elif self.color_by == ColorBy.DEGREE:
+            return np.sum(adjacency_matrix, axis=1)
 
-        self.initialize_plot(positions, activities, adjacency_matrix, cluster_assignments, draw_lines=draw_lines)
-        if show:
-            plt.ion()
-            plt.show()
-
-    def create_custom_colormap(self, base_colormap_name):
-        base_colormap = plt.get_cmap(base_colormap_name)
-        new_colors = base_colormap(np.linspace(0, 1, 256))
-        new_colors[0] = np.array([1, 0, 0, 1])  # Red in RGBA, for marked nodes
-        return ListedColormap(new_colors)
-
-    def compute_lines(self, positions, adjacency_matrix):
+    def _compute_lines(self, positions, adjacency_matrix):
         rows, cols = np.where(np.triu(adjacency_matrix, 1))
-        connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
-        return connections, rows, cols
+        return np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
 
-    def compute_node_colors(self, adjacency_matrix, activities, cluster_assignments=None):
-        if self.color_by == ColorBy.CONNECTIONS:
-            colors = np.sum(adjacency_matrix, axis=1)
-        elif self.color_by == ColorBy.ACTIVITY:
-            colors = np.copy(activities)
-        elif self.color_by == ColorBy.CLUSTER:
-            if cluster_assignments is not None:
-                num_nodes = len(adjacency_matrix)
-                cluster_ids = np.full(num_nodes, -1, dtype=int)  # Default to -1 for unassigned nodes
-                for cluster_id, cluster in enumerate(cluster_assignments):
-                    for node in cluster:
-                        cluster_ids[node] = cluster_id
-                colors = cluster_ids / np.max(cluster_ids) * 1.75 - 0.75    # Normalize cluster IDs to [-0.75, 1] for coloring. -0.75 start makes -1.0 (red) distinct
-            else:
-                colors = np.zeros(len(adjacency_matrix))  # Default to zero if no assignments are available
-        else:
-            raise ValueError(f"Unsupported color_by value: {self.color_by}")
-
-        # Set marked nodes to -1 to map to red in the custom colormap
-        colors[self.marked] = -1
-
-        return colors
-
-
-    def initialize_plot(self, positions, activities, adjacency_matrix, cluster_assignments=None, draw_lines=True):
-        self.ax.set_xlim(-0.05, 1.05)
-        self.ax.set_ylim(-0.05, 1.05)
-        self.ax.set_aspect('equal')
-        self.ax.set_xticks([])
-        self.ax.set_yticks([])
+    def _initialize_plot(self, adjacency_matrix, activities, positions_array, community_assignments):
+        # Set up axes
+        self.ax.set(xlim=(-1, 1), ylim=(-1, 1), aspect='equal', xticks=[], yticks=[])
 
         # Initialize scatter plot for nodes
         self.scatter = self.ax.scatter(
-            positions[:, 0],
-            positions[:, 1],
-            c=self.compute_node_colors(adjacency_matrix, activities, cluster_assignments),
-            cmap=self.custom_colormap,
+            *positions_array.T,
+            c=self._compute_vertex_colors(adjacency_matrix, activities, community_assignments),
+            cmap=self.color_by.value,
             s=10,
             zorder=2
         )
 
-        # Initialize lines (connections)
-        if draw_lines:
-            lines, rows, cols = self.compute_lines(positions, adjacency_matrix)
-            if len(lines) > 0:
-                edge_colors = ['red' if self.marked[row] or self.marked[col] else 'gray' for row, col in zip(rows, cols)]
-                self.line_collection = LineCollection(lines, colors=edge_colors, linewidths=0.5, alpha=0.6, zorder=1)
-                self.ax.add_collection(self.line_collection)
-
-    def update_plot(self, positions, activities, adjacency_matrix, cluster_assignments, title, draw_lines=True):
-        self.ax.set_title(title)
-
-        # Check for invalid values
-        if not np.all(np.isfinite(positions)):
-            self.logger.error("Error: Invalid positions detected (NaN or inf).")
+        # Initialize lines (edges)
+        lines = self._compute_lines(positions_array, adjacency_matrix)
+        if len(lines) == 0:
             return
 
-        # Update node colors and positions
-        self.scatter.set_offsets(positions)
-        self.scatter.set_array(self.compute_node_colors(adjacency_matrix, activities, cluster_assignments))
+        network_density = len(lines) / (len(adjacency_matrix) * (len(adjacency_matrix) - 1) / 2)
+        self.lines = LineCollection(lines, colors=[0.4, 0.4, 0.4], linewidths=0.3 - 0.2 * (network_density ** 0.5),
+                                            alpha=0.7 - 0.4 * (network_density ** 0.5), zorder=1)
+        self.ax.add_collection(self.lines)
 
-        # Update connection lines
-        if draw_lines:
-            lines, rows, cols = self.compute_lines(positions, adjacency_matrix)
-            edge_colors = ['red' if self.marked[row] or self.marked[col] else 'gray' for row, col in zip(rows, cols)]
-            self.line_collection.set_segments(lines)
-            self.line_collection.set_color(edge_colors)
+    def draw_visual(self, adjacency_matrix, activities, graph, community_assignments, step, max_iter=0):
+        try:    # Update positions, colors, lines
+            positions_array = self._compute_layout(graph, max_iter=max_iter)
+            self.scatter.set_offsets(positions_array)
+            self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
+            self.lines.set_segments(self._compute_lines(positions_array, adjacency_matrix))
 
-        # Redraw the canvas
-        self.fig.canvas.draw_idle()
-        self.ax.figure.canvas.flush_events()
+            # Redraw the canvas
+            self.fig.canvas.draw_idle()
+            self.ax.figure.canvas.flush_events()
 
-    def close(self):
-        plt.close(self.fig)
+            # Save the figure
+            image_path = os.path.join(self.output_dir, f"{step}.png")
+            self.fig.savefig(image_path)
+        except Exception as e:
+            print(f"Error drawing visual: {e}") # We often don't mind if the image breaks, so just print the error for checking
