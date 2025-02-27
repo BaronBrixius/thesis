@@ -3,9 +3,9 @@ import pandas as pd
 import logging
 
 def analyze_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", output_filename="analysis.csv"):
-    """Computes aggregated run-level metrics from the snapshot file."""
+    """Computes aggregated metrics from the snapshot file."""
     output_filepath = os.path.join(root_dir, output_filename)
-    logging.info(f"Aggregating run-level metrics from {aggregated_metrics_file} to {output_filepath}")
+    logging.info(f"Aggregating metrics from {aggregated_metrics_file} to {output_filepath}")
 
     df = pd.read_csv(os.path.join(root_dir, aggregated_metrics_file))
     df = _parse_metrics(df)  # Apply transformations after merging all snapshots
@@ -40,10 +40,10 @@ def analyze_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", 
 
     # Save results
     aggregated.to_csv(output_filepath, index=False)
-    logging.info(f"Run-level analysis saved to {output_filepath}")
+    logging.info(f"Analysis saved to {output_filepath}")
 
 def _parse_metrics(df):
-    """Processes a DataFrame, computing additional derived metrics for run-level analysis."""
+    """Processes a DataFrame, computing additional derived metrics for analysis."""
     df['Intra-Community Edge Ratio'] = df['Intra-Community Edges'] / df['Edges']
     df['Inter-Community Edges'] = df['Edges'] - df['Intra-Community Edges']
     df['Intra-Community Edge Ratio Delta'] = df['Intra-Community Edge Ratio'].diff()
