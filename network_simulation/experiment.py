@@ -4,7 +4,6 @@ from itertools import product
 import logging
 import os
 import threading
-import time
 
 class Experiment:
     def __init__(self):
@@ -16,7 +15,7 @@ class Experiment:
             user_input = input("Enter 'quit' or 'exit' to stop the experiment:\n").strip().lower()
             if user_input in {"quit", "exit"}:
                 self.logger.info("Termination signal received. Finishing started simulations before exiting...")
-                executor.shutdown(cancel_futures=True, wait=True)   # seems to finish all current work and begin max_workers extra tasks before terminating, not sure why, seems fine enough
+                executor.shutdown(cancel_futures=True, wait=True)   # finishes all current work and max_workers extra tasks before terminating, not sure why, seems fine enough
                 break
 
     def run_one_simulation(self, num_nodes, num_connections, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by, process_num=0):
