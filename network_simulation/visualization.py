@@ -87,4 +87,4 @@ class Visualization:
             image_path = os.path.join(self.output_dir, f"{step}.png")
             self.fig.savefig(image_path)
         except Exception as e:
-            print(f"Error drawing visual: {e}") # We often don't mind if the image breaks, so just print the error for checking
+            print(f"Error drawing visual: {e}") # We often don't mind if the image breaks, so just print the error

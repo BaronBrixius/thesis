@@ -6,7 +6,7 @@ import networkx as nx
 import numpy as np
 from typing import Optional, Dict
 
-def compute_metrics(adjacency_matrix, graph, entropy, community_assignments, step):
+def compute_all_metrics(adjacency_matrix, graph, entropy, community_assignments, step):
     community_metrics = calculate_community_metrics(graph, entropy, community_assignments, adjacency_matrix)
     nx_graph = nx.from_numpy_array(adjacency_matrix)
 
