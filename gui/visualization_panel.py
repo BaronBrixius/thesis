@@ -31,5 +31,5 @@ class VisualizationPanel:
     def update(self, step, max_iter):
         """Update the visualization with the current step."""
         self.visualizer.draw_visual(self.network, step, max_iter, ax=self.ax)
-        self.ax.set_title(f"Nodes: {self.network.num_nodes}, Connections: {self.network.num_connections}, Step: {step}")
+        self.ax.set_title(f"Nodes: {self.network.num_nodes}, Edges: {self.network.num_edges}, Step: {step}")
         self.canvas.draw()

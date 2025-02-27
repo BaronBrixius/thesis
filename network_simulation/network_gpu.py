@@ -4,19 +4,19 @@ os.environ["CUPY_CUDA_PER_THREAD_DEFAULT_STREAM"] = "1"
 os.environ["CUPY_GPU_MEMORY_LIMIT"] = "95%"
 
 class NodeNetwork:
-    def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None, process_num = 0):
+    def __init__(self, num_nodes, num_edges, alpha=1.7, epsilon=0.4, random_seed=None, process_num = 0):
         # Cuda setup
         cp.cuda.Device(process_num % cp.cuda.runtime.getDeviceCount()).use()
         cp.random.seed(random_seed)
 
         # Store params
         self.num_nodes = num_nodes
-        self.num_connections = num_connections
+        self.num_edges = num_edges
 
         # Initialize network
         self.activities = cp.random.uniform(1.0 - alpha, 1.0, num_nodes, dtype=cp.float32)
         self.adjacency_matrix = cp.zeros((self.num_nodes, self.num_nodes), dtype=cp.int8)
-        self._add_random_edges(num_connections)
+        self._add_random_edges(num_edges)
         self.degrees = cp.sum(self.adjacency_matrix, axis=1, dtype=cp.int32)    # Store degrees for faster computation
 
         self.network_update = cp.RawKernel(f"""
@@ -67,9 +67,9 @@ class NodeNetwork:
         }}
         """, 'network_update')
 
-    def _add_random_edges(self, num_connections):
+    def _add_random_edges(self, num_edges):
         possible_edges = cp.array(cp.triu_indices(self.num_nodes, k=1)).T
-        selected_edges = possible_edges[cp.random.choice(len(possible_edges), size=num_connections, replace=False)]
+        selected_edges = possible_edges[cp.random.choice(len(possible_edges), size=num_edges, replace=False)]
 
         # Create adjacency matrix and set selected edges to 1
         self.adjacency_matrix[selected_edges[:, 0], selected_edges[:, 1]] = 1

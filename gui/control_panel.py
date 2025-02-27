@@ -15,7 +15,7 @@ class ControlPanel:
         # Configuration for variables and their labels
         self.configs = {
             "num_nodes": {"label": "Node Count:", "default": network.num_nodes, "type": int},
-            "num_connections": {"label": "Connection Count:", "default": network.num_connections, "type": int},
+            "num_edges": {"label": "Edge Count:", "default": network.num_edges, "type": int},
             "alpha": {"label": "Alpha:", "default": network.alpha, "type": float},
             "epsilon": {"label": "Epsilon:", "default": network.epsilon, "type": float},
             "display_interval": {"label": "Display Interval:", "default": 1000, "type": int},
@@ -140,7 +140,7 @@ class ControlPanel:
             intracluster_edges += density * (size * (size - 1) / 2)
         intracluster_edges = int(intracluster_edges)
         metrics_text += f"Intra- Edges: {intracluster_edges}\n"
-        metrics_text += f"Inter- Edges: {network.num_connections - intracluster_edges}\n"
+        metrics_text += f"Inter- Edges: {network.num_edges - intracluster_edges}\n"
 
         # metrics_text += f"Cluster Assignments: {cluster_assignments}\n"
 

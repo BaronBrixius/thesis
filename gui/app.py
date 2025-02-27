@@ -8,14 +8,14 @@ import numpy as np
 import time
 
 class NetworkControlApp:
-    def __init__(self, num_nodes=200, initial_connections=2000, alpha=1.7):
+    def __init__(self, num_nodes=200, initial_edges=2000, alpha=1.7):
         self.root = tk.Tk()
         self.root.title("Network Control Panel")
         self.root.protocol("WM_DELETE_WINDOW", self.quit_application)   # Closing the window triggers the quit_application handler
 
         # Simulation parameters
         self.num_nodes = num_nodes
-        self.initial_connections = initial_connections
+        self.initial_edges = initial_edges
         self.alpha = alpha
         self.step = 0
 
@@ -25,7 +25,7 @@ class NetworkControlApp:
         self.running = Event()
 
         # Initialize Network and GUI
-        self.network = NodeNetwork(num_nodes=self.num_nodes, num_connections=self.initial_connections, alpha=self.alpha, random_seed=42)
+        self.network = NodeNetwork(num_nodes=self.num_nodes, num_edges=self.initial_edges, alpha=self.alpha, random_seed=42)
         self.control_panel = ControlPanel(self.root, network=self.network, apply_changes_callback=self.apply_changes, toggle_simulation_callback=self.toggle_simulation, physics_callback=self.update_visualization)
         self.visualization_panel = VisualizationPanel(self.root, self.network)
 
@@ -75,7 +75,7 @@ class NetworkControlApp:
 
         # Extract values from kwargs
         num_nodes = kwargs.get("num_nodes")
-        num_connections = kwargs.get("num_connections")
+        num_edges = kwargs.get("num_edges")
 
         # Update network parameters
         self.network.alpha = kwargs.get("alpha")
@@ -83,9 +83,9 @@ class NetworkControlApp:
         self.display_interval = kwargs.get("display_interval")
         self.metrics_interval = kwargs.get("metrics_interval")
 
-        # Update network structure if node or connection count changes
-        # if num_nodes != self.network.num_nodes or num_connections != self.network.num_connections:
-            # self.network.update_network_structure(num_nodes, num_connections)
+        # Update network structure if node or edge count changes
+        # if num_nodes != self.network.num_nodes or num_edges != self.network.num_edges:
+            # self.network.update_network_structure(num_nodes, num_edges)
             # self.visualization_panel.visualizer.marked = np.zeros(num_nodes, dtype=bool)    #FIXME: kind of out of place right here
             # self.visualization_panel.update(self.step, self.display_interval)
 

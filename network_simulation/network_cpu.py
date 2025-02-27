@@ -1,25 +1,25 @@
 import numpy as np
 
 class NodeNetwork:
-    def __init__(self, num_nodes, num_connections, alpha=1.7, epsilon=0.4, random_seed=None, process_num=None):
+    def __init__(self, num_nodes, num_edges, alpha=1.7, epsilon=0.4, random_seed=None, process_num=None):
         # Parameters
         np.random.seed(random_seed)
         self.num_nodes = num_nodes
-        self.num_connections = num_connections
+        self.num_edges = num_edges
         self.alpha = alpha
         self.epsilon = epsilon
 
         # Initialize network
         self.activities = np.random.uniform((1.0 - self.alpha), 1.0, self.num_nodes)    # Random initial activity
         self.adjacency_matrix = np.zeros((self.num_nodes, self.num_nodes), dtype=bool)
-        self.add_random_connections(self.num_connections)
+        self.add_random_edges(self.num_edges)
         self.degrees = np.sum(self.adjacency_matrix, axis=1)            # We track this instead of recalculating it every step
 
-    def add_random_connections(self, num_connections_to_add):
-        """Add random connections to the network."""
+    def add_random_edges(self, num_edges_to_add):
+        """Add random edges to the network."""
         all_possible_edges = np.array(np.triu_indices(self.num_nodes, k=1)).T
         available_edges = all_possible_edges[~self.adjacency_matrix[all_possible_edges[:, 0], all_possible_edges[:, 1]]]
-        edges_to_add = available_edges[np.random.choice(len(available_edges), size=num_connections_to_add, replace=False)]
+        edges_to_add = available_edges[np.random.choice(len(available_edges), size=num_edges_to_add, replace=False)]
 
         self.adjacency_matrix[edges_to_add[:, 0], edges_to_add[:, 1]] = True
         self.adjacency_matrix[edges_to_add[:, 1], edges_to_add[:, 0]] = True
@@ -51,7 +51,7 @@ class NodeNetwork:
         candidate = np.argmin(activity_diff)                # most similar activity
         least_synchronized_neighbor = np.argmax(activity_diff_neighbors)    # least similar neighbor
 
-        # 3a. If there is a connection between the pivot and the candidate already, do nothing
+        # 3a. If there is an edge between the pivot and the candidate already, do nothing
         if self.adjacency_matrix[pivot, candidate]:
             return
         self.swap_edge(pivot, least_synchronized_neighbor, candidate)

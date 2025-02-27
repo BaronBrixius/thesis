@@ -3,9 +3,8 @@ import os
 import pandas as pd
 
 class PostRunAnalyzer:
-    def __init__(self, project_dir):
+    def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.project_dir = project_dir
 
     def aggregate_metrics(self, root_dir, snapshot_output_file="aggregated_metrics.csv", run_level_output_file="analysis.csv"):
         """

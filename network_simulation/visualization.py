@@ -36,19 +36,18 @@ class Visualization:
         normalized_positions_array -= (normalized_positions_array.max(axis=0) + normalized_positions_array.min(axis=0)) / 2 # TODO this centers, but maybe only on one axis?
         return normalized_positions_array
 
-    def _compute_vertex_colors(self, adjacency_matrix, activities, cluster_assignments):
+    def _compute_vertex_colors(self, adjacency_matrix, activities, community_assignments):
         if self.color_by == ColorBy.ACTIVITY:
             return activities
         elif self.color_by == ColorBy.COMMUNITY:
-            unique_communities, community_indices = np.unique(cluster_assignments, return_inverse=True)
+            unique_communities, community_indices = np.unique(community_assignments, return_inverse=True)
             return community_indices
         elif self.color_by == ColorBy.DEGREE:
             return np.sum(adjacency_matrix, axis=1)
 
     def _compute_lines(self, positions, adjacency_matrix):
         rows, cols = np.where(np.triu(adjacency_matrix, 1))
-        connections = np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
-        return connections
+        return np.array([[positions[i], positions[j]] for i, j in zip(rows, cols)])
 
     def _initialize_plot(self, adjacency_matrix, activities, positions_array, community_assignments):
         # Set up axes
@@ -63,7 +62,7 @@ class Visualization:
             zorder=2
         )
 
-        # Initialize lines (connections)
+        # Initialize lines (edges)
         lines = self._compute_lines(positions_array, adjacency_matrix)
         if len(lines) == 0:
             return
