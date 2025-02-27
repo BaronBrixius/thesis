@@ -14,6 +14,7 @@ def aggregate_metrics(root_dir, output_filename="aggregated_metrics.csv"):
             
             for file in filenames:
                 if file == "metrics.csv":
+                    # Read metrics file
                     file_path = os.path.join(dirpath, file)
                     logging.debug(f"Processing {file_path}")
 

@@ -8,9 +8,9 @@ def analyze_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", 
     logging.info(f"Aggregating metrics from {aggregated_metrics_file} to {output_filepath}")
 
     df = pd.read_csv(os.path.join(root_dir, aggregated_metrics_file))
-    df = _parse_metrics(df)  # Apply transformations after merging all snapshots
+    df = _parse_metrics(df)  # Apply transformations for analysis
 
-    # Convert step to millions and group by relevant columns
+    # Group by millions of steps for each run
     df["Step (Millions)"] = ((df["Step"] - 1) // 1_000_000 + 1).clip(lower=0)
 
     # Aggregate metrics for each group
@@ -31,10 +31,10 @@ def analyze_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", 
         "SBM Entropy Normalized": "mean",
     }).reset_index()
 
-    # Flatten multi-index column names
+    # Flatten multi-index column names that were generated
     aggregated.columns = ["_".join(col).strip("_") for col in aggregated.columns.values]
 
-    # Rounded versions for quick comparisons
+    # Rounded versions are useful for quick checks, may want to remove for final
     aggregated["Community Count Round"] = aggregated["Community Count_mean"].round()
     aggregated["Community Count DeciRound"] = aggregated["Community Count_mean"].round(1)
 
