@@ -17,7 +17,7 @@ if __name__ == "__main__":
             format="%(asctime)s.%(msecs)03d - %(levelname)s - %(message)s",
             datefmt="%H:%M:%S"
         )
-    
+
     profiler = None #cProfile.Profile()
     if profiler: profiler.enable()
 
@@ -25,21 +25,23 @@ if __name__ == "__main__":
     # NetworkControlApp()
 
     ## Quick Run
-    # Experiment("output").run_simulation(num_nodes=200, num_connections=2_000, output_dir="foo",  num_steps=5_000, display_interval=1_000, metrics_interval=1_000, random_seed=42)
+    # Experiment().run_one_simulation(num_nodes=200, num_edges=2000, simulation_dir=os.path.join(base_dir, "color"), 
+    #                                     num_steps=40_000, display_interval=10_000, metrics_interval=10_000, random_seed=0, color_by=ColorBy.COMMUNITY)
 
-    ## Experiment Run
-    experiment_folder = os.path.join(base_dir, "foo")
-    experiment = Experiment(experiment_folder)
-    experiment.run_experiment(
-                            seed_range=range(2),
-                            nodes_range=[200],
-                            connections_range=range(2000, 3000, 50),      # [x / 100.0 for x in range(2, 40, 2)],
-                            connections_as_density = False,
-                            num_steps=2_0_000,
-                            display_interval=5_000,
-                            metrics_interval=1_000,
-                        )
-    PostRunAnalyzer(experiment_folder).aggregate_metrics(experiment_folder, starting_step=1_0_000)
+    # Experiment Run
+    experiment_folder = os.path.join(base_dir, "little_buster/seed_2")
+    # Experiment().run_experiment(
+    #                         seed_range=[1],
+    #                         nodes_range=[200],
+    #                         edges_range=range(1000, 19901, 10),      # [x / 100.0 for x in range(2, 40, 2)],
+    #                         num_steps=10_000_000,
+    #                         display_interval=1_000_000,
+    #                         metrics_interval=1_000,
+    #                         color_by=ColorBy.DEGREE,
+    #                         experiment_dir=experiment_folder
+    #                     )
+    # aggregate_metrics(experiment_folder)
+    analyze_metrics(experiment_folder)
 
     if profiler: profiler.disable()
 
