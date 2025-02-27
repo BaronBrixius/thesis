@@ -1,5 +1,6 @@
 import logging
-from network_simulation.analyzer import PostRunAnalyzer
+from network_simulation.aggregator import aggregate_metrics
+from network_simulation.analyzer import analyze_metrics
 from network_simulation.experiment import Experiment
 from network_simulation.visualization import ColorBy
 from network_simulation.utils import get_times
@@ -17,18 +18,18 @@ if __name__ == "__main__":
             datefmt="%H:%M:%S"
         )
 
-    profiler = None #cProfile.Profile()
+    profiler = cProfile.Profile()
     if profiler: profiler.enable()
 
     ## Run in GUI
     # NetworkControlApp()
 
     ## Quick Run
-    Experiment().run_one_simulation(num_nodes=200, num_edges=2000, simulation_dir=os.path.join(base_dir, "color"), 
-                                        num_steps=40_000, display_interval=10_000, metrics_interval=10_000, random_seed=0, color_by=ColorBy.COMMUNITY)
+    # Experiment().run_one_simulation(num_nodes=200, num_edges=2000, simulation_dir=os.path.join(base_dir, "color"), 
+    #                                     num_steps=40_000, display_interval=10_000, metrics_interval=10_000, random_seed=0, color_by=ColorBy.COMMUNITY)
 
     # Experiment Run
-    # experiment_folder = os.path.join(base_dir, "little_buster/seed_2")
+    experiment_folder = os.path.join(base_dir, "little_buster/seed_2")
     # Experiment().run_experiment(
     #                         seed_range=[1],
     #                         nodes_range=[200],
@@ -39,7 +40,8 @@ if __name__ == "__main__":
     #                         color_by=ColorBy.DEGREE,
     #                         experiment_dir=experiment_folder
     #                     )
-    # PostRunAnalyzer(experiment_folder).aggregate_metrics(experiment_folder)
+    # aggregate_metrics(experiment_folder)
+    analyze_metrics(experiment_folder)
 
     if profiler: profiler.disable()
 
