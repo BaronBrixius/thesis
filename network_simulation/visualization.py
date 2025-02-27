@@ -1,6 +1,7 @@
 import os
 from enum import Enum
 import matplotlib
+from matplotlib.colors import Normalize
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np
@@ -32,15 +33,15 @@ class Visualization:
         positions_array = self.positions.get_2d_array().T
         # Normalize positions to be within (-0.9, 0.9)
         normalized_positions_array = -0.9 + 1.8 * (positions_array - positions_array.min()) / (positions_array.max() - positions_array.min())
-        normalized_positions_array -= (normalized_positions_array.max(axis=0) + normalized_positions_array.min(axis=0)) / 2
+        normalized_positions_array -= (normalized_positions_array.max(axis=0) + normalized_positions_array.min(axis=0)) / 2 # TODO this centers, but maybe only on one axis?
         return normalized_positions_array
 
     def _compute_vertex_colors(self, adjacency_matrix, activities, cluster_assignments):
         if self.color_by == ColorBy.ACTIVITY:
             return activities
         elif self.color_by == ColorBy.COMMUNITY:
-            value_map = {old: new for new, old in enumerate(np.unique(cluster_assignments))}
-            return np.array([value_map[x] for x in cluster_assignments])
+            unique_communities, community_indices = np.unique(cluster_assignments, return_inverse=True)
+            return community_indices
         elif self.color_by == ColorBy.DEGREE:
             return np.sum(adjacency_matrix, axis=1)
 
