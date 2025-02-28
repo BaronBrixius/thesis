@@ -3,7 +3,7 @@ import pandas as pd
 import logging
 
 def analyze_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", output_filename="analysis.csv"):
-    """Computes aggregated metrics from the snapshot file."""
+    """Computes metrics from the aggregated metrics file."""
     output_filepath = os.path.join(root_dir, output_filename)
     logging.info(f"Aggregating metrics from {aggregated_metrics_file} to {output_filepath}")
 
