@@ -37,7 +37,7 @@ class Experiment:
                 # Skip if scenario is already completed
                 simulation_dir = os.path.join(experiment_dir, f"seed_{seed}", f"nodes_{num_nodes}", f"edges_{num_edges}")
                 if os.path.exists(simulation_dir):
-                    self.logger.info(f"Skipping completed scenario: {seed, num_nodes, num_edges}")
+                    self.logger.debug(f"Skipping completed scenario: {seed, num_nodes, num_edges}")
                     continue
 
                 # Submit the simulation task to the executor
