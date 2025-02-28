@@ -78,7 +78,7 @@ class Visualization:
             positions_array = self._compute_layout(graph, max_iter=max_iter)
             self.scatter.set_offsets(positions_array)
             self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
-            self.scatter.set_clim([min(self.scatter.get_array()), max(self.scatter.get_array())])
+            self.scatter.set_clim([min(self.scatter.get_array()), max(self.scatter.get_array())])   # Rescale the colormap in case our min/max have changed (common with community coloring)
             self.lines.set_segments(self._compute_lines(positions_array, adjacency_matrix))
 
             # Redraw the canvas
