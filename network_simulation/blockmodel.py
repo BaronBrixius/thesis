@@ -8,26 +8,22 @@ import numpy as np
 class BlockModel:
     def __init__(self, adjacency_matrix):
         self.block_state = PPBlockState(Graph(directed=False))
-        self.last_update_step = -1
         self.update_block_model(adjacency_matrix, step=0, max_sweeps=50)
 
-    def update_block_model(self, adjacency_matrix, step: int, max_sweeps=5):
-        if step > self.last_update_step:
-            # Update the graph with the latest adjacency matrix
-            graph = self.block_state.g
-            graph.clear_edges()
-            graph.add_edge_list(np.transpose(np.nonzero(adjacency_matrix)))  
+    def update_block_model(self, adjacency_matrix, max_sweeps=5):
+        # Update the graph with the latest adjacency matrix
+        graph = self.block_state.g
+        graph.clear_edges()
+        graph.add_edge_list(np.transpose(np.nonzero(adjacency_matrix)))  
 
-            # Recreate the block state to reflect the new graph
-            self.block_state = PPBlockState(g=graph, b=self.block_state.b) 
+        # Recreate the block state to reflect the new graph
+        self.block_state = PPBlockState(g=graph, b=self.block_state.b) 
 
-            # MCMC sweeps to update the community assignments
-            for _ in range(max_sweeps):
-                entropy_delta, _, _ = self.block_state.multilevel_mcmc_sweep()
-                if entropy_delta == 0:
-                    break
-
-            self.last_update_step = step
+        # MCMC sweeps to update the community assignments
+        for _ in range(max_sweeps):
+            entropy_delta, _, _ = self.block_state.multilevel_mcmc_sweep()
+            if entropy_delta == 0:
+                break
 
     def get_community_assignments(self):
         return self.block_state.get_blocks().a
