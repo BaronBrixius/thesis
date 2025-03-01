@@ -18,10 +18,10 @@ def aggregate_metrics(root_dirs, output_filename="aggregated_metrics.csv"):
                 variables = _extract_variables_from_path(dirpath)  # Extract metadata
 
                 for file in filenames:
-                    if "metrics" in file and file.endswith(".csv"):
+                    if "summary_metrics" in file or file == "metrics.csv":
                         # Read metrics file
                         file_path = os.path.join(dirpath, file)
-                        logging.debug(f"Processing {file_path}")
+                        logging.info(f"Processing {file_path}")
 
                         df = pd.read_csv(file_path)
                         
