@@ -13,7 +13,7 @@ matplotlib.use('Agg')
 
 class ColorBy(Enum):
     ACTIVITY = "cividis"
-    COMMUNITY = "Set1"
+    COMMUNITY = "tab10"
     DEGREE = "inferno"
 
 class Visualization:
@@ -68,7 +68,7 @@ class Visualization:
             return
 
         network_density = len(lines) / (len(adjacency_matrix) * (len(adjacency_matrix) - 1) / 2)
-        self.lines = LineCollection(lines, colors=[0.4, 0.4, 0.4], linewidths=0.3 - 0.2 * (network_density ** 0.5),
+        self.lines = LineCollection(lines, colors=[0.45, 0.45, 0.45], linewidths=0.3 - 0.2 * (network_density ** 0.5),
                                             alpha=0.7 - 0.4 * (network_density ** 0.5), zorder=1)
         self.ax.add_collection(self.lines)
 
