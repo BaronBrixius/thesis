@@ -90,3 +90,6 @@ class Visualization:
             self.fig.savefig(image_path)
         except Exception as e:
             print(f"Error drawing visual: {e}") # We often don't mind if the image breaks, so just print the error
+
+    def close(self):
+        plt.close(self.fig)

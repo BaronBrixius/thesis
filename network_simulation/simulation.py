@@ -12,9 +12,9 @@ class Simulation:
 
         # Initialize Network
         self.network = NodeNetwork(num_nodes, num_edges, alpha, epsilon, random_seed, process_num)
-        adjacency_matrix, activities = self.network.get_adjacency_matrix(), self.network.get_activities()
 
         # Initialize Simulation Components
+        adjacency_matrix, activities = self.network.get_adjacency_matrix(), self.network.get_activities()
         self.output = CSVWriter(simulation_dir)
         self.block_model = BlockModel(adjacency_matrix)
         self.visualization = Visualization(adjacency_matrix, activities, self.block_model.get_graph(), self.block_model.get_community_assignments(), simulation_dir, color_by)
@@ -37,8 +37,9 @@ class Simulation:
             # Output Metrics and Visualization
             self._handle_output(adjacency_matrix, activities, self.block_model, step)
 
-        # Final Output
+        # Finalize
         self.output.close()
+        self.visualization.close()
 
     def _handle_output(self, adjacency_matrix, activities, block_model, step):
         """Checks and handles display and metrics intervals."""
