@@ -3,7 +3,6 @@ from experiment.aggregator import aggregate_metrics
 from experiment.analyzer import analyze_metrics
 from experiment.experiment import run_experiment, run_one_simulation
 from file_generation.visualization import ColorBy
-from timer_util import get_times
 import cProfile
 import pstats
 import os
@@ -37,13 +36,13 @@ if __name__ == "__main__":
     # )
 
     # Experiment Run
-    experiment_folder = os.path.join(BASE_DIR, "test")
+    experiment_folder = os.path.join(BASE_DIR, "little_buster")
     run_experiment(
-        seed_range=range(1),
+        seed_range=range(3,5),
         nodes_range=[200],
-        edges_range=range(1000, 10001, 1000),
-        num_steps=5_000,
-        display_interval=1_000,
+        edges_range=range(1000, 10001, 10),
+        num_steps=10_000_000,
+        display_interval=1_000_000,
         metrics_interval=1_000,
         color_by=ColorBy.COMMUNITY,
         experiment_dir=experiment_folder
@@ -55,5 +54,3 @@ if __name__ == "__main__":
 
     # Print profiler stats to sort by cumulative time
     if profiler: pstats.Stats(profiler).strip_dirs().sort_stats("cumulative").print_stats(20)
-
-    print(get_times())   #TODO Remove for final version
