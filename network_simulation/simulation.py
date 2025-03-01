@@ -1,6 +1,6 @@
 from network_simulation.network_cpu import NodeNetwork
-from output.csvwriter import CSVWriter
-from output.visualization import ColorBy, Visualization
+from file_generation.csvwriter import CSVWriter
+from file_generation.visualization import ColorBy, Visualization
 from network_simulation.blockmodel import BlockModel
 import network_simulation.metrics as Metrics
 

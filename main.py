@@ -2,14 +2,14 @@ import logging
 from experiment.aggregator import aggregate_metrics
 from experiment.analyzer import analyze_metrics
 from experiment.experiment import run_experiment, run_one_simulation
-from output.visualization import ColorBy
+from file_generation.visualization import ColorBy
 from timer_util import get_times
 import cProfile
 import pstats
 import os
 # from gui.app import NetworkControlApp
 
-base_dir = "/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output"
+BASE_DIR = "/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output"
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -25,22 +25,30 @@ if __name__ == "__main__":
     # NetworkControlApp()
 
     ## Quick Run
-    # Experiment().run_one_simulation(num_nodes=200, num_edges=2000, simulation_dir=os.path.join(base_dir, "color"), 
-    #                                     num_steps=40_000, display_interval=10_000, metrics_interval=10_000, random_seed=42, color_by=ColorBy.COMMUNITY)
+    # run_one_simulation(
+    #     num_nodes=200,
+    #     num_edges=2000,
+    #     simulation_dir=os.path.join(BASE_DIR, "test"),
+    #     num_steps=40_000,
+    #     display_interval=10_000,
+    #     metrics_interval=10_000,
+    #     random_seed=42,
+    #     color_by=ColorBy.COMMUNITY
+    # )
 
     # Experiment Run
-    experiment_folder = os.path.join(base_dir, "little_buster")
-    # Experiment().run_experiment(
-    #                         seed_range=range(1,3),
-    #                         nodes_range=[200],
-    #                         edges_range=range(1000, 10001, 10),      # [x / 100.0 for x in range(2, 40, 2)],
-    #                         num_steps=10_000_000,
-    #                         display_interval=1_000_000,
-    #                         metrics_interval=1_000,
-    #                         color_by=ColorBy.COMMUNITY,
-    #                         experiment_dir=experiment_folder
-    #                     )
-    aggregate_metrics([experiment_folder, os.path.join(base_dir, "hybrid_rainbow_zero")])
+    experiment_folder = os.path.join(BASE_DIR, "test")
+    run_experiment(
+        seed_range=range(1),
+        nodes_range=[200],
+        edges_range=range(1000, 10001, 1000),
+        num_steps=5_000,
+        display_interval=1_000,
+        metrics_interval=1_000,
+        color_by=ColorBy.COMMUNITY,
+        experiment_dir=experiment_folder
+    )
+    # aggregate_metrics([experiment_folder, os.path.join(base_dir, "hybrid_rainbow_zero")])
     # analyze_metrics(experiment_folder)
 
     if profiler: profiler.disable()
