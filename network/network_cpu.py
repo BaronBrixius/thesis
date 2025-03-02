@@ -52,7 +52,7 @@ class NodeNetwork:
         least_synchronized_neighbor = np.argmax(activity_diff_neighbors)    # least similar neighbor
 
         # 3a. If there is an edge between the pivot and the candidate already, do nothing
-        if self.adjacency_matrix[pivot, candidate]:
+        if self.adjacency_matrix[pivot, candidate] or activity_diff_neighbors[least_synchronized_neighbor] == 0.0:  # Rare edge case: pivot and least_synchronized_neighbor were identical
             return
         self._swap_edge(pivot, least_synchronized_neighbor, candidate)
 
