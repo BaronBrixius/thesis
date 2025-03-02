@@ -14,7 +14,7 @@ def analyze_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", 
     df["Step (Millions)"] = ((df["Step"] - 1) // 1_000_000 + 1).clip(lower=0)
 
     # Aggregate metrics for each group
-    aggregated = df.groupby(["Seed", "Nodes", "Edges", "Step (Millions)"]).agg({
+    grouped = df.groupby(["Seed", "Nodes", "Edges", "Step (Millions)"]).agg({
         "Seed": "first",
         "Nodes": "first",
         "Edges": "first",
@@ -32,14 +32,14 @@ def analyze_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", 
     }).reset_index()
 
     # Flatten multi-index column names that were generated
-    aggregated.columns = ["_".join(col).strip("_") for col in aggregated.columns.values]
+    grouped.columns = ["_".join(col).strip("_") for col in grouped.columns.values]
 
     # Rounded versions are useful for quick checks, may want to remove for final
-    aggregated["Community Count Round"] = aggregated["Community Count_mean"].round()
-    aggregated["Community Count DeciRound"] = aggregated["Community Count_mean"].round(1)
+    grouped["Community Count Round"] = grouped["Community Count_mean"].round()
+    grouped["Community Count DeciRound"] = grouped["Community Count_mean"].round(1)
 
     # Save results
-    aggregated.to_csv(output_filepath, index=False)
+    grouped.to_csv(output_filepath, index=False)
     logging.info(f"Analysis saved to {output_filepath}")
 
 def _parse_metrics(df):
