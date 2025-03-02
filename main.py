@@ -1,6 +1,7 @@
 import logging
 from postrun_output.aggregator import aggregate_metrics
-from postrun_output.data_processor import processed_metrics
+from postrun_output.data_processor import process_metrics
+from postrun_output.plotter import generate_scatterplots
 from simulation.experiment import run_experiment, run_one_simulation
 from runtime_output.visualization import ColorBy
 import cProfile
@@ -38,17 +39,18 @@ if __name__ == "__main__":
     # Experiment Run
     experiment_folder = os.path.join(BASE_DIR, "little_buster")
     # run_experiment(
-    #     seed_range=range(5),
+    #     seed_range=[1],
     #     nodes_range=[200],
-    #     edges_range=range(0, 19901, 10),
+    #     edges_range=range(2000, 19901, 100),
     #     num_steps=10_000_000,
     #     display_interval=1_000_000,
     #     metrics_interval=1_000,
-    #     color_by=ColorBy.COMMUNITY,
+    #     color_by=ColorBy.DEGREE,
     #     experiment_dir=experiment_folder
     # )
-    aggregate_metrics([experiment_folder, os.path.join(BASE_DIR, "hybrid_rainbow_zero")])
-    # analyze_metrics(experiment_folder)
+    # aggregate_metrics([experiment_folder, os.path.join(BASE_DIR, "hybrid_rainbow_zero")])
+    # process_metrics(experiment_folder)
+    generate_scatterplots(experiment_folder)
 
     if profiler: profiler.disable()
 

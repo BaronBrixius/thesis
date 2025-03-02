@@ -1,60 +1,55 @@
-
 import matplotlib.pyplot as plt
+import os
+import pandas as pd
 
-def generate_scatterplots(df):
+def generate_scatterplots(root_dir, input_filename="processed_data.csv", output_dir="scatterplots"):
     """
-    Generates scatterplots for Clustering Coefficient and Average Path Length vs. Edges,
+    Generates and saves stylized scatterplots for Clustering Coefficient and Average Path Length vs. Edges,
     including color-coded versions by Community Count.
     """
-    df_filtered = df[df["Step (Millions)_first"] == 10]
-    num_edges = df_filtered["Intra-Community Edges_mean"]
+    input_filepath = os.path.join(root_dir, input_filename)
+    output_dir = os.path.join(root_dir, output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+
+    df = pd.read_csv(input_filepath)
+    df_filtered = df[df["Step (Millions)"] == 10]
+    num_edges = df_filtered["Edges"]
     
-    # Scatterplot for Clustering Coefficient vs. Edges
-    plt.figure(figsize=(10, 6))
-    plt.scatter(num_edges, df_filtered["Clustering Coefficient_mean"], alpha=0.6)
-    plt.xlabel("Number of Edges (Intra-Community)")
-    plt.ylabel("Clustering Coefficient")
-    plt.title("Clustering Coefficient vs. Number of Edges")
-    plt.grid(True)
-    plt.show()
+    _plot_scatter(num_edges, df_filtered["Clustering Coefficient_mean"], "Clustering Coefficient", output_dir, "cc_vs_edges.png", style=True)
+    _plot_scatter(num_edges, df_filtered["Average Path Length_mean"], "Average Path Length", output_dir, "apl_vs_edges.png", style=True, y_limit=3.0)
+    _plot_scatter(num_edges, df_filtered["Clustering Coefficient_mean"], "Clustering Coefficient", output_dir, "cc_vs_edges_colored.png", color=df_filtered["Community Count_mean"], colorbar_label="Communities", style=True)
+    _plot_scatter(num_edges, df_filtered["Average Path Length_mean"], "Average Path Length", output_dir, "apl_vs_edges_colored.png", color=df_filtered["Community Count_mean"], colorbar_label="Communities", style=True, y_limit=3.0)
 
-    # Scatterplot for Average Path Length vs. Edges
-    plt.figure(figsize=(10, 6))
-    plt.scatter(num_edges, df_filtered["Average Path Length_mean"], alpha=0.6)
-    plt.xlabel("Number of Edges (Intra-Community)")
-    plt.ylabel("Average Path Length")
-    plt.title("Average Path Length vs. Number of Edges")
-    plt.grid(True)
-    plt.show()
+def _plot_scatter(x, y, ylabel, output_dir, filename, color=None, colorbar_label=None, style=False, y_limit=None):
+    """Helper function to create and save a stylized scatterplot."""
+    plt.figure(figsize=(12, 6))
+    
+    if style:
+        plt.style.use("dark_background")
+        scatter = plt.scatter(x, y, c=color if color is not None else "white", cmap="rainbow" if color is not None else None, alpha=0.8, edgecolors='none', s=10)
+        plt.xticks(color="white")
+        plt.yticks(color="white")
+        plt.xlabel("Edges", fontsize=14, color="white")
+        plt.ylabel(ylabel, fontsize=14, color="white")
+        plt.grid(color="gray", linestyle="dotted", linewidth=0.5)
+        if color is not None:
+            cbar = plt.colorbar(scatter)
+            cbar.set_label(colorbar_label, fontsize=12, color="white")
+            cbar.ax.yaxis.set_tick_params(color="white")
+            plt.clim(1, 10)  # Ensure consistent color range
+    else:
+        plt.scatter(x, y, alpha=0.6)
+        plt.xlabel("Edges")
+        plt.ylabel(ylabel)
+        plt.grid(True)
+    
+    if y_limit is not None:
+        plt.ylim(0, y_limit)
+    
+    save_path = os.path.join(output_dir, filename)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {save_path}")
 
-    # Scatterplot for Clustering Coefficient colored by Community Count
-    plt.figure(figsize=(10, 6))
-    scatter = plt.scatter(
-        num_edges,
-        df_filtered["Clustering Coefficient_mean"],
-        c=df_filtered["Community Count_mean"],
-        cmap="rainbow",
-        alpha=0.7
-    )
-    plt.colorbar(label="Community Count")
-    plt.xlabel("Number of Edges (Intra-Community)")
-    plt.ylabel("Clustering Coefficient")
-    plt.title("Clustering Coefficient vs. Edges (Colored by Community Count)")
-    plt.grid(True)
-    plt.show()
-
-    # Scatterplot for APL colored by Community Count
-    plt.figure(figsize=(10, 6))
-    scatter = plt.scatter(
-        num_edges,
-        df_filtered["Average Path Length_mean"],
-        c=df_filtered["Community Count_mean"],
-        cmap="rainbow",
-        alpha=0.7
-    )
-    plt.colorbar(label="Community Count")
-    plt.xlabel("Number of Edges (Intra-Community)")
-    plt.ylabel("Average Path Length")
-    plt.title("Average Path Length vs. Edges (Colored by Community Count)")
-    plt.grid(True)
-    plt.show()
+# Example usage:
+# generate_scatterplots("/path/to/data")

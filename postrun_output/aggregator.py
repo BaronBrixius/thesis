@@ -18,9 +18,9 @@ def aggregate_metrics(root_dirs, output_filename="aggregated_metrics.csv"):
                 variables = _extract_variables_from_path(dirpath)  # Extract metadata
 
                 for file in filenames:
-                    if "summary_metrics" in file or file == "metrics.csv":
+                    file_path = os.path.join(dirpath, file)
+                    if "00/summary_metrics" in file_path or file_path.endswith("00/metrics.csv") or "50/summary_metrics" in file_path or file_path.endswith("50/metrics.csv"):
                         # Read metrics file
-                        file_path = os.path.join(dirpath, file)
                         logging.info(f"Processing {file_path}")
 
                         df = pd.read_csv(file_path)
