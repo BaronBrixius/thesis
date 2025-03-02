@@ -1,7 +1,7 @@
 import logging
 from experiment.aggregator import aggregate_metrics
-from experiment.analyzer import analyze_metrics
-from experiment.experiment import run_experiment, run_one_simulation
+from experiment.data_processor import processed_metrics
+from simulation.experiment import run_experiment, run_one_simulation
 from file_generation.visualization import ColorBy
 import cProfile
 import pstats
@@ -37,17 +37,17 @@ if __name__ == "__main__":
 
     # Experiment Run
     experiment_folder = os.path.join(BASE_DIR, "little_buster")
-    run_experiment(
-        seed_range=range(3,5),
-        nodes_range=[200],
-        edges_range=range(1000, 10001, 10),
-        num_steps=10_000_000,
-        display_interval=1_000_000,
-        metrics_interval=1_000,
-        color_by=ColorBy.COMMUNITY,
-        experiment_dir=experiment_folder
-    )
-    # aggregate_metrics([experiment_folder, os.path.join(base_dir, "hybrid_rainbow_zero")])
+    # run_experiment(
+    #     seed_range=range(5),
+    #     nodes_range=[200],
+    #     edges_range=range(0, 19901, 10),
+    #     num_steps=10_000_000,
+    #     display_interval=1_000_000,
+    #     metrics_interval=1_000,
+    #     color_by=ColorBy.COMMUNITY,
+    #     experiment_dir=experiment_folder
+    # )
+    aggregate_metrics([experiment_folder, os.path.join(BASE_DIR, "hybrid_rainbow_zero")])
     # analyze_metrics(experiment_folder)
 
     if profiler: profiler.disable()

@@ -29,6 +29,9 @@ def aggregate_metrics(root_dirs, output_filename="aggregated_metrics.csv"):
                         for var, val in variables.items():
                             df[var] = val
 
+                        # Drop "Community Membership" and "Node Degrees" since they're too large to store in the aggregated file
+                        df.drop(columns=["Community Membership", "Node Degrees"], errors="ignore", inplace=True)
+
                         # Write to output file (handle header only once)
                         if columns is None:
                             columns = list(df.columns)

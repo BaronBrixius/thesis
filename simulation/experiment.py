@@ -15,7 +15,7 @@ def _monitor_input_early_termination(executor):
             break
 
 def run_one_simulation(num_nodes, num_edges, simulation_dir, num_steps, display_interval, metrics_interval, random_seed, color_by, process_num=0):
-    from network_simulation.simulation import Simulation  # Import inside to ensure clean process
+    from simulation.simulation import Simulation  # Import inside to ensure clean process
     print(f"Starting simulation {random_seed, num_nodes, num_edges}") # I don't want to reimport the logger just for this, remove this for final?
     sim = Simulation(num_nodes=num_nodes, num_edges=num_edges, simulation_dir=simulation_dir, color_by=color_by, display_interval=display_interval, metrics_interval=metrics_interval, random_seed=random_seed, process_num=process_num)
     try:

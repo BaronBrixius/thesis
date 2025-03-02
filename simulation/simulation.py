@@ -1,8 +1,8 @@
-from network_simulation.network_cpu import NodeNetwork
-from file_generation.csvwriter import CSVWriter
-from file_generation.visualization import ColorBy, Visualization
-from network_simulation.blockmodel import BlockModel
-import network_simulation.metrics as Metrics
+from network.network_cpu import NodeNetwork
+from runtime_output.csvwriter import CSVWriter
+from runtime_output.visualization import ColorBy, Visualization
+from network.blockmodel import BlockModel
+import network.metrics as Metrics
 
 class Simulation:
     def __init__(self, num_nodes, num_edges, color_by=ColorBy.ACTIVITY, simulation_dir=None, alpha=1.7, epsilon=0.4, display_interval=1000, metrics_interval=1000, random_seed=None, process_num=0):

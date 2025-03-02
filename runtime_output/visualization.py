@@ -1,7 +1,6 @@
 import os
 from enum import Enum
 import matplotlib
-from matplotlib.colors import Normalize
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np

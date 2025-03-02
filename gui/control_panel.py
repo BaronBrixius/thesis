@@ -4,7 +4,7 @@ from tkinter import ttk
 from matplotlib.colors import ListedColormap
 import networkx as nx
 import numpy as np
-from network_simulation.network_gpu import NodeNetwork
+from network.network_gpu import NodeNetwork
 
 class ControlPanel:
     def __init__(self, root, network:NodeNetwork, apply_changes_callback, toggle_simulation_callback, physics_callback):

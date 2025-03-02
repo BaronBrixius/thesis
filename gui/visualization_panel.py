@@ -1,5 +1,5 @@
 from tkinter import ttk
-from network_simulation.network_gpu import NodeNetwork
+from network.network_gpu import NodeNetwork
 from output.visualization import Visualization, ColorBy
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
