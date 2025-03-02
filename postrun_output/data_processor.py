@@ -15,10 +15,6 @@ def process_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", 
 
     # Aggregate metrics for each group
     grouped = df.groupby(["Seed", "Nodes", "Edges", "Step (Millions)"]).agg({
-        "Seed": "first",
-        "Nodes": "first",
-        "Edges": "first",
-        "Step (Millions)": "first",
         "Clustering Coefficient": ["mean", "std"],
         "Average Path Length": ["mean", "std"],
         "Community Count": "mean",
