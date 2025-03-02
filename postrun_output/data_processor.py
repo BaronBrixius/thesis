@@ -2,8 +2,8 @@ import os
 import pandas as pd
 import logging
 
-def processed_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", output_filename="analysis.csv"):
-    """Computes metrics from the aggregated metrics file."""
+def processed_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", output_filename="processed_data.csv"):
+    """Processes the data from the aggregated metrics file to a new csv, ready to be plotted."""
     output_filepath = os.path.join(root_dir, output_filename)
     logging.info(f"Aggregating metrics from {aggregated_metrics_file} to {output_filepath}")
 
