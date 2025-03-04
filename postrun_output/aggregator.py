@@ -2,6 +2,11 @@ import os
 import pandas as pd
 import logging
 
+HEADERS = [
+    "Step", "Clustering Coefficient", "Average Path Length", "Rich Club Coefficients", "Community Count", 
+    "Community Sizes", "Community Densities", "Community Size Variance", "SBM Entropy Normalized", "Intra-Community Edges"
+]
+
 def aggregate_metrics(root_dirs, output_filename="aggregated_metrics.csv"):
     """Merges all `metrics.csv` files into one, adding Seed, Nodes, and Edges from file paths."""
     # Ensure root_dirs is a list (support single string input)
@@ -11,33 +16,29 @@ def aggregate_metrics(root_dirs, output_filename="aggregated_metrics.csv"):
     output_filepath = os.path.join(root_dirs[0], output_filename)
     logging.info(f"Aggregating snapshot metrics from {root_dirs[0]} into {output_filepath}")
 
-    columns = None
+    first_file = True
     with open(output_filepath, "w", newline="", encoding="utf-8") as outfile:
         for root_dir in root_dirs:
             for dirpath, _, filenames in os.walk(root_dir):
                 variables = _extract_variables_from_path(dirpath)  # Extract metadata
 
                 for file in filenames:
-                    file_path = os.path.join(dirpath, file)
-                    if "00/summary_metrics" in file_path or file_path.endswith("00/metrics.csv") or "50/summary_metrics" in file_path or file_path.endswith("50/metrics.csv"):
+                    if ("summary_metrics" in file and variables["Edges"] > 9500) or file == "metrics.csv":
                         # Read metrics file
+                        file_path = os.path.join(dirpath, file)
                         logging.info(f"Processing {file_path}")
 
-                        df = pd.read_csv(file_path)
-                        
+                        df = pd.read_csv(file_path, header=0, names=HEADERS, usecols=range(len(HEADERS)))
+
                         # Add extracted metadata (Seed, Nodes, Edges)
                         for var, val in variables.items():
                             df[var] = val
 
-                        # Drop "Community Membership" and "Node Degrees" since they're too large to store in the aggregated file
-                        df.drop(columns=["Community Membership", "Node Degrees"], errors="ignore", inplace=True)
-
                         # Write to output file (handle header only once)
-                        if columns is None:
-                            columns = list(df.columns)
+                        if first_file:
                             df.to_csv(outfile, index=False, header=True)
+                            first_file = False
                         else:
-                            df = df.reindex(columns=columns, fill_value=None)  # Align columns
                             df.to_csv(outfile, index=False, header=False)
 
     logging.info(f"Aggregated metrics saved to {output_filepath}")
