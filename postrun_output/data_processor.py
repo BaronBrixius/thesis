@@ -7,35 +7,41 @@ def process_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", 
     output_filepath = os.path.join(root_dir, output_filename)
     logging.info(f"Processing metrics from {aggregated_metrics_file} to {output_filepath}")
 
-    df = pd.read_csv(os.path.join(root_dir, aggregated_metrics_file))
-    df = _parse_metrics(df)  # Apply transformations for analysis
+    first_chunk = True
+    for chunk in pd.read_csv(os.path.join(root_dir, aggregated_metrics_file), chunksize=10_001):    #TODO more flexible chunksize
+        df = _parse_metrics(chunk)  # Apply transformations for analysis
 
-    # Group by millions of steps for each run
-    df["Step (Millions)"] = ((df["Step"] - 1) // 1_000_000 + 1).clip(lower=0)
+        # Group by millions of steps for each run
+        df["Step (Millions)"] = ((df["Step"] - 1) // 1_000_000 + 1).clip(lower=0)
 
-    # Aggregate metrics for each group
-    grouped = df.groupby(["Seed", "Nodes", "Edges", "Step (Millions)"]).agg({
-        "Clustering Coefficient": ["mean", "std"],
-        "Average Path Length": ["mean", "std"],
-        "Community Count": "mean",
-        "Intra-Community Edges": "mean",
-        "Intra-Community Edge Ratio": "mean",
-        "Intra-Community Edge Ratio Delta": "mean",
-        "Inter-Community Edges": "mean",
-        "Community Size Variance": "mean",
-        "Community Size Variance Delta": "mean",
-        "SBM Entropy Normalized": "mean",
-    }).reset_index()
+        # Aggregate metrics for each group
+        grouped = df.groupby(["Seed", "Nodes", "Edges", "Step (Millions)"]).agg({
+            "Clustering Coefficient": ["mean", "std"],
+            "Average Path Length": ["mean", "std"],
+            "Community Count": "mean",
+            "Intra-Community Edges": "mean",
+            "Intra-Community Edge Ratio": "mean",
+            "Intra-Community Edge Ratio Delta": "mean",
+            "Inter-Community Edges": "mean",
+            "Community Size Variance": "mean",
+            "Community Size Variance Delta": "mean",
+            "SBM Entropy Normalized": "mean",
+        }).reset_index()
 
-    # Flatten multi-index column names that were generated
-    grouped.columns = ["_".join(col).strip("_") for col in grouped.columns.values]
+        # Flatten multi-index column names that were generated
+        grouped.columns = ["_".join(col).strip("_") for col in grouped.columns.values]
 
-    # Rounded versions are useful for quick checks, may want to remove for final
-    grouped["Community Count Round"] = grouped["Community Count_mean"].round()
-    grouped["Community Count DeciRound"] = grouped["Community Count_mean"].round(1)
+        # Rounded versions are useful for quick checks, may want to remove for final
+        grouped["Community Count Round"] = grouped["Community Count_mean"].round()
+        grouped["Community Count DeciRound"] = grouped["Community Count_mean"].round(1)
 
-    # Save results
-    grouped.to_csv(output_filepath, index=False)
+        # Save results, appending after the first chunk
+        if first_chunk:
+            grouped.to_csv(output_filepath, mode='w', header=True, index=False)
+            first_chunk = False
+        else:
+            grouped.to_csv(output_filepath, mode='a', header=False, index=False)
+
     logging.info(f"Analysis saved to {output_filepath}")
 
 def _parse_metrics(df):
