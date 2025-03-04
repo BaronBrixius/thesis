@@ -26,10 +26,10 @@ def generate_scatterplots(root_dir, input_filename="processed_data.csv", output_
 def _plot_scatter(x, y, ylabel, output_dir, filename, color=None, colorbar_label=None, style=False, y_limit=None):
     """Helper function to create and save a stylized scatterplot."""
     plt.figure(figsize=(12, 6))
-    
+
     if style:
         plt.style.use("dark_background")
-        scatter = plt.scatter(x, y, c=color if color is not None else "white", cmap="rainbow" if color is not None else None, alpha=0.8, edgecolors='none', s=10)
+        scatter = plt.scatter(x, y, c=color if color is not None else "white", cmap="rainbow" if color is not None else None, alpha=0.8, edgecolors='none', s=8)
         plt.xticks(color="white")
         plt.yticks(color="white")
         plt.xlabel("Edges", fontsize=14, color="white")
@@ -45,10 +45,10 @@ def _plot_scatter(x, y, ylabel, output_dir, filename, color=None, colorbar_label
         plt.xlabel("Edges")
         plt.ylabel(ylabel)
         plt.grid(True)
-    
+
     if y_limit is not None:
         plt.ylim(0, y_limit)
-    
+
     save_path = os.path.join(output_dir, filename)
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
