@@ -38,19 +38,19 @@ if __name__ == "__main__":
 
     # Experiment Run
     experiment_folder = os.path.join(BASE_DIR, "little_buster")
-    # run_experiment(
-    #     seed_range=[1],
-    #     nodes_range=[200],
-    #     edges_range=range(2000, 19901, 100),
-    #     num_steps=10_000_000,
-    #     display_interval=1_000_000,
-    #     metrics_interval=1_000,
-    #     color_by=ColorBy.DEGREE,
-    #     experiment_dir=experiment_folder
-    # )
+    run_experiment(
+        seed_range=range(5),
+        nodes_range=[200],
+        edges_range=range(50, 19901, 50),
+        num_steps=10_000_000,
+        display_interval=1_000_000,
+        metrics_interval=1_000,
+        color_by=ColorBy.COMMUNITY,
+        experiment_dir=experiment_folder
+    )
     # aggregate_metrics([experiment_folder, os.path.join(BASE_DIR, "hybrid_rainbow_zero")])
     # process_metrics(experiment_folder)
-    generate_scatterplots(experiment_folder)
+    # generate_scatterplots(experiment_folder)
 
     if profiler: profiler.disable()
 
