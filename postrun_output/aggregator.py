@@ -13,7 +13,7 @@ def aggregate_metrics(root_dir, output_filename="aggregated_metrics.csv"):
             variables = _extract_variables_from_path(dirpath)  # Extract metadata
 
             for file in filenames:
-                if file == "metrics.csv":
+                if "summary_metrics" in file:
                     # Read metrics file
                     file_path = os.path.join(dirpath, file)
                     logging.info(f"Processing {file_path}")

@@ -8,14 +8,14 @@ from typing import Optional, Dict
 
 def compute_all_metrics(adjacency_matrix, graph, entropy, community_assignments, step):
     community_metrics = calculate_community_metrics(graph, entropy, community_assignments, adjacency_matrix)
-    nx_graph = nx.from_numpy_array(adjacency_matrix)
+    # nx_graph = nx.from_numpy_array(adjacency_matrix)
 
     # Compute row data
     row = {
         "Step": step,
         "Clustering Coefficient": calculate_clustering_coefficient(graph),
         "Average Path Length": calculate_average_path_length(graph),
-        "Rich Club Coefficients": calculate_rich_club_coefficients(nx_graph),
+        # "Rich Club Coefficients": calculate_rich_club_coefficients(nx_graph),
     }
 
     # Add community metrics

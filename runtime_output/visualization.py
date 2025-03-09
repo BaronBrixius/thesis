@@ -9,10 +9,11 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore", RuntimeWarning)
     from graph_tool.draw import arf_layout
 matplotlib.use('Agg')
+from runtime_output.physics import Physics
 
 class ColorBy(Enum):
     ACTIVITY = "cividis"
-    COMMUNITY = "tab10"
+    COMMUNITY = "tab20"
     DEGREE = "inferno"
 
 class Visualization:
@@ -24,16 +25,15 @@ class Visualization:
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
         self.positions = None
-        positions_array = self._compute_layout(graph)
-        self._initialize_plot(adjacency_matrix, activities, positions_array, community_assignments)
+        self.physics = Physics(.015)
+        self.positions = np.random.rand(len(adjacency_matrix), 2) * 100
+        self._compute_layout(adjacency_matrix, max_iter=100)
+        # self._compute_layout(adjacency_matrix)
+        self._initialize_plot(adjacency_matrix, activities, self.positions, community_assignments)
 
-    def _compute_layout(self, graph, max_iter=0):
-        self.positions = arf_layout(g=graph, dt=1e-4, epsilon=10_000, max_iter=min(max_iter, 1000), pos=self.positions) # larger values of dt made the visuals unstable at higher densities
-        positions_array = self.positions.get_2d_array().T
-        # Normalize positions to be within (-0.9, 0.9)
-        normalized_positions_array = -0.9 + 1.8 * (positions_array - positions_array.min()) / (positions_array.max() - positions_array.min())
-        normalized_positions_array -= (normalized_positions_array.max(axis=0) + normalized_positions_array.min(axis=0)) / 2 # TODO this centers, but maybe only on one axis?
-        return normalized_positions_array
+    def _compute_layout(self, adjacency_matrix, max_iter=25):
+        self.positions = self.physics.apply_forces(adjacency_matrix, self.positions, max_iterations=max_iter)
+        return self.positions
 
     def _compute_vertex_colors(self, adjacency_matrix, activities, community_assignments):
         if self.color_by == ColorBy.ACTIVITY:
@@ -50,14 +50,14 @@ class Visualization:
 
     def _initialize_plot(self, adjacency_matrix, activities, positions_array, community_assignments):
         # Set up axes
-        self.ax.set(xlim=(-1, 1), ylim=(-1, 1), aspect='equal', xticks=[], yticks=[])
+        self.ax.set(xlim=(0, 100), ylim=(0, 100), aspect='equal', xticks=[], yticks=[])
 
         # Initialize scatter plot for nodes
         self.scatter = self.ax.scatter(
             *positions_array.T,
             c=self._compute_vertex_colors(adjacency_matrix, activities, community_assignments),
             cmap=self.color_by.value,
-            s=10,
+            s=5,
             zorder=2
         )
 
@@ -67,28 +67,28 @@ class Visualization:
             return
 
         network_density = len(lines) / (len(adjacency_matrix) * (len(adjacency_matrix) - 1) / 2)
-        self.lines = LineCollection(lines, colors=[0.45, 0.45, 0.45], linewidths=0.3 - 0.2 * (network_density ** 0.5),
-                                            alpha=0.7 - 0.4 * (network_density ** 0.5), zorder=1)
+        self.lines = LineCollection(lines, colors=[0.5, 0.5, 0.5], linewidths=0.15 - 0.1 * (network_density ** 0.5),
+                                            alpha=0.25 - 0.2 * (network_density ** 0.5), zorder=1)
         self.ax.add_collection(self.lines)
 
     def draw_visual(self, adjacency_matrix, activities, graph, community_assignments, step, max_iter=0):
-        try:
-            # Update positions, colors, lines
-            positions_array = self._compute_layout(graph, max_iter=max_iter)
-            self.scatter.set_offsets(positions_array)
-            self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
-            self.scatter.set_clim([min(self.scatter.get_array()), max(self.scatter.get_array())])   # Rescale the colormap in case our min/max have changed (common with community coloring)
-            self.lines.set_segments(self._compute_lines(positions_array, adjacency_matrix))
+        # try:
+        # Update positions, colors, lines
+        positions_array = self._compute_layout(adjacency_matrix, max_iter=25)
+        self.scatter.set_offsets(positions_array)
+        self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
+        self.scatter.set_clim([min(self.scatter.get_array()), max(self.scatter.get_array())])   # Rescale the colormap in case our min/max have changed (common with community coloring)
+        self.lines.set_segments(self._compute_lines(positions_array, adjacency_matrix))
 
-            # Redraw the canvas
-            self.fig.canvas.draw_idle()
-            self.ax.figure.canvas.flush_events()
+        # Redraw the canvas
+        self.fig.canvas.draw_idle()
+        self.ax.figure.canvas.flush_events()
 
-            # Save the figure
-            image_path = os.path.join(self.output_dir, f"{step}.png")
-            self.fig.savefig(image_path)
-        except Exception as e:
-            print(f"Error drawing visual: {e}") # We often don't mind if the image breaks, so just print the error
+        # Save the figure
+        image_path = os.path.join(self.output_dir, f"{step}.png")
+        self.fig.savefig(image_path)
+        # except Exception as e:
+        #     print(f"Error drawing visual: {e}") # We often don't mind if the image breaks, so just print the error
 
     def close(self):
         plt.close(self.fig)
