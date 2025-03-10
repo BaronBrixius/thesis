@@ -25,10 +25,9 @@ class Visualization:
         self.color_by = color_by
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
         self.positions = None
-        self.physics = Physics(.015)
-        self.positions = np.random.rand(len(adjacency_matrix), 2) * 100
-        self._compute_layout(adjacency_matrix, max_iter=100)
-        # self._compute_layout(adjacency_matrix)
+        self.physics = Physics(.0053)
+        self.positions = np.random.rand(len(adjacency_matrix), 2) * 500
+        self._compute_layout(adjacency_matrix, max_iter=10)
         self._initialize_plot(adjacency_matrix, activities, self.positions, community_assignments)
 
     def _compute_layout(self, adjacency_matrix, max_iter=25):
@@ -50,14 +49,14 @@ class Visualization:
 
     def _initialize_plot(self, adjacency_matrix, activities, positions_array, community_assignments):
         # Set up axes
-        self.ax.set(xlim=(0, 100), ylim=(0, 100), aspect='equal', xticks=[], yticks=[])
+        self.ax.set(xlim=(0, 500), ylim=(0, 500), aspect='equal', xticks=[], yticks=[])
 
         # Initialize scatter plot for nodes
         self.scatter = self.ax.scatter(
             *positions_array.T,
             c=self._compute_vertex_colors(adjacency_matrix, activities, community_assignments),
             cmap=self.color_by.value,
-            s=5,
+            s=1,
             zorder=2
         )
 
@@ -67,14 +66,14 @@ class Visualization:
             return
 
         network_density = len(lines) / (len(adjacency_matrix) * (len(adjacency_matrix) - 1) / 2)
-        self.lines = LineCollection(lines, colors=[0.5, 0.5, 0.5], linewidths=0.15 - 0.1 * (network_density ** 0.5),
-                                            alpha=0.25 - 0.2 * (network_density ** 0.5), zorder=1)
+        self.lines = LineCollection(lines, colors=[0.5, 0.5, 0.5], linewidths=0.01,
+                                            alpha=0.1, zorder=1)
         self.ax.add_collection(self.lines)
 
     def draw_visual(self, adjacency_matrix, activities, graph, community_assignments, step, max_iter=0):
         # try:
         # Update positions, colors, lines
-        positions_array = self._compute_layout(adjacency_matrix, max_iter=25)
+        positions_array = self._compute_layout(adjacency_matrix)
         self.scatter.set_offsets(positions_array)
         self.scatter.set_array(self._compute_vertex_colors(adjacency_matrix, activities, community_assignments))
         self.scatter.set_clim([min(self.scatter.get_array()), max(self.scatter.get_array())])   # Rescale the colormap in case our min/max have changed (common with community coloring)

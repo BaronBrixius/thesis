@@ -49,7 +49,7 @@ def calculate_community_metrics(graph, entropy, community_assignments, adjacency
         "Community Sizes": dict(zip(unique_communities, community_sizes)),
         "Community Densities": intra_community_densities,
         "Community Size Variance": np.var(community_sizes),
-        "SBM Entropy Normalized": (entropy / graph.num_edges()) if graph.num_edges() > 0 else 0,
+        "SBM Entropy": entropy,
         "Intra-Community Edges": intra_community_edges,
         "Community Membership": community_assignments,
         "Node Degrees": graph.get_total_degrees(graph.get_vertices()),

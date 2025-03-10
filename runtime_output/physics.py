@@ -17,11 +17,11 @@ class Physics:
         elif network_area < target_coverage - tolerance:
             self.normal_distance *= (1 + adjustment_rate)  # Increase normal_distance to expand the network
 
-    def apply_forces(self, adjacency_matrix, positions, max_iterations=1, force_strength=0.0035):
+    def apply_forces(self, adjacency_matrix, positions, max_iterations=1):
         self.adjust_normal_distance(positions)
-        speed = force_strength / (0.99 ** (max_iterations - 1))
+        speed = self.normal_distance
 
-        for _ in range(max_iterations):
+        for i in range(max_iterations):
             diffs = positions[:, np.newaxis, :] - positions[np.newaxis, :, :]
             distances = np.sqrt(np.einsum('ijk,ijk->ij', diffs, diffs))
             normalized_directions = np.divide(diffs, distances[:, :, np.newaxis] + 1e-10)
@@ -36,7 +36,7 @@ class Physics:
 
             # Repulsion for non-connected nodes
             within_range = ~adjacency_matrix & (distances < 1.7 * self.normal_distance)
-            repulsion_force = within_range * np.divide((1.7 * self.normal_distance - distances), distances + 1e-10)
+            repulsion_force = within_range * np.divide((1.7 * self.normal_distance - distances), distances + 1e-40)
 
             # Apply forces
             forces = np.einsum('ijk,ij->ik', normalized_directions, close_force - far_force + repulsion_force)
@@ -44,16 +44,20 @@ class Physics:
             # Update positions based on forces
             adjustment = forces * speed
             positions += adjustment
-            speed *= 0.99
+            self.adjust_normal_distance(positions)
+            positions = self.pull_all_nodes_towards_center(positions, speed)
+
+            positions = np.clip(positions, 0, [500.0, 500.0])
+            speed = self.normal_distance * 0.99 ** i
 
             if np.mean(np.abs(adjustment)) < 0.001:  # close enough
                 break
 
-        positions = self.pull_all_nodes_towards_center(positions, force_strength)
-        return np.clip(positions, 0, [100.0, 100.0])
+        
+        return positions
 
     def pull_all_nodes_towards_center(self, positions, force_strength):
-        center = np.array([0.5, 0.5])
+        center = np.array([250, 250])
         diffs = center - positions
         positions += diffs * (force_strength / self.normal_distance)
         return positions

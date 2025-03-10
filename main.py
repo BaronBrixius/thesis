@@ -23,15 +23,15 @@ if __name__ == "__main__":
 
     ## Run in GUI
     # NetworkControlApp()
-    NODES = 5000
-    CONNECTIONS = int(.1 * (NODES * (NODES - 1)) / 2)
+    NODES = 10_000
+    CONNECTIONS = 395_000
     ## Quick Run
     run_one_simulation(
         num_nodes=NODES,
         num_edges=CONNECTIONS,
-        simulation_dir=os.path.join(BASE_DIR, "realbig"),
+        simulation_dir=os.path.join(BASE_DIR, "realbig125communitiesmaybe"),
         num_steps=100_000_000,
-        display_interval=100_000,
+        display_interval=10_000,
         metrics_interval=1_000,
         random_seed=42,
         color_by=ColorBy.COMMUNITY

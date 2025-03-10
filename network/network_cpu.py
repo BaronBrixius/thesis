@@ -68,7 +68,7 @@ class NodeNetwork:
     def update_network(self, iterations):
         for _ in range(iterations):
             self._update_activity()
-            for _ in range(100):
+            for _ in range(250):
                 self._rewire()
 
         return self.get_adjacency_matrix(), self.get_activities()
