@@ -1,7 +1,7 @@
 import numpy as np
 
 class Physics:
-    def __init__(self, normal_distance=15):
+    def __init__(self, normal_distance=20):
         self.normal_distance = normal_distance
 
     def adjust_normal_distance(self, positions, target_coverage=0.8, tolerance=.05, adjustment_rate=0.01):
