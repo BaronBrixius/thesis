@@ -4,7 +4,7 @@ class Physics:
     def __init__(self, normal_distance):
         self.normal_distance = normal_distance
 
-    def adjust_normal_distance(self, positions, target_coverage=0.8, tolerance=0.05, adjustment_rate=0.015):
+    def adjust_normal_distance(self, positions, target_coverage=0.8, tolerance=0.05, adjustment_rate=0.01):
         lower_bounds = np.percentile(positions, 1, axis=0)
         upper_bounds = np.percentile(positions, 99, axis=0)
         width, height = upper_bounds - lower_bounds
@@ -24,7 +24,7 @@ class Physics:
         for i in range(max_iterations):
             diffs = positions[:, np.newaxis, :] - positions[np.newaxis, :, :]
             distances = np.sqrt(np.einsum('ijk,ijk->ij', diffs, diffs))
-            normalized_directions = np.divide(diffs, distances[:, :, np.newaxis] + 1e-10)
+            normalized_directions = np.divide(diffs, distances[:, :, np.newaxis] + 1e-40)
 
             # Attraction/repulsion masks for connected nodes
             too_close = adjacency_matrix & (distances < 0.2 * self.normal_distance)

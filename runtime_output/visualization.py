@@ -30,7 +30,7 @@ class Visualization:
         self._compute_layout(adjacency_matrix, max_iter=10)
         self._initialize_plot(adjacency_matrix, activities, self.positions, community_assignments)
 
-    def _compute_layout(self, adjacency_matrix, max_iter=25):
+    def _compute_layout(self, adjacency_matrix, max_iter=50):
         self.positions = self.physics.apply_forces(adjacency_matrix, self.positions, max_iterations=max_iter)
         return self.positions
 
