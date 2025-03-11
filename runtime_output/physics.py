@@ -1,10 +1,10 @@
 import numpy as np
 
 class Physics:
-    def __init__(self, normal_distance):
+    def __init__(self, normal_distance=.05):
         self.normal_distance = normal_distance
 
-    def adjust_normal_distance(self, positions, target_coverage=0.8, tolerance=0.05, adjustment_rate=0.01):
+    def adjust_normal_distance(self, positions, target_coverage=0.8, tolerance=.05, adjustment_rate=0.015):
         lower_bounds = np.percentile(positions, 1, axis=0)
         upper_bounds = np.percentile(positions, 99, axis=0)
         width, height = upper_bounds - lower_bounds
@@ -12,14 +12,14 @@ class Physics:
         network_area = width * height
 
         # Adjust normal_distance based on coverage
-        if network_area > target_coverage + tolerance:
+        if network_area > target_coverage * (1 + tolerance):
             self.normal_distance *= (1 - adjustment_rate)  # Reduce normal_distance to shrink the network
-        elif network_area < target_coverage - tolerance:
+        elif network_area < target_coverage / (1 - tolerance):
             self.normal_distance *= (1 + adjustment_rate)  # Increase normal_distance to expand the network
 
-    def apply_forces(self, adjacency_matrix, positions, max_iterations=1):
-        self.adjust_normal_distance(positions)
-        speed = self.normal_distance
+    def apply_forces(self, adjacency_matrix, positions, max_iterations=1, force_strength=0.035):
+        self.adjust_normal_distance(positions, target_coverage=400)
+        speed = force_strength / (0.99 ** (max_iterations - 1))
 
         for i in range(max_iterations):
             diffs = positions[:, np.newaxis, :] - positions[np.newaxis, :, :]
@@ -44,16 +44,14 @@ class Physics:
             # Update positions based on forces
             adjustment = forces * speed
             positions += adjustment
-            self.adjust_normal_distance(positions, target_coverage=400)
             positions = self.pull_all_nodes_towards_center(positions, speed)
+            print(np.mean(np.abs(adjustment)), 'normal distance', self.normal_distance, '[', int(np.min(positions[:, 0])), int(np.max(positions[:, 0])), ',', int(np.min(positions[:, 1])), int(np.max(positions[:, 1])), ']')
+            speed *= 0.99
 
-            positions = np.clip(positions, 0, [500.0, 500.0])
-            speed = self.normal_distance * 0.99 ** i
-
-            if np.mean(np.abs(adjustment)) < 0.001:  # close enough
+            if np.mean(np.abs(adjustment)) < 0.01:  # close enough
                 break
 
-        
+        positions = np.clip(positions, 0, [500.0, 500.0])
         return positions
 
     def pull_all_nodes_towards_center(self, positions, force_strength):
