@@ -41,14 +41,14 @@ if __name__ == "__main__":
     run_experiment(
         seed_range=range(5),
         nodes_range=[200],
-        edges_range=range(50, 19901, 50),
+        edges_range=range(10, 19901, 10),
         num_steps=10_000_000,
         display_interval=1_000_000,
         metrics_interval=1_000,
         color_by=ColorBy.COMMUNITY,
         experiment_dir=experiment_folder
     )
-    # aggregate_metrics([experiment_folder, os.path.join(BASE_DIR, "hybrid_rainbow_zero")])
+    # aggregate_metrics(experiment_folder)
     # process_metrics(experiment_folder)
     # generate_scatterplots(experiment_folder)
 
