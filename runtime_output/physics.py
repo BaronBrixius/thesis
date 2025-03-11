@@ -44,7 +44,7 @@ class Physics:
             # Update positions based on forces
             adjustment = forces * speed
             positions += adjustment
-            self.adjust_normal_distance(positions)
+            self.adjust_normal_distance(positions, target_coverage=400)
             positions = self.pull_all_nodes_towards_center(positions, speed)
 
             positions = np.clip(positions, 0, [500.0, 500.0])
