@@ -67,8 +67,8 @@ class Visualization:
             return
 
         network_density = len(lines) / (len(adjacency_matrix) * (len(adjacency_matrix) - 1) / 2)
-        self.lines = LineCollection(lines, colors=[0.5, 0.5, 0.5], linewidths=0.01,
-                                            alpha=0.1, zorder=1)
+        self.lines = LineCollection(lines, colors=[0.5, 0.5, 0.5], linewidths=0.05,
+                                            alpha=0.2, zorder=1)
         self.ax.add_collection(self.lines)
 
     def draw_visual(self, adjacency_matrix, activities, graph, community_assignments, step, max_iter=0):

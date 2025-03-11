@@ -8,7 +8,7 @@ import numpy as np
 class BlockModel:
     def __init__(self, adjacency_matrix):
         self.block_state = PPBlockState(Graph(directed=False))
-        self.update_block_model(adjacency_matrix)
+        self.update_block_model(adjacency_matrix, max_sweeps=0)
 
     def update_block_model(self, adjacency_matrix, max_sweeps=5):
         # Update the graph with the latest adjacency matrix
