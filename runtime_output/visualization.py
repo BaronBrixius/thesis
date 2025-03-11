@@ -26,11 +26,12 @@ class Visualization:
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
         self.positions = None
         self.physics = Physics()
-        self.positions = np.random.rand(len(adjacency_matrix), 2) * 300
-        self._compute_layout(adjacency_matrix, max_iter=5)
+        self.positions = (np.random.rand(len(adjacency_matrix), 2) * 80) + 10
+        for _ in range(10):
+            self._compute_layout(adjacency_matrix, max_iter=5)
         self._initialize_plot(adjacency_matrix, activities, self.positions, community_assignments)
 
-    def _compute_layout(self, adjacency_matrix, max_iter=50):
+    def _compute_layout(self, adjacency_matrix, max_iter=25):
         self.positions = self.physics.apply_forces(adjacency_matrix, self.positions, max_iterations=max_iter)
         return self.positions
 
@@ -49,7 +50,7 @@ class Visualization:
 
     def _initialize_plot(self, adjacency_matrix, activities, positions_array, community_assignments):
         # Set up axes
-        self.ax.set(xlim=(0, 500), ylim=(0, 500), aspect='equal', xticks=[], yticks=[])
+        self.ax.set(xlim=(0, 100), ylim=(0, 100), aspect='equal', xticks=[], yticks=[])
 
         # Initialize scatter plot for nodes
         self.scatter = self.ax.scatter(

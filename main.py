@@ -32,7 +32,7 @@ if __name__ == "__main__":
         simulation_dir=os.path.join(BASE_DIR, "realbig100communitiesmaybe"),
         num_steps=10_000_000,
         display_interval=10_000,
-        metrics_interval=1_000,
+        metrics_interval=10_000,
         random_seed=42,
         color_by=ColorBy.COMMUNITY
     )
