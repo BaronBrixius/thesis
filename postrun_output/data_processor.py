@@ -26,6 +26,7 @@ def process_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", 
             "Community Size Variance": "mean",
             "Community Size Variance Delta": "mean",
             "SBM Entropy Normalized": "mean",
+            "Weighted Average Community Density": "mean",
         }).reset_index()
 
         # Flatten multi-index column names that were generated
@@ -50,4 +51,5 @@ def _parse_metrics(df):
     df['Inter-Community Edges'] = df['Edges'] - df['Intra-Community Edges']
     df['Intra-Community Edge Ratio Delta'] = df['Intra-Community Edge Ratio'].diff()
     df['Community Size Variance Delta'] = df['Community Size Variance'].diff()
+    df['Weighted Average Community Density'] = df.apply(lambda row: sum(v1 * v2 for v1, v2 in zip(eval(row['Community Densities']).values(), eval(row['Community Sizes']).values())) / sum(eval(row['Community Sizes']).values()), axis=1)
     return df

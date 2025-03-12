@@ -22,17 +22,16 @@ def generate_scatterplots(root_dir, input_filename="processed_data.csv", output_
     vertical_lines = generate_colors_for_lines([19900, 9900, 6567, 4900, 3900, 3233, 2757, 2400, 2122, 1900])
 
     scatter_variables = [
-        ("SBM Entropy Normalized_mean", "SBM Entropy Normalized", (0, 5), (0, 9000)),
+        ("SBM Entropy Normalized_mean", "SBM Entropy Normalized", (0, 5), (0, 20100)),
         ("Clustering Coefficient_mean", "Clustering Coefficient", (0, 1), (0, 20100)),
         ("Average Path Length_mean", "Average Path Length", (0, 3), (0, 20100)),
-        ("Intra-Community Edge Ratio_mean", "Intra-Community Edge Ratio", (0, 1), (2000, 7000)),
-        ("Community Size Variance_mean", "Community Size Variance", (0, 400), (2000, 7000)),
+        ("Intra-Community Edge Ratio_mean", "Intra-Community Edge Ratio", (0, 1), (0, 20100)),
+        ("Weighted Average Community Density_mean", "Weighted Community Density", (0, 1), (0, 20100)),
+        ("Community Size Variance_mean", "Community Size Variance", (0, 400), (0, 20100)),
     ]
 
     for metric_col, label, y_lim, x_lim in scatter_variables:
         scatterplot_variable_vs_edges(num_edges, df_filtered[metric_col], label, output_dir, vertical_lines, df_filtered["Community Count_mean"], y_lim, x_lim)
-
-    scatterplot_variable_vs_edges(df["Edges"], df["Clustering Coefficient_mean"], "Clustering Coefficient All Steps", output_dir, vertical_lines, df["Community Count_mean"], (0, 1), (0, 20100))
 
 def generate_colors_for_lines(vertical_edges):
     """Automatically assigns evenly spaced colors from a colormap for vertical lines."""
@@ -60,7 +59,7 @@ def _plot_scatter(x, y, ylabel, output_dir, filename, color=None, colorbar_label
     plt.figure(figsize=(12, 6))
 
     plt.style.use("dark_background")
-    scatter = plt.scatter(x, y, c=color if color is not None else "cyan", cmap="rainbow" if color is not None else None, alpha=0.8, edgecolors='none', s=3)
+    scatter = plt.scatter(x, y, c=color if color is not None else "cyan", cmap="inferno" if color is not None else None, alpha=0.8, edgecolors='none', s=3)
     plt.xticks(color="white")
     plt.yticks(color="white")
     plt.xlabel("Edges", fontsize=14, color="white")
@@ -112,7 +111,7 @@ def generate_degree_distribution_histogram(input_file, output_dir=None):
     plt.title("Node Degree Distribution")
     plt.grid(True, linestyle='dotted', alpha=0.5)
     save_path = os.path.join(output_dir, "degree_distribution_uncolored.png")
-    plt.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='black')
+    plt.savefig(save_path, dpi=600, bbox_inches='tight', facecolor='black')
     plt.close()
     print(f"Saved: {save_path}")
     
@@ -147,6 +146,42 @@ def generate_degree_distribution_histogram(input_file, output_dir=None):
 
     # Save and display
     save_path = os.path.join(output_dir, "degree_distribution_colored.png")
-    plt.savefig(save_path, dpi=300, bbox_inches="tight", facecolor="black")
+    plt.savefig(save_path, dpi=600, bbox_inches="tight", facecolor="black")
+    plt.close()
+    print(f"Saved: {save_path}")
+
+def scatterplot_clustering_vs_edges(input_file, output_dir=None):
+    """Creates a scatter plot of Clustering Coefficient vs. Edges, colored by Step."""
+    if output_dir is None:
+        output_dir = os.path.dirname(input_file)
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Load data
+    df = pd.read_csv(input_file)
+
+    plt.figure(figsize=(12, 6))
+    plt.style.use("dark_background")
+
+    # Scatter plot, using Step as color
+    scatter = plt.scatter(df["Edges"], df["Clustering Coefficient"], c=df["Step"], 
+                          cmap="inferno", alpha=0.6, edgecolors='none', s=2)
+
+    # Formatting
+    plt.xlabel("Edges", fontsize=14, color="white")
+    plt.ylabel("Clustering Coefficient", fontsize=14, color="white")
+    plt.xticks(color="white")
+    plt.yticks(color="white")
+
+    # Colorbar
+    cbar = plt.colorbar(scatter)
+    cbar.set_label("Step", fontsize=12, color="white")
+    cbar.ax.yaxis.set_tick_params(color="white")
+
+    plt.ylim((0, 1))
+    plt.xlim((0, 20100))
+
+    # Save the figure
+    save_path = os.path.join(output_dir, "clustering_vs_edges.png")
+    plt.savefig(save_path, dpi=600, bbox_inches="tight")
     plt.close()
     print(f"Saved: {save_path}")

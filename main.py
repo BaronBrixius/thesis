@@ -1,7 +1,7 @@
 import logging
 from postrun_output.aggregator import aggregate_metrics
 from postrun_output.data_processor import process_metrics
-from postrun_output.plotter import generate_scatterplots
+from postrun_output.plotter import generate_scatterplots, scatterplot_clustering_vs_edges
 from simulation.experiment import run_experiment, run_one_simulation
 from runtime_output.visualization import ColorBy
 import cProfile
@@ -51,6 +51,7 @@ if __name__ == "__main__":
     # aggregate_metrics(experiment_folder)
     # process_metrics(experiment_folder)
     # generate_scatterplots(experiment_folder)
+    # scatterplot_clustering_vs_edges(os.path.join(experiment_folder, "aggregated_metrics.csv"))
 
     if profiler: profiler.disable()
 
