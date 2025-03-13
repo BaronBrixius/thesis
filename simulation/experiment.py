@@ -5,6 +5,7 @@ import logging
 import os
 import threading
 from runtime_output.visualization import ColorBy
+import random
 
 def _monitor_input_early_termination(executor):
     """Listen for 'quit' or 'exit' to terminate future runs."""
@@ -34,7 +35,9 @@ def run_one_simulation(num_nodes, num_edges, simulation_dir, num_steps, display_
 def run_experiment(seed_range, nodes_range, edges_range, num_steps, display_interval, metrics_interval, color_by, experiment_dir="/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output"):
     with concurrent.futures.ProcessPoolExecutor(mp_context=multiprocessing.get_context('spawn')) as executor:
         futures = []
-        for num_nodes, num_edges, seed in product(nodes_range, edges_range, seed_range):
+        param_combinations = list(product(nodes_range, edges_range, seed_range))
+        random.shuffle(param_combinations)
+        for num_nodes, num_edges, seed in param_combinations:
             # Decimal values are treated as density percentages
             if isinstance(num_edges, float):
                 logging.debug(f"Converting density {num_edges} to edges for {num_nodes} nodes")
