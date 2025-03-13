@@ -24,12 +24,12 @@ if __name__ == "__main__":
     ## Run in GUI
     # NetworkControlApp()
     NODES = 10_000
-    CONNECTIONS = 495_000
+    CONNECTIONS = 661_666
     ## Quick Run
     run_one_simulation(
         num_nodes=NODES,
         num_edges=CONNECTIONS,
-        simulation_dir=os.path.join(BASE_DIR, "realbig100rewiresperupdate"),
+        simulation_dir=os.path.join(BASE_DIR, "realbig25rewires75communities"),
         num_steps=10_000_000,
         display_interval=10_000,
         metrics_interval=10_000,

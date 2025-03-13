@@ -1,7 +1,7 @@
 import numpy as np
 
 class Physics:
-    def __init__(self, normal_distance=20):
+    def __init__(self, normal_distance=17.5):
         self.normal_distance = normal_distance
 
     def adjust_normal_distance(self, positions, target_coverage=0.8, tolerance=.05, adjustment_rate=0.01):
@@ -18,7 +18,7 @@ class Physics:
             self.normal_distance *= (1 + adjustment_rate)  # Increase normal_distance to expand the network
 
     def apply_forces(self, adjacency_matrix, positions, max_iterations=1, force_strength=0.0025):
-        self.adjust_normal_distance(positions, target_coverage=8_000)
+        self.adjust_normal_distance(positions, target_coverage=8_250)
         speed = force_strength / (0.99 ** (max_iterations - 1))
 
         for i in range(max_iterations):
