@@ -23,6 +23,7 @@ def generate_scatterplots(root_dir, input_filename="processed_data.csv", output_
 
     scatter_variables = [
         ("SBM Entropy Normalized_mean", "SBM Entropy Normalized", (0, 5), (0, 20100)),
+        ("Community Count_mean", "Community Count", (0, 10), (0, 20100)),
         ("Clustering Coefficient_mean", "Clustering Coefficient", (0, 1), (0, 20100)),
         ("Average Path Length_mean", "Average Path Length", (0, 3), (0, 20100)),
         ("Intra-Community Edge Ratio_mean", "Intra-Community Edge Ratio", (0, 1), (0, 20100)),
@@ -59,7 +60,7 @@ def _plot_scatter(x, y, ylabel, output_dir, filename, color=None, colorbar_label
     plt.figure(figsize=(12, 6))
 
     plt.style.use("dark_background")
-    scatter = plt.scatter(x, y, c=color if color is not None else "cyan", cmap="inferno" if color is not None else None, alpha=0.8, edgecolors='none', s=3)
+    scatter = plt.scatter(x, y, c=color if color is not None else "cyan", cmap="rainbow" if color is not None else None, alpha=0.8, edgecolors='none', s=3)
     plt.xticks(color="white")
     plt.yticks(color="white")
     plt.xlabel("Edges", fontsize=14, color="white")
