@@ -45,7 +45,7 @@ class Simulation:
     def _handle_output(self, adjacency_matrix, activities, block_model, step):
         """Checks and handles display and metrics intervals."""
         if self.metrics_interval and step % self.metrics_interval == 0:
-            self.output.write_metrics_line(Metrics.compute_all_metrics(adjacency_matrix, block_model.get_graph(), block_model.get_entropy(), block_model.get_community_assignments(), step))
+            self.output.write_metrics_line(Metrics.compute_all_metrics(adjacency_matrix, activities, block_model.get_graph(), block_model.get_entropy(), block_model.get_community_assignments(), step))
 
         if self.display_interval and step % self.display_interval == 0:
             self.visualization.draw_visual(adjacency_matrix, activities, block_model.get_graph(), block_model.get_community_assignments(), step, max_iter=self.display_interval)

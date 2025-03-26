@@ -6,7 +6,7 @@ import networkx as nx
 import numpy as np
 from typing import Optional, Dict
 
-def compute_all_metrics(adjacency_matrix, graph, entropy, community_assignments, step):
+def compute_all_metrics(adjacency_matrix, activities, graph, entropy, community_assignments, step):
     community_metrics = calculate_community_metrics(graph, entropy, community_assignments, adjacency_matrix)
     # nx_graph = nx.from_numpy_array(adjacency_matrix)
 
@@ -15,6 +15,8 @@ def compute_all_metrics(adjacency_matrix, graph, entropy, community_assignments,
         "Step": step,
         "Clustering Coefficient": calculate_clustering_coefficient(graph),
         "Average Path Length": calculate_average_path_length(graph),
+        "Adjacency Matrix": adjacency_matrix,
+        "Activities": activities,
         # "Rich Club Coefficients": calculate_rich_club_coefficients(nx_graph),
     }
 
