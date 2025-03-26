@@ -26,9 +26,12 @@ def generate_scatterplots(root_dir, input_filename="processed_data.csv", output_
         ("Community Count_mean", "Community Count", (0, 10), (0, 20100)),
         ("Clustering Coefficient_mean", "Clustering Coefficient", (0, 1), (0, 20100)),
         ("Average Path Length_mean", "Average Path Length", (0, 3), (0, 20100)),
-        ("Intra-Community Edge Ratio_mean", "Intra-Community Edge Ratio", (0, 1), (0, 20100)),
-        ("Weighted Average Community Density_mean", "Weighted Community Density", (0, 1), (0, 20100)),
-        ("Community Size Variance_mean", "Community Size Variance", (0, 400), (0, 20100)),
+        ("Intra-Community Edge Ratio_mean", "Intra-Community Edge Ratio", (0, 1), (1500, 11000)),
+        ("Weighted Average Community Density_mean", "Weighted Community Density", (0, 1), (1500, 11000)),
+        ("Community Size Variance_mean", "Community Size Variance", (0, 600), (1500, 11000)),
+        ("Community Density Variance_mean", "Community Density Variance", (0, .025), (1500, 11000)),
+        ("Community Density Variance_last", "Community Density Variance (last)", (0, .025), (1500, 11000)),
+        ("Community Density Variance_min", "Community Density Variance (min)", (0, .025), (1500, 11000)),
     ]
 
     for metric_col, label, y_lim, x_lim in scatter_variables:
@@ -60,7 +63,7 @@ def _plot_scatter(x, y, ylabel, output_dir, filename, color=None, colorbar_label
     plt.figure(figsize=(12, 6))
 
     plt.style.use("dark_background")
-    scatter = plt.scatter(x, y, c=color if color is not None else "cyan", cmap="rainbow" if color is not None else None, alpha=0.8, edgecolors='none', s=3)
+    scatter = plt.scatter(x, y, c=color if color is not None else "cyan", cmap="rainbow" if color is not None else None, alpha=0.8, edgecolors='none', s=2)
     plt.xticks(color="white")
     plt.yticks(color="white")
     plt.xlabel("Edges", fontsize=14, color="white")
