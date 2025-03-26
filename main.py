@@ -29,7 +29,7 @@ if __name__ == "__main__":
     run_one_simulation(
         num_nodes=NODES,
         num_edges=CONNECTIONS,
-        simulation_dir=os.path.join(BASE_DIR, "realbig25rewires"),
+        simulation_dir=os.path.join(BASE_DIR, "realbig"),
         num_steps=10_000_000,
         display_interval=10_000,
         metrics_interval=10_000,
