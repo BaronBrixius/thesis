@@ -30,7 +30,7 @@ if __name__ == "__main__":
         num_nodes=NODES,
         num_edges=CONNECTIONS,
         simulation_dir=os.path.join(BASE_DIR, "realbig"),
-        num_steps=10_000_000,
+        num_steps=20_000_000,
         display_interval=10_000,
         metrics_interval=10_000,
         random_seed=777,
