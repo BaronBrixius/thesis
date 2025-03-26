@@ -33,7 +33,7 @@ if __name__ == "__main__":
         num_steps=10_000_000,
         display_interval=10_000,
         metrics_interval=10_000,
-        random_seed=42,
+        random_seed=777,
         color_by=ColorBy.DEGREE
     )
 
