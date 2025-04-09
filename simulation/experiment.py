@@ -31,8 +31,8 @@ def run_one_simulation(num_nodes, num_edges, simulation_dir, num_steps, display_
         return f"Simulation {random_seed, num_nodes, num_edges} failed with error: \n{e}"
     return f"Completed simulation {random_seed, num_nodes, num_edges}"
 
-def run_experiment(seed_range, nodes_range, edges_range, num_steps, display_interval, metrics_interval, color_by, experiment_dir="/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output"):
-    with concurrent.futures.ProcessPoolExecutor(mp_context=multiprocessing.get_context('spawn')) as executor:
+def run_experiment(seed_range, nodes_range, edges_range, num_steps, display_interval, metrics_interval, color_by, experiment_dir="/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output", max_workers=os.cpu_count()):
+    with concurrent.futures.ProcessPoolExecutor(mp_context=multiprocessing.get_context('spawn'), max_workers=max_workers) as executor:
         futures = []
         for num_nodes, num_edges, seed in product(nodes_range, edges_range, seed_range):
             # Decimal values are treated as density percentages
