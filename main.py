@@ -28,13 +28,13 @@ if __name__ == "__main__":
     #                                     num_steps=100_000, display_interval=10000, metrics_interval=1000, random_seed=42, color_by=ColorBy.CLUSTER)
 
     # Experiment Run
-    experiment_folder = os.path.join(base_dir, "hybrid_rainbow_zero")
+    experiment_folder = os.path.join(base_dir, "the_long_long_runs")
     Experiment(experiment_folder).run_experiment(
-                            seed_range=range(5),
+                            seed_range=range(1),
                             nodes_range=[200],
-                            connections_range=range(10, 19901, 10),      # [x / 100.0 for x in range(2, 40, 2)],
-                            num_steps=10_000_000,
-                            display_interval=100_000,
+                            connections_range=range(6000, 8001, 250),
+                            num_steps=250_000_000,
+                            display_interval=10_000_000,
                             metrics_interval=1_000,
                             color_by=ColorBy.CLUSTER,
                         )
