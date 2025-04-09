@@ -189,3 +189,118 @@ def scatterplot_clustering_vs_edges(input_file, output_dir=None):
     plt.savefig(save_path, dpi=600, bbox_inches="tight")
     plt.close()
     print(f"Saved: {save_path}")
+
+def long_long_plots(root_dir):
+    input_csv = os.path.join(root_dir, "run_level_metrics.csv")
+    df = pd.read_csv(input_csv)
+    df = df.rename(columns={
+        "('Seed', 'first')": "Seed",
+        "('Nodes', 'first')": "Nodes",
+        "('Edges', 'first')": "Edges",
+        "('Step (Millions)', 'first')": "Step_Millions",
+        "('Clustering Coefficient', 'mean')": "Clustering Coefficient",
+        "('Clustering Coefficient', 'std')": "Clustering Coefficient_std",
+        "('Rewirings (intra_to_inter)', 'mean')": "Rew_intra_to_inter_mean",
+        "('Rewirings (inter_to_intra)', 'mean')": "Rew_inter_to_intra_mean",
+    })
+
+    # Plot 1 "longlongtime.png"
+    df_cluster = df[(df["Edges"] >= 6000) & (df["Edges"] <= 8000)].groupby(["Edges", "Step_Millions"], as_index=False)["Clustering Coefficient"].mean()
+
+    # Create the figure and style
+    plt.style.use("dark_background")
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    # Distinct color per Edges value
+    all_edges = sorted(df_cluster["Edges"].unique())
+    cmap = cm.get_cmap("rainbow", len(all_edges))
+
+    for i, e in enumerate(all_edges):
+        subset = df_cluster[df_cluster["Edges"] == e]
+        subset = subset.sort_values("Step_Millions")
+
+        # Plot lines
+        ax.plot(
+            subset["Step_Millions"],
+            subset["Clustering Coefficient"],
+            color=cmap(i),
+            label=f"Edges={int(e)}",
+            linewidth=2,
+            alpha=0.8
+        )
+
+    ax.set_xlabel("Steps (Millions)", fontsize=14, color="white")
+    ax.set_ylabel("Clustering Coefficient", fontsize=14, color="white")
+    ax.tick_params(colors="white")
+    ax.set_title("Clustering Coefficient vs. Steps (Millions) by Edges", color="white")
+    ax.legend(loc="center right", fontsize=9)
+    plt.ylim((0, 1))
+    plt.tight_layout()
+
+    # Save the figure
+    output_filename = os.path.join(root_dir, "longlongtime.png")
+    plt.savefig(output_filename, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"Saved {output_filename}")
+
+    # Plot 2 "longlongrewiring.png"
+    df_8000 = df[df["Edges"] == 8000].copy()
+    df_8000 = df_8000.groupby("Step_Millions", as_index=False).agg({
+        "Clustering Coefficient": "mean",
+        "Rew_intra_to_inter_mean": "mean",
+        "Rew_inter_to_intra_mean": "mean"
+    })
+    df_8000 = df_8000.sort_values("Step_Millions")
+
+    plt.style.use("dark_background")
+    fig, ax1 = plt.subplots(figsize=(12, 6))
+
+    # Left Y-axis: Rewiring (intra->inter) and Rewiring (inter->intra)
+    ax1.plot(
+        df_8000["Step_Millions"],
+        df_8000["Rew_intra_to_inter_mean"],
+        color="orange",
+        linewidth=2,
+        alpha=0.8,
+        label="Rewiring (intra->inter)"
+    )
+    ax1.plot(
+        df_8000["Step_Millions"],
+        df_8000["Rew_inter_to_intra_mean"],
+        color="silver",
+        linewidth=2,
+        alpha=0.8,
+        label="Rewiring (inter->intra)"
+    )
+    ax1.set_xlabel("Steps (Millions)", fontsize=14, color="white")
+    ax1.set_ylabel("Rewirings Count", fontsize=14, color="white")
+    ax1.tick_params(axis='x', colors="white")
+    ax1.tick_params(axis='y', colors="white")
+    ax1.set_xlim((0, 250))
+    ax1.legend(loc=(0.005, 0.0625), fontsize=9)
+
+    # Right Y-axis: Clustering Coefficient
+    ax2 = ax1.twinx()
+    ax2.plot(
+        df_8000["Step_Millions"],
+        df_8000["Clustering Coefficient"],
+        color="blue",
+        linewidth=2,
+        alpha=0.8,
+        linestyle="--",
+        label="Clustering Coefficient"
+    )
+    ax2.set_ylabel("Clustering Coefficient", fontsize=14, color="white")
+    ax2.tick_params(axis='y', colors="white")
+    ax2.set_ylim((0, 1))
+    ax2.legend(loc=(0.825, 0.725), fontsize=9)
+
+
+    plt.title(f"8000 Edges: Clustering and Rewiring", color="white")
+    plt.tight_layout()
+
+    # Save second plot
+    output_filename2 = os.path.join(root_dir, "longlongrewiring.png")
+    plt.savefig(output_filename2, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"Saved {output_filename2}")
