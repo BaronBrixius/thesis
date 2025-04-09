@@ -72,7 +72,7 @@ class Metrics:
         cluster_assignments = self.get_cluster_assignments(graph, step)
         unique_clusters, cluster_sizes = np.unique(cluster_assignments, return_counts=True)
         
-        # Calculate cluster sizes and densities in one pass
+        # Calculate cluster sizes and densities
         intra_cluster_densities = {}
         total_nodes = graph.num_vertices()
         total_density_weight = 0
@@ -81,7 +81,7 @@ class Metrics:
         for cluster, size in zip(unique_clusters, cluster_sizes):
             cluster_nodes = tuple(np.where(cluster_assignments == cluster)[0])
 
-            graph.set_vertex_filter(graph.new_vertex_property("bool", vals=[int(v) in cluster_nodes for v in graph.vertices()]), inverted=False)
+            graph.set_vertex_filter(graph.new_vertex_property("bool", vals=[int(v) in cluster_nodes for v in graph.vertices()]))
             num_cluster_edges = graph.num_edges()
             intra_cluster_edges += num_cluster_edges
             num_possible_cluster_edges = len(cluster_nodes) * (len(cluster_nodes) - 1) / 2
