@@ -24,6 +24,12 @@ def run_one_simulation(num_nodes, num_edges, simulation_dir, num_steps, display_
     elif random_seed < 3:
         color_by = ColorBy.DEGREE
     sim = Simulation(num_nodes=num_nodes, num_edges=num_edges, simulation_dir=simulation_dir, color_by=color_by, display_interval=display_interval, metrics_interval=metrics_interval, random_seed=random_seed, process_num=process_num)
+    if random_seed == 0:
+        color_by = ColorBy.ACTIVITY
+    elif random_seed < 3:
+        color_by = ColorBy.COMMUNITY
+    else:
+        color_by = ColorBy.DEGREE
     try:
         sim.run(num_steps=num_steps)
     except Exception as e:

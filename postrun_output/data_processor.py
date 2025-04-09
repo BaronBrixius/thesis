@@ -1,14 +1,16 @@
+import numpy as np
 import os
 import pandas as pd
 import logging
 
 def process_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", output_filename="processed_data.csv"):
     """Processes the data from the aggregated metrics file to a new csv, ready to be plotted."""
+    input_filepath = os.path.join(root_dir, aggregated_metrics_file)
     output_filepath = os.path.join(root_dir, output_filename)
-    logging.info(f"Processing metrics from {aggregated_metrics_file} to {output_filepath}")
+    logging.info(f"Processing metrics from {input_filepath} to {output_filepath}")
 
     first_chunk = True
-    for chunk in pd.read_csv(os.path.join(root_dir, aggregated_metrics_file), chunksize=10_001):    #TODO more flexible chunksize
+    for chunk in pd.read_csv(input_filepath, chunksize=10_001):    #TODO more flexible chunksize
         df = _parse_metrics(chunk)  # Apply transformations for analysis
 
         # Group by millions of steps for each run
@@ -23,9 +25,11 @@ def process_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", 
             "Intra-Community Edge Ratio": "mean",
             "Intra-Community Edge Ratio Delta": "mean",
             "Inter-Community Edges": "mean",
-            "Community Size Variance": "mean",
+            "Community Size Variance": ["mean", "min", "last"],
             "Community Size Variance Delta": "mean",
             "SBM Entropy Normalized": "mean",
+            "Weighted Average Community Density": "mean",
+            "Community Density Variance": ["mean", "min", "last"],
         }).reset_index()
 
         # Flatten multi-index column names that were generated
@@ -50,4 +54,6 @@ def _parse_metrics(df):
     df['Inter-Community Edges'] = df['Edges'] - df['Intra-Community Edges']
     df['Intra-Community Edge Ratio Delta'] = df['Intra-Community Edge Ratio'].diff()
     df['Community Size Variance Delta'] = df['Community Size Variance'].diff()
+    df['Weighted Average Community Density'] = df.apply(lambda row: sum(v1 * v2 for v1, v2 in zip(eval(row['Community Densities']).values(), eval(row['Community Sizes']).values())) / sum(eval(row['Community Sizes']).values()), axis=1)
+    df['Community Density Variance'] = df.apply(lambda row: np.var(list(eval(row['Community Densities']).values())), axis=1)
     return df
