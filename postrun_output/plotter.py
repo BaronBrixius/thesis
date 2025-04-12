@@ -304,3 +304,32 @@ def long_long_plots(root_dir):
     plt.savefig(output_filename2, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Saved {output_filename2}")
+
+def real_big_plots(root_dir):
+    df = pd.read_csv(os.path.join(root_dir, "metrics.csv"))
+
+    plt.style.use("dark_background")
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    ax.plot(
+        df["Step"], 
+        df["Community Count"],
+        color="cyan", 
+        linewidth=2,
+        alpha=0.8,
+        label="Community Count"
+    )
+    ax.axhline(y=75, color="red", linestyle="--", linewidth=1)
+
+    ax.set_xlabel("Step", fontsize=14, color="white")
+    ax.set_ylabel("Community Count", fontsize=14, color="white")
+    ax.tick_params(colors="white")
+    ax.set_title("Community Count vs. Step", color="white")
+    ax.legend(loc="best", fontsize=10)
+
+    plt.tight_layout()
+
+    output_path = os.path.join(root_dir, "community_count.png")
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"Saved {output_path}")
