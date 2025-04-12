@@ -1,7 +1,7 @@
 import logging
 from postrun_output.aggregator import aggregate_metrics
 from postrun_output.data_processor import process_metrics
-from postrun_output.plotter import generate_scatterplots, scatterplot_clustering_vs_edges
+from postrun_output.plotter import generate_scatterplots, scatterplot_clustering_vs_edges, long_long_plots, real_big_plots
 from simulation.experiment import run_experiment, run_one_simulation
 from runtime_output.visualization import ColorBy
 import cProfile
@@ -46,12 +46,15 @@ if __name__ == "__main__":
         display_interval=1_000_000,
         metrics_interval=1_000,
         color_by=ColorBy.COMMUNITY,
-        experiment_dir=experiment_folder
+        experiment_dir=experiment_folder,
+        max_workers=11,
     )
     # aggregate_metrics(experiment_folder)
     # process_metrics(experiment_folder)
     # generate_scatterplots(experiment_folder)
     # scatterplot_clustering_vs_edges(os.path.join(experiment_folder, "aggregated_metrics.csv"))
+    # long_long_plots(os.path.join(BASE_DIR, "the_long_long_runs"))
+    # real_big_plots(os.path.join(BASE_DIR, "realbig"))
 
     if profiler: profiler.disable()
 
