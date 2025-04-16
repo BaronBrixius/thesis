@@ -29,7 +29,7 @@ def process_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", 
             "Community Size Variance Delta": "mean",
             "SBM Entropy Normalized": "mean",
             "Weighted Average Community Density": "mean",
-            "Community Density Variance": ["mean", "min", "last"],
+            "Community Density Variance": ["mean", "median"],
         }).reset_index()
 
         # Flatten multi-index column names that were generated
