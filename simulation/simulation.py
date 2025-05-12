@@ -26,7 +26,6 @@ class Simulation:
         """Main loop for the simulation."""
         step = 0
         while step < num_steps:
-            print(step)
             # Update Network
             iterations_to_next_interval = min(num_steps - step, self.display_interval - step % self.display_interval if self.display_interval else float('inf'), self.metrics_interval - step % self.metrics_interval if self.metrics_interval else float('inf'))
             adjacency_matrix, activities = self.network.update_network(iterations_to_next_interval)

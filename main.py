@@ -1,15 +1,14 @@
 import logging
 from postrun_output.aggregator import aggregate_metrics
 from postrun_output.data_processor import process_metrics
-from postrun_output.plotter import generate_scatterplots
+from postrun_output.plotter import generate_scatterplots, scatterplot_clustering_vs_edges, long_long_plots, real_big_plots
 from simulation.experiment import run_experiment, run_one_simulation
 from runtime_output.visualization import ColorBy
 import cProfile
 import pstats
 import os
-# from gui.app import NetworkControlApp
 
-BASE_DIR = "/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/code/output"
+BASE_DIR = "/mnt/d/OneDrive - Vrije Universiteit Amsterdam/Y3-Thesis/output"
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -21,37 +20,24 @@ if __name__ == "__main__":
     profiler = None #cProfile.Profile()
     if profiler: profiler.enable()
 
-    ## Run in GUI
-    # NetworkControlApp()
-    NODES = 10_000
-    CONNECTIONS = 495_000
-    ## Quick Run
-    # run_one_simulation(
-    #     num_nodes=200,
-    #     num_edges=2000,
-    #     simulation_dir=os.path.join(BASE_DIR, "test"),
-    #     num_steps=40_000,
-    #     display_interval=10_000,
-    #     metrics_interval=10_000,
-    #     random_seed=42,
-    #     color_by=ColorBy.COMMUNITY
-    # )
-
     # Experiment Run
-    experiment_folder = os.path.join(BASE_DIR, "little_buster")
+    experiment_folder = os.path.join(BASE_DIR, "test")
     run_experiment(
         seed_range=range(5),
         nodes_range=[200],
-        edges_range=range(50, 19901, 50),
+        edges_range=range(10, 19901, 10),
         num_steps=10_000_000,
-        display_interval=10_000,
+        display_interval=1_000_000,
         metrics_interval=1_000,
         color_by=ColorBy.COMMUNITY,
-        experiment_dir=experiment_folder
+        experiment_dir=experiment_folder,
     )
     # aggregate_metrics([experiment_folder, os.path.join(BASE_DIR, "hybrid_rainbow_zero")])
     # process_metrics(experiment_folder)
     # generate_scatterplots(experiment_folder)
+    # scatterplot_clustering_vs_edges(os.path.join(experiment_folder, "aggregated_metrics.csv"))
+    # long_long_plots(os.path.join(BASE_DIR, "the_long_long_runs"))
+    # real_big_plots(os.path.join(BASE_DIR, "realbig"))
 
     if profiler: profiler.disable()
 
