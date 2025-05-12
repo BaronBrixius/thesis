@@ -3,14 +3,14 @@ import os
 import pandas as pd
 import logging
 
-def process_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", output_filename="processed_data.csv"):
+def process_metrics(root_dir, aggregated_metrics_file="aggregated_metrics.csv", output_filename="processed_data.csv", chunksize=10_001):
     """Processes the data from the aggregated metrics file to a new csv, ready to be plotted."""
     input_filepath = os.path.join(root_dir, aggregated_metrics_file)
     output_filepath = os.path.join(root_dir, output_filename)
     logging.info(f"Processing metrics from {input_filepath} to {output_filepath}")
 
     first_chunk = True
-    for chunk in pd.read_csv(input_filepath, chunksize=10_001):    #TODO more flexible chunksize
+    for chunk in pd.read_csv(input_filepath, chunksize=chunksize):
         try:
             df = _parse_metrics(chunk)  # Apply transformations for analysis
 
